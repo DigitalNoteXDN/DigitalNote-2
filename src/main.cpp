@@ -1913,7 +1913,7 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
 bool ValidInput(const COutPoint out, int nHeight)
 {
     bool isInvalid = nHeight >= SOFT_FORK_BLACKLIST && ContainsBlacklistedInput(out);
-    return !isInvalid;
+    return isInvalid;
 }
 
 bool ContainsBlacklistedInput(const COutPoint out){
