@@ -1910,7 +1910,7 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
         }
     }
 }
-bool ValidInput(const COutPoint out, int nHeight)
+bool IsBlacklistedTX(const COutPoint out, int nHeight)
 {
     bool isInvalid = nHeight >= SOFT_FORK_BLACKLIST && ContainsBlacklistedInput(out);
     return isInvalid;
@@ -1981,7 +1981,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
                 return false;
             // Check that the inputs are not marked as invalid
             for (CTxIn in : tx.vin) {
-                if (!ValidInput(in.prevout, pindex->nHeight)) {
+                if (IsBlacklistedTX(in.prevout, pindex->nHeight)) {
                     return DoS(100, error("%s : tried to spend invalid input %s in tx %s", __func__, in.prevout.ToString(),
                                   tx.GetHash().GetHex()), REJECT_INVALID, "bad-txns-invalid-inputs");
                 }
