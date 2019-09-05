@@ -35,7 +35,7 @@
 #include <boost/assign/list_of.hpp>
 using namespace std;
 using namespace boost;
-
+#define SOFT_FORK_BLACKLIST  93344
 //
 // Global state
 //
@@ -1910,7 +1910,25 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
         }
     }
 }
+bool ValidInput(const COutPoint out, int nHeight)
+{
+    bool isInvalid = nHeight >= SOFT_FORK_BLACKLIST && ContainsBlacklistedInput(out);
+    return !isInvalid;
+}
 
+bool ContainsBlacklistedInput(const COutPoint out){
+    if(out.hash == "734e84dfba8b8fd8b4b01c118d28cc79da83480adbd0806c0b6eb4f5c15ac02f" || 
+      out.hash == "b0acb0648d70f0c6b721c1cd63d2129d8ad660d0046126772b8dc0b9f6cec685" ||
+      out.hash == "ff5c27b06bd162c592aaba53d6d028b47cc2f424feaf974779fd740da4532790"||  
+      out.hash == "3270af4ea6dd967e4c64f05e54aba6f3d277caebee0383e5252f1e90c5eb2193"||
+      out.hash == "ac7e3f333d7ab017472ecc5338e05c847a2d066205cd723d30af446bf447c028"||
+      out.hash == "790c33ae8e089f83e7324ff8a08da6628c7e9b0412b16c6dde9dba8e76411b20"||
+      )
+      return true;
+      else
+      return false;
+
+}
 bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 {
     // Check it again in case a previous version let a bad block in, but skip BlockSig checking
@@ -1961,6 +1979,13 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
             bool fInvalid;
             if (!tx.FetchInputs(txdb, mapQueuedChanges, true, false, mapInputs, fInvalid))
                 return false;
+            // Check that the inputs are not marked as invalid
+            for (CTxIn in : tx.vin) {
+                if (!ValidInput(in.prevout, pindex->nHeight)) {
+                    return DoS(100, error("%s : tried to spend invalid input %s in tx %s", __func__, in.prevout.ToString(),
+                                  tx.GetHash().GetHex()), REJECT_INVALID, "bad-txns-invalid-inputs");
+                }
+            }
 
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
