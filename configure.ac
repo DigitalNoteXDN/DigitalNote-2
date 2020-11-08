@@ -1,5 +1,5 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
-AC_PREREQ([2.60])
+AC_PREREQ([2.69])
 define(_CLIENT_VERSION_MAJOR, 0)
 define(_CLIENT_VERSION_MINOR, 8)
 define(_CLIENT_VERSION_REVISION, 99)
@@ -327,11 +327,8 @@ AC_CHECK_HEADERS([stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h])
 
 dnl Check for MSG_NOSIGNAL
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
-AC_TRY_COMPILE([#include <sys/socket.h>],
- [ int f = MSG_NOSIGNAL; ],
- [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,[Define this symbol if you have MSG_NOSIGNAL]) ],
- [ AC_MSG_RESULT(no)]
-)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[ int f = MSG_NOSIGNAL; ]])],[ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,[Define this symbol if you have MSG_NOSIGNAL]) ],[ AC_MSG_RESULT(no)
+])
 
 dnl Check for libdb_cxx
 AC_CHECK_HEADER([db_cxx.h],,AC_MSG_ERROR(libdb_cxx headers missing))
@@ -366,38 +363,34 @@ dnl If sleep_for is used, boost_chrono becomes a requirement.
 if test x$ax_cv_boost_chrono = xyes; then
 TEMP_LIBS="$LIBS"
 LIBS="$LIBS $BOOST_LIBS $BOOST_CHRONO_LIB"
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <boost/thread/thread.hpp>
   #include <boost/version.hpp>
-  ],[
+  ]], [[
   #if BOOST_VERSION >= 105000 && (!defined(BOOST_HAS_NANOSLEEP) || BOOST_VERSION >= 105200)
       boost::this_thread::sleep_for(boost::chrono::milliseconds(0));
   #else
    choke me
   #endif
-  ],
-  [boost_sleep=yes; BOOST_LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB";
-     AC_DEFINE(HAVE_WORKING_BOOST_SLEEP_FOR, 1, [Define this symbol if boost sleep_for works])],
-  [boost_sleep=no])
+  ]])],[boost_sleep=yes; BOOST_LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB";
+     AC_DEFINE(HAVE_WORKING_BOOST_SLEEP_FOR, 1, [Define this symbol if boost sleep_for works])],[boost_sleep=no])
 LIBS="$TEMP_LIBS"
 fi
 
 if test x$boost_sleep != xyes; then
 TEMP_LIBS="$LIBS"
 LIBS="$LIBS $BOOST_LIBS"
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <boost/version.hpp>
   #include <boost/thread.hpp>
   #include <boost/date_time/posix_time/posix_time_types.hpp>
-  ],[
+  ]], [[
   #if BOOST_VERSION <= 105600
       boost::this_thread::sleep(boost::posix_time::milliseconds(0));
   #else
    choke me
   #endif
-  ],
-  [boost_sleep=yes; AC_DEFINE(HAVE_WORKING_BOOST_SLEEP, 1, [Define this symbol if boost sleep works])],
-  [boost_sleep=no])
+  ]])],[boost_sleep=yes; AC_DEFINE(HAVE_WORKING_BOOST_SLEEP, 1, [Define this symbol if boost sleep works])],[boost_sleep=no])
 LIBS="$TEMP_LIBS"
 fi
 
@@ -513,7 +506,7 @@ fi
 if test x$use_ipv6 = xyes; then
   dnl Check for ipv6 build requirements
   AC_MSG_CHECKING(for IPV6 build support)
-  AC_TRY_LINK([
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #if defined(_WINDOWS)
   #include <winsock2.h>
   #else
@@ -521,14 +514,12 @@ if test x$use_ipv6 = xyes; then
   #include <sys/socket.h>
   #include <netinet/in.h>
   #endif
-  ],[
+  ]], [[
   #if !defined(_WINDOWS)
   struct in6_addr ipv6Addr;
   struct sockaddr_in6 addr;
   #endif
-  int temp = socket(AF_INET6, SOCK_STREAM, 0);],
-  [AC_MSG_RESULT(yes); have_ipv6=yes; AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])],
-  [AC_MSG_RESULT(no)]; have_ipv6=no)
+  int temp = socket(AF_INET6, SOCK_STREAM, 0);]])],[AC_MSG_RESULT(yes); have_ipv6=yes; AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])],[AC_MSG_RESULT(no); have_ipv6=no])
 fi
 AC_LANG_POP
 
