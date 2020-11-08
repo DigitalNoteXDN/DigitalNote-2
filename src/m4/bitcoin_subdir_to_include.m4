@@ -5,10 +5,8 @@ AC_DEFUN([BITCOIN_SUBDIR_TO_INCLUDE],[
     AC_MSG_RESULT([default])
   else
     echo "#include <$2$3.h>" >conftest.cpp
-    newinclpath=`${CXXCPP} ${CPPFLAGS} -M conftest.cpp 2>/dev/null | [ tr -d '\\n\\r\\\\' | sed -e 's/^.*[[:space:]:]\(\/[^[:space:]]*\)]$3[\.h[[:space:]].*$/\1/' -e t -e d`]
+    newinclpath=`${CXXCPP} -M conftest.cpp 2>/dev/null | [ tr -d '\\n\\r\\\\' | sed -e 's/^.*[[:space:]:]\(\/[^[:space:]]*\)]$3[\.h[[:space:]].*$/\1/' -e t -e d`]
     AC_MSG_RESULT([${newinclpath}])
-    if test "x${newinclpath}" != "x"; then
-      eval "$1=\"\$$1\"' -I${newinclpath}'"
-    fi
+    eval "$1=\"\$$1\"' -I${newinclpath}'"
   fi
 ])

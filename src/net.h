@@ -43,9 +43,9 @@ namespace boost {
 static const int PING_INTERVAL = 1 * 60;
 /** Time after which to disconnect, after waiting for a ping response (or inactivity). */
 static const int TIMEOUT_INTERVAL = 30 * 60;
-/** Time between cycles to check for idle nodes, force disconnect (seconds) **/ 
+/** Time between cycles to check for idle nodes, force disconnect (seconds) **/
 static const int IDLE_TIMEOUT = 15 * 60;
-/** Time between cycles to check for idle nodes, force disconnect (seconds) **/ 
+/** Time between cycles to check for idle nodes, force disconnect (seconds) **/
 static const int DATA_TIMEOUT = 30 * 60;
 /** Maximum length of strSubVer in `version` message */
 static const unsigned int MAX_SUBVERSION_LENGTH = 256;
@@ -251,7 +251,7 @@ public:
         SetNull();
         nCreateTime = nCreateTimeIn;
     }
-  
+
     IMPLEMENT_SERIALIZE
     (
         READWRITE(this->nVersion);
@@ -281,7 +281,7 @@ public:
         }
     }
 };
-  
+
 typedef std::map<CSubNet, CBanEntry> banmap_t;
 
 /** Information about a DigitalNote (D-Note) peer */
@@ -489,7 +489,7 @@ public:
     unsigned int GetTotalRecvSize()
     {
         unsigned int total = 0;
-        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg) 
+        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg)
             total += msg.vRecv.size() + 24;
         return total;
     }

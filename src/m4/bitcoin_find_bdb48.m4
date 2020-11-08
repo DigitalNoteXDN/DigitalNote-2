@@ -51,7 +51,7 @@ AC_DEFUN([BITCOIN_FIND_BDB48],[
     bdbpath="${bdb48path}"
   fi
   AC_SUBST(BDB_CPPFLAGS)
-  
+
   # TODO: Ideally this could find the library version and make sure it matches the headers being used
   for searchlib in db_cxx-4.8 db_cxx; do
     AC_CHECK_LIB([$searchlib],[main],[
