@@ -1,6 +1,10 @@
 // Copyright (c) 2011-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#if defined(HAVE_CONFIG_H)
+#include "bitcoin-config.h"
+#endif
+
 #include "optionsmodel.h"
 
 #include "bitcoinunits.h"
@@ -55,9 +59,9 @@ void OptionsModel::Init()
     if (!settings.contains("nDisplayUnit"))
         settings.setValue("nDisplayUnit", DigitalNoteUnits::XDN);
     nDisplayUnit = settings.value("nDisplayUnit").toInt();
-    
+
     fUseDarkTheme = settings.value("fUseDarkTheme", false).toBool();
-    
+
     if (!settings.contains("fCoinControlFeatures"))
         settings.setValue("fCoinControlFeatures", false);
     fCoinControlFeatures = settings.value("fCoinControlFeatures", false).toBool();
@@ -165,7 +169,7 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
                 settings.setValue("nTransactionFee", (qint64)nTransactionFee);
             // Todo: Consider to revert back to use just nTransactionFee here, if we don't want
             // -paytxfee to update our QSettings!
-            return settings.value("nTransactionFee");            
+            return settings.value("nTransactionFee");
         case ReserveBalance:
             return QVariant((qint64) nReserveBalance);
 #endif

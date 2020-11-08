@@ -5,6 +5,11 @@
 #ifndef BITCOIN_MAIN_H
 #define BITCOIN_MAIN_H
 
+#if defined(HAVE_CONFIG_H)
+#include "bitcoin-config.h"
+#endif
+
+
 #include "chain.h"
 #include "bignum.h"
 #include "sync.h"

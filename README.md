@@ -11,11 +11,11 @@ What is the DigitalNote [XDN] Blockchain?
 DigitalNote is a blockchain project with the goal of offering secured messaging, Darksend, masternodes and an overall pleasing experience to the user.
 
 ### Blockchain Technology
-The DigitalNote [XDN] Blockchain is an experimental smart contract platform protocol that enables 
-instant payments to anyone, anywhere in the world in a private, secure manner. 
+The DigitalNote [XDN] Blockchain is an experimental smart contract platform protocol that enables
+instant payments to anyone, anywhere in the world in a private, secure manner.
 DigitalNote [XDN] uses peer-to-peer blockchain technology developed by DigitalNote to operate
-with no central authority: managing transactions, execution of contracts, and 
-issuing money are carried out collectively by the network. DigitalNote [XDN] is the name of 
+with no central authority: managing transactions, execution of contracts, and
+issuing money are carried out collectively by the network. DigitalNote [XDN] is the name of
 open source software which enables the use of this protocol.
 
 ### Custom Difficulty Retarget Algorithm “VRX”
@@ -32,11 +32,11 @@ DigitalNote's proof of stake system utilizes Echo512 which is a super lightweigh
 
 Specifications and General info
 ------------------
-DigitalNote uses 
+DigitalNote uses
 
 	libsecp256k1,
 	libgmp,
-	Boost1.68, OR Boost1.58,  
+	Boost1.68, OR Boost1.58,
 	Openssl1.02r,
 	Berkeley DB 6.2.32,
 	QT5.12.1,
@@ -88,7 +88,7 @@ cd ~; git clone https://github.com/DigitalNoteXDN/DigitalNote-2 DigitalNote
 cd ~; cd ~/DigitalNote/src; chmod a+x obj; chmod a+x leveldb/build_detect_platform; chmod a+x secp256k1; chmod a+x leveldb; chmod a+x ~/DigitalNote/src; chmod a+x ~/DigitalNote; make -f makefile.unix USE_UPNP=-; cd ~; cp -r ~/DigitalNote/src/DigitalNoted /usr/local/bin/DigitalNoted;
 ```
 
-### (Optional) Build DigitalNote-QT (GUI wallet) on Linux 
+### (Optional) Build DigitalNote-QT (GUI wallet) on Linux
 
 **All previous steps must be completed first.**
 

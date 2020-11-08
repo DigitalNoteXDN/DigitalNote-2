@@ -1,3 +1,7 @@
+#if defined(HAVE_CONFIG_H)
+#include "bitcoin-config.h"
+#endif
+
 #include "optionsdialog.h"
 #include "ui_optionsdialog.h"
 
@@ -189,7 +193,7 @@ void OptionsDialog::updateDisplayUnit()
 bool OptionsDialog::eventFilter(QObject *object, QEvent *event)
 {
     if(event->type() == QEvent::FocusOut)
-    {   
+    {
     return QDialog::eventFilter(object, event);
     }
 }
