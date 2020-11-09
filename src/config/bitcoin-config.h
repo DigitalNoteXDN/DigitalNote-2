@@ -53,6 +53,9 @@
 /* define if the Boost::Unit_Test_Framework library is available */
 /* #undef HAVE_BOOST_UNIT_TEST_FRAMEWORK */
 
+/* Define this symbol if the consensus lib has been built */
+#define HAVE_CONSENSUS_LIB 1
+
 /* Define to 1 if you have the declaration of `be32toh', and to 0 if you
    don't. */
 #define HAVE_DECL_BE32TOH 0
@@ -95,6 +98,15 @@
 /* Define to 1 if you have the <endian.h> header file. */
 /* #undef HAVE_ENDIAN_H */
 
+/* Define to 1 if the system has the `dllexport' function attribute */
+/* #undef HAVE_FUNC_ATTRIBUTE_DLLEXPORT */
+
+/* Define to 1 if the system has the `dllimport' function attribute */
+/* #undef HAVE_FUNC_ATTRIBUTE_DLLIMPORT */
+
+/* Define to 1 if the system has the `visibility' function attribute */
+/* #undef HAVE_FUNC_ATTRIBUTE_VISIBILITY */
+
 /* Define this symbol if you have getaddrinfo_a */
 /* #undef HAVE_GETADDRINFO_A */
 
@@ -134,9 +146,6 @@
 /* Define to 1 if you have the `mingwthrd' library (-lmingwthrd). */
 /* #undef HAVE_LIBMINGWTHRD */
 
-/* Define to 1 if you have the `miniupnpc' library (-lminiupnpc). */
-#define HAVE_LIBMINIUPNPC 1
-
 /* Define to 1 if you have the `mswsock' library (-lmswsock). */
 /* #undef HAVE_LIBMSWSOCK */
 
@@ -152,12 +161,6 @@
 /* Define to 1 if you have the `png ' library (-lpng ). */
 /* #undef HAVE_LIBPNG_ */
 
-/* Define to 1 if you have the `protobuf ' library (-lprotobuf ). */
-/* #undef HAVE_LIBPROTOBUF_ */
-
-/* Define to 1 if you have the `qrencode' library (-lqrencode). */
-/* #undef HAVE_LIBQRENCODE */
-
 /* Define to 1 if you have the `rpcrt4' library (-lrpcrt4). */
 /* #undef HAVE_LIBRPCRT4 */
 
@@ -166,6 +169,9 @@
 
 /* Define to 1 if you have the `shlwapi' library (-lshlwapi). */
 /* #undef HAVE_LIBSHLWAPI */
+
+/* Define to 1 if you have the `ssp' library (-lssp). */
+/* #undef HAVE_LIBSSP */
 
 /* Define to 1 if you have the `user32' library (-luser32). */
 /* #undef HAVE_LIBUSER32 */

@@ -41,14 +41,14 @@ available_tags='CXX '
 macro_version=2.4.6
 macro_revision=2.4.6
 
+# What type of objects to build.
+pic_mode=yes
+
 # Whether or not to build shared libraries.
-build_libtool_libs=no
+build_libtool_libs=yes
 
 # Whether or not to build static libraries.
 build_old_libs=yes
-
-# What type of objects to build.
-pic_mode=default
 
 # Whether or not to optimize for fast installation.
 fast_install=needless
