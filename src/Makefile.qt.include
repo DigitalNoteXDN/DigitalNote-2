@@ -1,8 +1,3 @@
-AM_CPPFLAGS += -I$(top_srcdir)/src \
-  -I$(top_builddir)/src/qt \
-  -I$(top_builddir)/src/qt/forms \
-  $(PROTOBUF_CFLAGS) \
-  $(QR_CFLAGS)
 bin_PROGRAMS += qt/bitcoin-qt
 noinst_LIBRARIES += qt/libbitcoinqt.a
 
@@ -81,7 +76,6 @@ QT_TS = \
   qt/locale/bitcoin_zh_TW.ts
 
 QT_FORMS_UI = \
-  qt/forms/aboutdialog.ui \
   qt/forms/addressbookpage.ui \
   qt/forms/askpassphrasedialog.ui \
   qt/forms/coincontroldialog.ui \
@@ -151,12 +145,15 @@ BITCOIN_MM = \
 
 QT_MOC = \
   qt/bitcoin.moc \
+  qt/bitcoinamountfield.moc \
   qt/intro.moc \
   qt/overviewpage.moc \
   qt/rpcconsole.moc
 
 QT_QRC_CPP = qt/qrc_bitcoin.cpp
 QT_QRC = qt/bitcoin.qrc
+QT_QRC_LOCALE_CPP = qt/qrc_bitcoin_locale.cpp
+QT_QRC_LOCALE = qt/bitcoin_locale.qrc
 
 PROTOBUF_CC = qt/paymentrequest.pb.cc
 PROTOBUF_H = qt/paymentrequest.pb.h
@@ -248,15 +245,16 @@ RES_ICONS = \
   qt/res/icons/remove.png \
   qt/res/icons/send.png \
   qt/res/icons/synced.png \
-  qt/res/icons/toolbar.png \
-  qt/res/icons/toolbar_testnet.png \
   qt/res/icons/transaction0.png \
   qt/res/icons/transaction2.png \
   qt/res/icons/transaction_conflicted.png \
   qt/res/icons/tx_inout.png \
   qt/res/icons/tx_input.png \
   qt/res/icons/tx_output.png \
-  qt/res/icons/tx_mined.png
+  qt/res/icons/tx_mined.png \
+  qt/res/icons/unit_btc.png \
+  qt/res/icons/unit_mbtc.png \
+  qt/res/icons/unit_ubtc.png
 
 BITCOIN_QT_CPP = \
   qt/bitcoinaddressvalidator.cpp \
@@ -319,13 +317,17 @@ RES_MOVIES = $(wildcard qt/res/movies/spinner-*.png)
 
 BITCOIN_RC = qt/res/bitcoin-qt-res.rc
 
-qt_libbitcoinqt_a_CPPFLAGS = $(AM_CPPFLAGS) $(QT_INCLUDES) \
-  -I$(top_srcdir)/src/qt/forms $(QT_DBUS_INCLUDES)
+BITCOIN_QT_INCLUDES = -I$(builddir)/qt -I$(srcdir)/qt -I$(srcdir)/qt/forms \
+  -I$(builddir)/qt/forms
+
+qt_libbitcoinqt_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \
+  $(QT_INCLUDES) $(QT_DBUS_INCLUDES) $(PROTOBUF_CFLAGS) $(QR_CFLAGS)
+
 qt_libbitcoinqt_a_SOURCES = $(BITCOIN_QT_CPP) $(BITCOIN_QT_H) $(QT_FORMS_UI) \
-  $(QT_QRC) $(QT_TS) $(PROTOBUF_PROTO) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
+  $(QT_QRC) $(QT_QRC_LOCALE) $(QT_TS) $(PROTOBUF_PROTO) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
 
 nodist_qt_libbitcoinqt_a_SOURCES = $(QT_MOC_CPP) $(QT_MOC) $(PROTOBUF_CC) \
-  $(PROTOBUF_H) $(QT_QRC_CPP)
+  $(PROTOBUF_H) $(QT_QRC_CPP) $(QT_QRC_LOCALE_CPP)
 
 # forms/foo.h -> forms/ui_foo.h
 QT_FORMS_H=$(join $(dir $(QT_FORMS_UI)),$(addprefix ui_, $(notdir $(QT_FORMS_UI:.ui=.h))))
@@ -341,8 +343,9 @@ $(QT_MOC): $(PROTOBUF_H)
 $(QT_MOC_CPP): $(PROTOBUF_H)
 
 # bitcoin-qt binary #
-qt_bitcoin_qt_CPPFLAGS = $(AM_CPPFLAGS) $(QT_INCLUDES) \
-  -I$(top_srcdir)/src/qt/forms
+qt_bitcoin_qt_CPPFLAGS = $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \
+  $(QT_INCLUDES) $(PROTOBUF_CFLAGS) $(QR_CFLAGS)
+
 qt_bitcoin_qt_SOURCES = qt/bitcoin.cpp
 if TARGET_DARWIN
   qt_bitcoin_qt_SOURCES += $(BITCOIN_MM)
@@ -354,28 +357,36 @@ qt_bitcoin_qt_LDADD = qt/libbitcoinqt.a $(LIBBITCOIN_SERVER)
 if ENABLE_WALLET
 qt_bitcoin_qt_LDADD += $(LIBBITCOIN_WALLET)
 endif
-qt_bitcoin_qt_LDADD += $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBLEVELDB) $(LIBMEMENV) \
-  $(BOOST_LIBS) $(QT_LIBS) $(QT_DBUS_LIBS) $(QR_LIBS) $(PROTOBUF_LIBS) $(BDB_LIBS)
-qt_bitcoin_qt_LDFLAGS = $(QT_LDFLAGS)
+qt_bitcoin_qt_LDADD += $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
+  $(BOOST_LIBS) $(QT_LIBS) $(QT_DBUS_LIBS) $(QR_LIBS) $(PROTOBUF_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS)
+if USE_LIBSECP256K1
+  qt_bitcoin_qt_LDADD += secp256k1/libsecp256k1.la
+endif
+qt_bitcoin_qt_LDFLAGS = $(AM_LDFLAGS) $(QT_LDFLAGS)
 
 #locale/foo.ts -> locale/foo.qm
 QT_QM=$(QT_TS:.ts=.qm)
 
 .SECONDARY: $(QT_QM)
 
-qt/bitcoinstrings.cpp: $(libbitcoin_server_a_SOURCES) $(libbitcoin_common_a_SOURCES) $(libbitcoin_cli_a_SOURCES)
+qt/bitcoinstrings.cpp: $(libbitcoin_server_a_SOURCES) $(libbitcoin_wallet_a_SOURCES)
 	@test -n $(XGETTEXT) || echo "xgettext is required for updating translations"
-	@cd $(top_srcdir); XGETTEXT=$(XGETTEXT) share/qt/extract_strings_qt.py
+	$(AM_V_GEN) cd $(srcdir); XGETTEXT=$(XGETTEXT) ../share/qt/extract_strings_qt.py $^
 
 translate: qt/bitcoinstrings.cpp $(QT_FORMS_UI) $(QT_FORMS_UI) $(BITCOIN_QT_CPP) $(BITCOIN_QT_H) $(BITCOIN_MM)
 	@test -n $(LUPDATE) || echo "lupdate is required for updating translations"
-	@QT_SELECT=$(QT_SELECT) $(LUPDATE) $^ -locations relative -no-obsolete -ts qt/locale/bitcoin_en.ts
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(LUPDATE) $^ -locations relative -no-obsolete -ts qt/locale/bitcoin_en.ts
 
-$(QT_QRC_CPP): $(QT_QRC) $(QT_QM) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES) $(PROTOBUF_H)
-	@cd $(abs_srcdir); test -f $(RCC) && QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin -o $(abs_builddir)/$@ $< || \
-	  echo error: could not build $@
-	$(SED) -e '/^\*\*.*Created:/d' $@ > $@.n && mv $@{.n,}
-	$(SED) -e '/^\*\*.*by:/d' $@  > $@.n && mv $@{.n,}
+$(QT_QRC_LOCALE_CPP): $(QT_QRC_LOCALE) $(QT_QM)
+	@test -f $(RCC)
+	@test -f $(@D)/$(<F) || cp -f $< $(@D)
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin_locale $(@D)/$(<F) | \
+	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
+
+$(QT_QRC_CPP): $(QT_QRC) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES) $(PROTOBUF_H)
+	@test -f $(RCC)
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin $< | \
+	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
 
 CLEAN_QT = $(nodist_qt_libbitcoinqt_a_SOURCES) $(QT_QM) $(QT_FORMS_H) qt/*.gcda qt/*.gcno
 
@@ -385,3 +396,21 @@ bitcoin_qt_clean: FORCE
 	rm -f $(CLEAN_QT) $(qt_libbitcoinqt_a_OBJECTS) $(qt_bitcoin_qt_OBJECTS) qt/bitcoin-qt$(EXEEXT) $(LIBBITCOINQT)
 
 bitcoin_qt : qt/bitcoin-qt$(EXEEXT)
+
+ui_%.h: %.ui
+	@test -f $(UIC)
+	@$(MKDIR_P) $(@D)
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(UIC) -o $@ $< || (echo "Error creating $@"; false)
+
+%.moc: %.cpp
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(MOC) $(QT_INCLUDES) $(MOC_DEFS) $< | \
+	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
+
+moc_%.cpp: %.h
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(MOC) $(QT_INCLUDES) $(MOC_DEFS) $< | \
+	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
+
+%.qm: %.ts
+	@test -f $(LRELEASE)
+	@$(MKDIR_P) $(@D)
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(LRELEASE) -silent $< -qm $@

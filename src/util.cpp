@@ -3,6 +3,10 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#if defined(HAVE_CONFIG_H)
+#include "config/bitcoin-config.h"
+#endif
+
 #include "util.h"
 
 #include "chainparams.h"
@@ -15,8 +19,11 @@
 
 #include <algorithm>
 
-
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
 
 #include <boost/algorithm/string/case_conv.hpp> // for to_lower()
 #include <boost/algorithm/string/join.hpp>

@@ -116,9 +116,6 @@
 /* Define to 1 if you have the `crypt32' library (-lcrypt32). */
 /* #undef HAVE_LIBCRYPT32 */
 
-/* Define to 1 if you have the `crypto' library (-lcrypto). */
-/* #undef HAVE_LIBCRYPTO */
-
 /* Define to 1 if you have the `gdi32' library (-lgdi32). */
 /* #undef HAVE_LIBGDI32 */
 
@@ -127,6 +124,9 @@
 
 /* Define to 1 if you have the `iphlpapi' library (-liphlpapi). */
 /* #undef HAVE_LIBIPHLPAPI */
+
+/* Define to 1 if you have the `jpeg ' library (-ljpeg ). */
+/* #undef HAVE_LIBJPEG_ */
 
 /* Define to 1 if you have the `kernel32' library (-lkernel32). */
 /* #undef HAVE_LIBKERNEL32 */
@@ -146,6 +146,9 @@
 /* Define to 1 if you have the `oleaut32' library (-loleaut32). */
 /* #undef HAVE_LIBOLEAUT32 */
 
+/* Define to 1 if you have the `pcre16 ' library (-lpcre16 ). */
+/* #undef HAVE_LIBPCRE16_ */
+
 /* Define to 1 if you have the `png ' library (-lpng ). */
 /* #undef HAVE_LIBPNG_ */
 
@@ -163,9 +166,6 @@
 
 /* Define to 1 if you have the `shlwapi' library (-lshlwapi). */
 /* #undef HAVE_LIBSHLWAPI */
-
-/* Define to 1 if you have the `ssl' library (-lssl). */
-/* #undef HAVE_LIBSSL */
 
 /* Define to 1 if you have the `user32' library (-luser32). */
 /* #undef HAVE_LIBUSER32 */
@@ -227,6 +227,9 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
+/* Define to 1 if you have the <sys/prctl.h> header file. */
+/* #undef HAVE_SYS_PRCTL_H */
+
 /* Define to 1 if you have the <sys/select.h> header file. */
 #define HAVE_SYS_SELECT_H 1
 
@@ -238,6 +241,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
+
+/* Define if the visibility attribute is supported. */
+#define HAVE_VISIBILITY_ATTRIBUTE 1
 
 /* Define this symbol if boost sleep works */
 /* #undef HAVE_WORKING_BOOST_SLEEP */
@@ -270,6 +276,15 @@
    your system. */
 /* #undef PTHREAD_CREATE_JOINABLE */
 
+/* Define this symbol if the qt platform is cocoa */
+/* #undef QT_QPA_PLATFORM_COCOA */
+
+/* Define this symbol if the qt platform is windows */
+/* #undef QT_QPA_PLATFORM_WINDOWS */
+
+/* Define this symbol if the qt platform is xcb */
+/* #undef QT_QPA_PLATFORM_XCB */
+
 /* Define this symbol if qt plugins are static */
 /* #undef QT_STATICPLUGIN */
 
@@ -280,12 +295,13 @@
 /* #undef STRERROR_R_CHAR_P */
 
 /* Define if dbus support should be compiled in */
-/* #undef USE_DBUS */
+#define USE_DBUS 1
 
 /* Define if QR support should be compiled in */
-/* #undef USE_QRCODE */
+#define USE_QRCODE 1
 
-/* Define to 1 for upnp runtime support */
+/* UPnP support not compiled if undefined, otherwise value (0 or 1) determines
+   default state */
 #define USE_UPNP 0
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most

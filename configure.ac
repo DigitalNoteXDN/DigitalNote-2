@@ -7,8 +7,10 @@ define(_CLIENT_VERSION_BUILD, 4)
 define(_CLIENT_VERSION_IS_RELEASE, true)
 define(_COPYRIGHT_YEAR, 2014)
 AC_INIT([Bitcoin Core],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION],[info@bitcoin.org],[bitcoin])
-AC_CONFIG_AUX_DIR([src/build-aux])
-AC_CONFIG_MACRO_DIR([src/m4])
+AC_CONFIG_SRCDIR([src/main.cpp])
+AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
+AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIR([build-aux/m4])
 LT_INIT([disable-shared])
 AC_CANONICAL_HOST
 AH_TOP([#ifndef BITCOIN_CONFIG_H])
@@ -43,6 +45,30 @@ AM_MAINTAINER_MODE([enable])
 
 dnl make the compilation flags quiet unless V=1 is used
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
+dnl Checks for programs.
+AC_PROG_CXX
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXXCPP
+AC_PROG_INSTALL
+AC_PROG_OBJC
+AC_PROG_LN_S
+m4_ifdef([AC_PROG_OBJCXX],[AC_PROG_OBJCXX])
+AC_PROG_MKDIR_P
+AC_PROG_SED
+AC_PATH_TOOL(AR, ar)
+AC_PATH_TOOL(RANLIB, ranlib)
+AC_PATH_TOOL(STRIP, strip)
+AC_PATH_TOOL(GCOV, gcov)
+AC_PATH_PROG(LCOV, lcov)
+AC_PATH_PROG(JAVA, java)
+AC_PATH_PROG(GENHTML, genhtml)
+AC_PATH_PROG([GIT], [git])
+AC_PATH_PROG(CCACHE,ccache)
+AC_PATH_PROG(XGETTEXT,xgettext)
+AC_PATH_PROG(HEXDUMP,hexdump)
+PKG_PROG_PKG_CONFIG
 
 # Enable wallet
 AC_ARG_ENABLE([wallet],
@@ -90,9 +116,15 @@ AC_ARG_ENABLE([hardening],
   [use_hardening=$enableval],
   [use_hardening=yes])
 
+AC_ARG_ENABLE([reduce-exports],
+  [AS_HELP_STRING([--enable-reduce-exports],
+  [attempt to reduce exported symbols in the resulting executables (default is yes)])],
+  [use_reduce_exports=$enableval],
+  [use_reduce_exports=auto])
+
 AC_ARG_ENABLE([ccache],
   [AS_HELP_STRING([--enable-ccache],
-  [enable building with ccache (default is yes if ccache is found)])],
+  [use ccache for building (default is yes if ccache is found)])],
   [use_ccache=$enableval],
   [use_ccache=auto])
 
@@ -109,34 +141,6 @@ AC_ARG_ENABLE([glibc-back-compat],
   [use_glibc_compat=no])
 
 AC_ARG_WITH([protoc-bindir],[AS_HELP_STRING([--with-protoc-bindir=BIN_DIR],[specify protoc bin path])], [protoc_bin_path=$withval], [])
-
-
-AC_CONFIG_SRCDIR([src])
-AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
-
-dnl Checks for programs.
-AC_PROG_CXX
-AC_PROG_CC
-AC_PROG_CPP
-AC_PROG_CXXCPP
-AC_PROG_INSTALL
-AC_PROG_OBJC
-AC_PROG_LN_S
-m4_ifdef([AC_PROG_OBJCXX],[AC_PROG_OBJCXX])
-AC_PROG_MKDIR_P
-AC_PROG_SED
-AC_PATH_TOOL(AR, ar)
-AC_PATH_TOOL(RANLIB, ranlib)
-AC_PATH_TOOL(STRIP, strip)
-AC_PATH_TOOL(GCOV, gcov)
-AC_PATH_PROG(LCOV, lcov)
-AC_PATH_PROG(JAVA, java)
-AC_PATH_PROG(GENHTML, genhtml)
-AC_PATH_PROG([GIT], [git])
-AC_PATH_PROG(CCACHE,ccache)
-AC_PATH_PROG(XGETTEXT,xgettext)
-AC_PATH_PROG(HEXDUMP,hexdump)
-PKG_PROG_PKG_CONFIG
 
 # Enable debug
 AC_ARG_ENABLE([debug],
@@ -155,11 +159,9 @@ if test "x$enable_debug" = xyes; then
     fi
 fi
 
-
 ## TODO: Remove these hard-coded paths and flags. They are here for the sake of
 ##       compatibility with the legacy buildsystem.
 ##
-CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter"
 if test "x$CXXFLAGS_overridden" = "xno"; then
   CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter"
 fi
@@ -195,9 +197,12 @@ case $host in
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(lib missing))
 
-     AX_CHECK_LINK_FLAG([[-static]],[LDFLAGS="$LDFLAGS -static"])
      AX_CHECK_LINK_FLAG([[-static-libgcc]],[LDFLAGS="$LDFLAGS -static-libgcc"])
      AX_CHECK_LINK_FLAG([[-static-libstdc++]],[LDFLAGS="$LDFLAGS -static-libstdc++"])
+
+     # -static is interpreted by libtool, where it has a different meaning.
+     # In libtool-speak, it's -all-static.
+     AX_CHECK_LINK_FLAG([[-static]],[LDFLAGS="$LDFLAGS -static"; LIBTOOL_LDFLAGS="$LIBTOOL_LDFLAGS -all-static"])
 
      AC_PATH_PROG([MAKENSIS], [makensis], none)
      if test x$MAKENSIS = xnone; then
@@ -235,7 +240,7 @@ case $host in
 
        AC_CHECK_PROG([BREW],brew, brew)
        if test x$BREW = xbrew; then
-         dnl These Homebrew packages may be bottled, meaning that they won't be found
+         dnl These Homebrew packages may be keg-only, meaning that they won't be found
          dnl in expected paths because they may conflict with system files. Ask
          dnl Homebrew where each one is located, then adjust paths accordingly.
          dnl It's safe to add these paths even if the functionality is disabled by
@@ -269,10 +274,11 @@ case $host in
      fi
 
      CPPFLAGS="$CPPFLAGS -DMAC_OSX"
-     TESTDEFS="-DBOOST_TEST_DYN_LINK"
+     ;;
+   *linux*)
+     TARGET_OS=linux
      ;;
    *)
-     TESTDEFS="-DBOOST_TEST_DYN_LINK"
      ;;
 esac
 
@@ -315,7 +321,6 @@ AC_C_BIGENDIAN([AC_MSG_ERROR("Big Endian not supported")])
 
 dnl Check for pthread compile/link requirements
 AX_PTHREAD
-INCLUDES="$INCLUDES $PTHREAD_CFLAGS"
 
 # The following macro will add the necessary defines to bitcoin-config.h, but
 # they also need to be passed down to any subprojects. Pull the results out of
@@ -343,15 +348,21 @@ if test x$use_glibc_compat != xno; then
   #__fdelt_chk's params and return type have changed from long unsigned int to long int.
   # See which one is present here.
   AC_MSG_CHECKING(__fdelt_chk type)
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#define __USE_FORTIFY_LEVEL 2
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#ifdef _FORTIFY_SOURCE
+                    #undef _FORTIFY_SOURCE
+                  #endif
+                  #define _FORTIFY_SOURCE 2
                   #include <sys/select.h>
-     extern "C" long unsigned int __fdelt_warn(long unsigned int);]], [[]])],[ fdelt_type="long unsigned int"],[ fdelt_type="long int"])
+     extern "C" long unsigned int __fdelt_warn(long unsigned int);]],[[]])],
+    [ fdelt_type="long unsigned int"],
+    [ fdelt_type="long int"])
   AC_MSG_RESULT($fdelt_type)
   AC_DEFINE_UNQUOTED(FDELT_TYPE, $fdelt_type,[parameter and return value type for __fdelt_chk])
 
 fi
 
 if test x$use_hardening != xno; then
+  AX_CHECK_COMPILE_FLAG([-Wstack-protector],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wstack-protector"])
   AX_CHECK_COMPILE_FLAG([-fstack-protector-all],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fstack-protector-all"])
 
   AX_CHECK_PREPROC_FLAG([-D_FORTIFY_SOURCE=2],[
@@ -383,7 +394,7 @@ if test x$TARGET_OS = xdarwin; then
   AX_CHECK_LINK_FLAG([[-Wl,-dead_strip]], [LDFLAGS="$LDFLAGS -Wl,-dead_strip"])
 fi
 
-AC_CHECK_HEADERS([endian.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h])
+AC_CHECK_HEADERS([endian.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h])
 AC_SEARCH_LIBS([getaddrinfo_a], [anl], [AC_DEFINE(HAVE_GETADDRINFO_A, 1, [Define this symbol if you have getaddrinfo_a])])
 AC_SEARCH_LIBS([inet_pton], [nsl resolv], [AC_DEFINE(HAVE_INET_PTON, 1, [Define this symbol if you have inet_pton])])
 
@@ -394,8 +405,43 @@ AC_CHECK_DECLS([le32toh, le64toh, htole32, htole64, be32toh, be64toh, htobe32, h
 
 dnl Check for MSG_NOSIGNAL
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[ int f = MSG_NOSIGNAL; ]])],[ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,[Define this symbol if you have MSG_NOSIGNAL]) ],[ AC_MSG_RESULT(no)
-])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]],
+ [[ int f = MSG_NOSIGNAL; ]])],
+ [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,[Define this symbol if you have MSG_NOSIGNAL]) ],
+ [ AC_MSG_RESULT(no)]
+)
+
+AC_SEARCH_LIBS([clock_gettime],[rt])
+
+AC_MSG_CHECKING([for visibility attribute])
+AC_LINK_IFELSE([AC_LANG_SOURCE([
+  int foo_def( void ) __attribute__((visibility("default")));
+  int main(){}
+  ])],
+  [
+    AC_DEFINE(HAVE_VISIBILITY_ATTRIBUTE,1,[Define if the visibility attribute is supported.])
+    AC_MSG_RESULT(yes)
+  ],
+  [
+    AC_MSG_RESULT(no)
+    if test x$use_reduce_exports = xyes; then
+      AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduced-exports.])
+    fi
+      AC_MSG_WARN([Cannot find a working visibility attribute. Disabling reduced exports.])
+      use_reduce_exports=no
+  ]
+)
+
+if test x$use_reduce_exports != xno; then
+  AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],[RE_CXXFLAGS="-fvisibility=hidden"],
+  [
+    if test x$use_reduce_exports = xyes; then
+      AC_MSG_ERROR([Cannot set default symbol visibility. Use --disable-reduced-exports.])
+    fi
+    AC_MSG_WARN([Cannot set default symbol visibility. Disabling reduced exports.])
+    use_reduce_exports=no
+  ])
+fi
 
 LEVELDB_CPPFLAGS=
 LIBLEVELDB=
@@ -427,6 +473,40 @@ AX_BOOST_PROGRAM_OPTIONS
 AX_BOOST_THREAD
 AX_BOOST_CHRONO
 
+
+if test x$use_reduce_exports != xno; then
+  AC_MSG_CHECKING([for working boost reduced exports])
+  TEMP_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$BOOST_CPPFLAGS $CPPFLAGS"
+  AC_PREPROC_IFELSE([AC_LANG_PROGRAM([[
+      @%:@include <boost/version.hpp>
+    ]], [[
+      #if BOOST_VERSION >= 104900
+      // Everything is okay
+      #else
+      #  error Boost version is too old
+      #endif
+    ]])],[
+      AC_MSG_RESULT(yes)
+    ],[:
+    if test x$use_reduce_exports = xauto; then
+      use_reduce_exports=no
+    else
+      if test x$use_reduce_exports = xyes; then
+        AC_MSG_ERROR([boost versions < 1.49 are known to be broken with reduced exports. Use --disable-reduced-exports.])
+      fi
+    fi
+    AC_MSG_RESULT(no)
+    AC_MSG_WARN([boost versions < 1.49 are known to have symbol visibility issues. Disabling reduced exports.])
+  ])
+  CPPFLAGS="$TEMP_CPPFLAGS"
+fi
+
+if test x$use_reduce_exports != xno; then
+    CXXFLAGS="$CXXFLAGS $RE_CXXFLAGS"
+    AX_CHECK_LINK_FLAG([[-Wl,--exclude-libs,ALL]], [RELDFLAGS="-Wl,--exclude-libs,ALL"])
+fi
+
 if test x$use_tests = xyes; then
 
   if test x$HEXDUMP = x; then
@@ -455,7 +535,6 @@ if test x$use_tests = xyes; then
 fi
 
 BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB $BOOST_PROGRAM_OPTIONS_LIB $BOOST_THREAD_LIB"
-BOOST_INCLUDES="$BOOST_CPPFLAGS"
 
 dnl Boost >= 1.50 uses sleep_for rather than the now-deprecated sleep, however
 dnl it was broken from 1.50 to 1.52 when backed by nanosleep. Use sleep_for if
@@ -464,60 +543,62 @@ dnl after 1.56.
 dnl If neither is available, abort.
 dnl If sleep_for is used, boost_chrono becomes a requirement.
 if test x$ax_cv_boost_chrono = xyes; then
-dnl Allow passing extra needed dependency libraries for boost-chrono from static gitian build
-BOOST_CHRONO_LIB="$BOOST_CHRONO_LIB $BOOST_CHRONO_EXTRALIBS"
-
 TEMP_LIBS="$LIBS"
-LIBS="$LIBS $BOOST_LIBS $BOOST_CHRONO_LIB"
+LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB $LIBS"
 TEMP_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <boost/thread/thread.hpp>
   #include <boost/version.hpp>
-  ]], [[
+  ]],[[
   #if BOOST_VERSION >= 105000 && (!defined(BOOST_HAS_NANOSLEEP) || BOOST_VERSION >= 105200)
       boost::this_thread::sleep_for(boost::chrono::milliseconds(0));
   #else
    choke me
   #endif
-  ]])],[boost_sleep=yes; BOOST_LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB";
-     AC_DEFINE(HAVE_WORKING_BOOST_SLEEP_FOR, 1, [Define this symbol if boost sleep_for works])],[boost_sleep=no])
+  ]])],
+  [boost_sleep=yes; BOOST_LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB";
+     AC_DEFINE(HAVE_WORKING_BOOST_SLEEP_FOR, 1, [Define this symbol if boost sleep_for works])],
+  [boost_sleep=no])
 LIBS="$TEMP_LIBS"
 CPPFLAGS="$TEMP_CPPFLAGS"
 fi
 
 if test x$boost_sleep != xyes; then
 TEMP_LIBS="$LIBS"
+LIBS="$BOOST_LIBS $LIBS"
 TEMP_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <boost/version.hpp>
   #include <boost/thread.hpp>
   #include <boost/date_time/posix_time/posix_time_types.hpp>
-  ]], [[
+  ]],[[
   #if BOOST_VERSION <= 105600
       boost::this_thread::sleep(boost::posix_time::milliseconds(0));
   #else
    choke me
   #endif
-  ]])],[boost_sleep=yes; AC_DEFINE(HAVE_WORKING_BOOST_SLEEP, 1, [Define this symbol if boost sleep works])],[boost_sleep=no])
+  ]])],
+  [boost_sleep=yes; AC_DEFINE(HAVE_WORKING_BOOST_SLEEP, 1, [Define this symbol if boost sleep works])],
+  [boost_sleep=no])
 LIBS="$TEMP_LIBS"
 CPPFLAGS="$TEMP_CPPFLAGS"
 fi
 
 if test x$boost_sleep != xyes; then
-  AC_MSG_ERROR(No working boost sleep implementation found. If on ubuntu 13.10 with libboost1.54-all-dev remove libboost.1.54-all-dev and use libboost1.53-all-dev)
+  AC_MSG_ERROR(No working boost sleep implementation found.)
 fi
 
-AC_ARG_WITH([cli],
-  [AS_HELP_STRING([--with-cli],
-  [with CLI (default is yes)])],
-  [build_bitcoin_cli=$withval],
-  [build_bitcoin_cli=yes])
+AC_ARG_WITH([utils],
+  [AS_HELP_STRING([--with-utils],
+  [build bitcoin-cli bitcoin-tx (default=yes)])],
+  [build_bitcoin_utils=$withval],
+  [build_bitcoin_utils=yes])
 
 AC_ARG_WITH([daemon],
   [AS_HELP_STRING([--with-daemon],
-  [with daemon (default is yes)])],
+  [build bitcoind daemon (default=yes)])],
   [build_bitcoind=$withval],
   [build_bitcoind=yes])
 
@@ -525,7 +606,7 @@ BITCOIN_QT_INIT
 
 if test x$use_pkgconfig = xyes; then
 
-  if test x$PKG_CONFIG == x; then
+  if test x"$PKG_CONFIG" == "x"; then
     AC_MSG_ERROR(pkg-config not found.)
   fi
 
@@ -533,8 +614,8 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
-      PKG_CHECK_MODULES([SSL], [libssl], [INCLUDES="$INCLUDES $SSL_CFLAGS"; LIBS="$LIBS $SSL_LIBS"], [AC_MSG_ERROR(openssl  not found.)])
-      PKG_CHECK_MODULES([CRYPTO], [libcrypto], [INCLUDES="$INCLUDES $CRYPTO_CFLAGS"; LIBS="$LIBS $CRYPTO_LIBS"], [AC_MSG_ERROR(libcrypto  not found.)])
+      PKG_CHECK_MODULES([SSL], [libssl],, [AC_MSG_ERROR(openssl  not found.)])
+      PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto  not found.)])
       BITCOIN_QT_CHECK([PKG_CHECK_MODULES([PROTOBUF], [protobuf], [have_protobuf=yes], [BITCOIN_QT_FAIL(libprotobuf not found)])])
       if test x$use_qr != xno; then
         BITCOIN_QT_CHECK([PKG_CHECK_MODULES([QR], [libqrencode], [have_qrencode=yes], [have_qrencode=no])])
@@ -543,10 +624,10 @@ if test x$use_pkgconfig = xyes; then
   )
 else
   AC_CHECK_HEADER([openssl/crypto.h],,AC_MSG_ERROR(libcrypto headers missing))
-  AC_CHECK_LIB([crypto],      [main],, AC_MSG_ERROR(libcrypto missing))
+  AC_CHECK_LIB([crypto],      [main],CRYPTO_LIBS=-lcrypto, AC_MSG_ERROR(libcrypto missing))
 
   AC_CHECK_HEADER([openssl/ssl.h],, AC_MSG_ERROR(libssl headers missing),)
-  AC_CHECK_LIB([ssl],         [main],, AC_MSG_ERROR(libssl missing))
+  AC_CHECK_LIB([ssl],         [main],SSL_LIBS=-lssl, AC_MSG_ERROR(libssl missing))
 
   BITCOIN_QT_CHECK(AC_CHECK_LIB([protobuf] ,[main],,BITCOIN_QT_FAIL(libprotobuf not found)))
   if test x$use_qr != xno; then
@@ -557,13 +638,13 @@ fi
 
 BITCOIN_QT_PATH_PROGS([PROTOC], [protoc],$protoc_bin_path)
 
-AC_MSG_CHECKING([if bitcoind should be enabled])
+AC_MSG_CHECKING([whether to build bitcoind])
 AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_bitcoind = xyes])
 AC_MSG_RESULT($build_bitcoind)
 
-AC_MSG_CHECKING([if bitcoin-cli should be enabled])
-AM_CONDITIONAL([BUILD_BITCOIN_CLI], [test x$build_bitcoin_cli = xyes])
-AC_MSG_RESULT($build_bitcoin_cli)
+AC_MSG_CHECKING([whether to build utils (bitcoin-cli bitcoin-tx)])
+AM_CONDITIONAL([BUILD_BITCOIN_UTILS], [test x$build_bitcoin_utils = xyes])
+AC_MSG_RESULT($build_bitcoin_utils)
 
 dnl sets $bitcoin_enable_qt, $bitcoin_enable_qt_test, $bitcoin_enable_qt_dbus
 BITCOIN_QT_CONFIGURE([$use_pkgconfig], [qt4])
@@ -571,12 +652,11 @@ BITCOIN_QT_CONFIGURE([$use_pkgconfig], [qt4])
 AC_LANG_POP
 
 if test "x$use_ccache" != "xno"; then
-  AC_MSG_CHECKING(if ccache should be enabled)
+  AC_MSG_CHECKING(if ccache should be used)
   if test x$CCACHE = x; then
     if test "x$use_ccache" = "xyes"; then
       AC_MSG_ERROR([ccache not found.]);
     else
-      AC_MSG_NOTICE([ccache not found. Falling back to default CC])
       use_ccache=no
     fi
   else
@@ -585,6 +665,9 @@ if test "x$use_ccache" != "xno"; then
     CXX="$ac_cv_path_CCACHE $CXX"
   fi
   AC_MSG_RESULT($use_ccache)
+fi
+if test "x$use_ccache" = "xyes"; then
+    AX_CHECK_PREPROC_FLAG([-Qunused-arguments],[CPPFLAGS="-Qunused-arguments $CPPFLAGS"])
 fi
 
 dnl enable wallet
@@ -598,16 +681,16 @@ else
 fi
 
 dnl enable upnp support
-AC_MSG_CHECKING([if upnp should be enabled])
+AC_MSG_CHECKING([whether to build with support for UPnP])
 if test x$have_miniupnpc = xno; then
   if test x$use_upnp = xyes; then
-     AC_MSG_ERROR("upnp requested but cannot be built. use --without-miniupnpc")
+     AC_MSG_ERROR("UPnP requested but cannot be built. use --without-miniupnpc")
   fi
   AC_MSG_RESULT(no)
 else
   if test x$use_upnp != xno; then
     AC_MSG_RESULT(yes)
-    AC_MSG_CHECKING([if upnp should be on by default])
+    AC_MSG_CHECKING([whether to build with UPnP enabled by default])
     use_upnp=yes
     upnp_setting=0
     if test x$use_upnp_default != xno; then
@@ -615,9 +698,9 @@ else
       upnp_setting=1
     fi
     AC_MSG_RESULT($use_upnp_default)
-    AC_DEFINE_UNQUOTED([USE_UPNP],[$upnp_setting],[Define to 1 for upnp runtime support])
+    AC_DEFINE_UNQUOTED([USE_UPNP],[$upnp_setting],[UPnP support not compiled if undefined, otherwise value (0 or 1) determines default state])
     if test x$TARGET_OS = xwindows; then
-      CPPFLAGS="$CPPFLAGS -DSTATICLIB"
+      MINIUPNPC_CPPFLAGS="-DSTATICLIB -DMINIUPNP_STATICLIB"
     fi
   else
     AC_MSG_RESULT(no)
@@ -628,14 +711,14 @@ dnl these are only used when qt is enabled
 if test x$bitcoin_enable_qt != xno; then
   BUILD_QT=qt
   dnl enable dbus support
-  AC_MSG_CHECKING([if dbus should be enabled])
+  AC_MSG_CHECKING([whether to build GUI with support for D-Bus])
   if test x$bitcoin_enable_qt_dbus != xno; then
     AC_DEFINE([USE_DBUS],[1],[Define if dbus support should be compiled in])
   fi
   AC_MSG_RESULT($bitcoin_enable_qt_dbus)
 
   dnl enable qr support
-  AC_MSG_CHECKING([if qr should be enabled])
+  AC_MSG_CHECKING([whether to build GUI with support for QR codes])
   if test x$have_qrencode = xno; then
     if test x$use_qr == xyes; then
      AC_MSG_ERROR("QR support requested but cannot be built. use --without-qrencode")
@@ -655,23 +738,32 @@ if test x$bitcoin_enable_qt != xno; then
     AC_MSG_WARN("xgettext is required to update qt translations")
   fi
 
-  if test x$use_tests = xyes; then
+  AC_MSG_CHECKING([whether to build test_bitcoin-qt])
+  if test x$use_tests$bitcoin_enable_qt_test = xyesyes; then
+    AC_MSG_RESULT([yes])
     BUILD_TEST_QT="test"
-    if test x$bitcoin_enable_qt_test != xyes; then
-      AC_MSG_ERROR("Qt Test lib not found. Use --disable-tests or --without-gui.")
-    fi
-  fi
-  if test x$enable_wallet == xno; then
-    AC_MSG_ERROR([Cannot currently build Qt GUI with wallet disabled. Use --without-qt.])
+  else
+    AC_MSG_RESULT([no])
   fi
 fi
 
+AC_MSG_CHECKING([whether to build test_bitcoin])
 if test x$use_tests = xyes; then
+  AC_MSG_RESULT([yes])
   BUILD_TEST="test"
+else
+  AC_MSG_RESULT([no])
 fi
 
-if test "x$use_tests$build_bitcoind$use_qt" = "xnonono"; then
-  AC_MSG_ERROR([No targets! Please specify at least one of: --enable-cli --enable-daemon --enable-gui or --enable-tests])
+AC_MSG_CHECKING([whether to reduce exports])
+if test x$use_reduce_exports != xno; then
+  AC_MSG_RESULT([yes])
+else
+  AC_MSG_RESULT([no])
+fi
+
+if test x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests = xnononono; then
+  AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-daemon --with-gui or --enable-tests])
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
@@ -686,6 +778,7 @@ AM_CONDITIONAL([USE_LCOV],[test x$use_lcov == xyes])
 AM_CONDITIONAL([USE_COMPARISON_TOOL],[test x$use_comparison_tool != xno])
 AM_CONDITIONAL([USE_COMPARISON_TOOL_REORG_TESTS],[test x$use_comparison_tool_reorg_test != xno])
 AM_CONDITIONAL([GLIBC_BACK_COMPAT],[test x$use_glibc_compat = xyes])
+AM_CONDITIONAL([USE_LIBSECP256K1],[test x$use_libsecp256k1 = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])
@@ -701,16 +794,29 @@ AC_SUBST(CLIENT_VERSION_IS_RELEASE, _CLIENT_VERSION_IS_RELEASE)
 AC_SUBST(COPYRIGHT_YEAR, _COPYRIGHT_YEAR)
 
 
+AC_SUBST(RELDFLAGS)
+AC_SUBST(LIBTOOL_LDFLAGS)
 AC_SUBST(USE_UPNP)
 AC_SUBST(USE_QRCODE)
-AC_SUBST(INCLUDES)
 AC_SUBST(BOOST_LIBS)
 AC_SUBST(TESTDEFS)
 AC_SUBST(LEVELDB_TARGET_FLAGS)
 AC_SUBST(BUILD_TEST)
 AC_SUBST(BUILD_QT)
 AC_SUBST(BUILD_TEST_QT)
-AC_CONFIG_FILES([Makefile src/Makefile share/setup.nsi share/qt/Info.plist])
+AC_SUBST(MINIUPNPC_CPPFLAGS)
+AC_CONFIG_FILES([Makefile src/Makefile share/setup.nsi share/qt/Info.plist src/test/buildenv.py])
 AC_CONFIG_FILES([qa/pull-tester/run-bitcoind-for-test.sh],[chmod +x qa/pull-tester/run-bitcoind-for-test.sh])
 AC_CONFIG_FILES([qa/pull-tester/build-tests.sh],[chmod +x qa/pull-tester/build-tests.sh])
 AC_OUTPUT
+
+dnl Taken from https://wiki.debian.org/RpathIssue
+case $host in
+   *-*-linux-gnu)
+     AC_MSG_RESULT([Fixing libtool for -rpath problems.])
+     sed < libtool > libtool-2 \
+     's/^hardcode_libdir_flag_spec.*$'/'hardcode_libdir_flag_spec=" -D__LIBTOOL_IS_A_FOOL__ "/'
+     mv libtool-2 libtool
+     chmod 755 libtool
+   ;;
+esac
