@@ -1,26 +1,15 @@
-// Copyright (c) 2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Copyright (c) 2012-2018 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_VERSION_H
 #define BITCOIN_VERSION_H
 
-#include "clientversion.h"
-#include <stdint.h>
-#include <string>
 
-//
-// client versioning
-//
+/**
+ * network protocol versioning
+ */
 
-static const int CLIENT_VERSION =
-                           1000000 * CLIENT_VERSION_MAJOR
-                         +   10000 * CLIENT_VERSION_MINOR
-                         +     100 * CLIENT_VERSION_REVISION
-                         +       1 * CLIENT_VERSION_BUILD;
-
-extern const std::string CLIENT_NAME;
-extern const std::string CLIENT_BUILD;
-extern const std::string CLIENT_DATE;
 
 //
 // database format versioning
@@ -74,4 +63,4 @@ static const int64_t MIN_MASTERNODE_ADV_RELAY = 9993058800; // OFF (NOT TOGGLED)
 // MasterNode peer IP basic relay system start (on and functional)
 static const int64_t MIN_MASTERNODE_BSC_RELAY = 62026; // ON
 
-#endif
+#endif // BITCOIN_VERSION_H

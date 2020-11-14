@@ -6,10 +6,10 @@
 #define BITCOIN_MAIN_H
 
 #if defined(HAVE_CONFIG_H)
-#include "bitcoin-config.h"
+#include <config/bitcoin-config.h>
 #endif
 
-
+#include "clientversion.h"
 #include "chain.h"
 #include "bignum.h"
 #include "sync.h"

@@ -4,6 +4,7 @@
 
 #include "alert.h"
 
+#include "clientversion.h"
 #include "chainparams.h"
 #include "pubkey.h"
 #include "net.h"

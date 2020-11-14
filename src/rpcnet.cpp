@@ -4,7 +4,7 @@
 
 #include "rpcserver.h"
 
-
+#include "clientversion.h"
 #include "main.h"
 #include "alert.h"
 #include "main.h"

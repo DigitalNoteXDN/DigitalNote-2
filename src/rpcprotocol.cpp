@@ -5,6 +5,7 @@
 
 #include "rpcprotocol.h"
 
+#include "clientversion.h"
 #include "util.h"
 
 #include <stdint.h>

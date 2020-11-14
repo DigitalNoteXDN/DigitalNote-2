@@ -5,6 +5,7 @@
 
 #include "init.h"
 
+#include "clientversion.h"
 #include "addrman.h"
 #include "main.h"
 #include "chainparams.h"
@@ -535,7 +536,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
     LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("DigitalNote version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+    LogPrintf("DigitalNote version %s\n", FormatFullVersion());
     LogPrintf("Using OpenSSL version %s\n", SSLeay_version(SSLEAY_VERSION));
     if (!fLogTimestamps)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%x %H:%M:%S", GetTime()));

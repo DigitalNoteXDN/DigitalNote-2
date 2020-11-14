@@ -13,7 +13,7 @@ $(LIBLEVELDB): $(LIBMEMENV)
 $(LIBLEVELDB) $(LIBMEMENV):
 	@echo "Building LevelDB ..." && $(MAKE) -C $(@D) $(@F) CXX="$(CXX)" \
 	  CC="$(CC)" PLATFORM=$(TARGET_OS) AR="$(AR)" $(LEVELDB_TARGET_FLAGS) \
-          OPT="$(CXXFLAGS) $(CPPFLAGS)"
+      OPT="$(CXXFLAGS) $(CPPFLAGS)"
 endif
 
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
@@ -69,48 +69,52 @@ endif
 .PHONY: FORCE
 # bitcoin core #
 BITCOIN_CORE_H = \
+  activemasternode.h \
   addrman.h \
   alert.h \
   allocators.h \
-  #amount.h \
   base58.h \
+  bignum.h \
+  blockparams.h \
+  blocksizecalculator.h \
   chain.h \
   chainparams.h \
-  chainparamsbase.h \
   chainparamsseeds.h \
   checkpoints.h \
-  checkqueue.h \
   clientversion.h \
   coincontrol.h \
-  coins.h \
   compat.h \
-  compressor.h \
-  core/block.h \
-  core/transaction.h \
-  core_io.h \
   crypter.h \
   db.h \
-  eccryptoverify.h \
   ecwrapper.h \
+  fork.h \
+  genesis.h \
   hash.h \
   init.h \
+  instantx.h \
+  kernel.h \
   key.h \
   keystore.h \
-  #leveldbwrapper.h \
   limitedmap.h \
   main.h \
+  masternode-payments.h \
+  masternode.h \
+  masternodeconfig.h \
+  masternodeman.h \
   miner.h \
+  mining.h \
+  mnengine.h \
   mruset.h \
-  netbase.h \
   net.h \
-  noui.h \
-  pow.h \
+  netbase.h \
+  pbkdf2.h \
   protocol.h \
   pubkey.h \
   random.h \
   rpcclient.h \
   rpcprotocol.h \
   rpcserver.h \
+  rpcvelocity.h \
   script/interpreter.h \
   script.h \
   script/sigcache.h \
@@ -118,25 +122,22 @@ BITCOIN_CORE_H = \
   script/standard.h \
   script/script_error.h \
   serialize.h \
-  streams.h \
+  smessage.h \
+  spork.h \
+  stealth.h \
+  support/cleanse.h \
   sync.h \
   threadsafety.h \
-  timedata.h \
   tinyformat.h \
   txdb.h \
   txmempool.h \
-  ui_interface.h \
   uint256.h \
-  undo.h \
   util.h \
-  utilstrencodings.h \
-  utilmoneystr.h \
-  utiltime.h \
+  velocity.h \
   version.h \
   wallet.h \
-  wallet_ismine.h \
   walletdb.h \
-  #compat/sanity.h
+  webwalletconnector.h
 
 JSON_H = \
   json/json_spirit.h \
@@ -192,28 +193,33 @@ libbitcoin_wallet_a_SOURCES = \
   rpcdump.cpp \
   rpcwallet.cpp \
   wallet.cpp \
-  wallet_ismine.cpp \
   walletdb.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
 crypto_libbitcoin_crypto_a_CPPFLAGS = $(BITCOIN_CONFIG_INCLUDES)
 crypto_libbitcoin_crypto_a_SOURCES = \
-  crypto/sha1.cpp \
-  crypto/sha2.cpp \
-  crypto/ripemd160.cpp \
-  crypto/common.h \
-  crypto/sha2.h \
-  crypto/sha1.h \
-  crypto/ripemd160.h
-
-# univalue JSON library
-#univalue_libbitcoin_univalue_a_SOURCES = \
-#  univalue/univalue.cpp \
-#  univalue/univalue_read.cpp \
-#  univalue/univalue_write.cpp \
-#  univalue/univalue_escapes.h \
-#  univalue/univalue.h
+  crypto/bmw/bmw512.h \
+  crypto/common/aes_helper.c \
+  crypto/common/bmw.c \
+  crypto/common/common.h \
+  crypto/common/echo.c \
+  crypto/common/hmac_sha256.cpp \
+  crypto/common/hmac_sha256.h \
+  crypto/common/hmac_sha512.cpp \
+  crypto/common/hmac_sha512.h \
+  crypto/common/ripemd160.cpp \
+  crypto/common/ripemd160.h \
+  crypto/common/sha1.cpp \
+  crypto/common/sha1.h \
+  crypto/common/sha256.cpp \
+  crypto/common/sha256.h \
+  crypto/common/sha512.cpp \
+  crypto/common/sha512.h \
+  crypto/common/sph_bmw.h \
+  crypto/common/sph_echo.h \
+  crypto/common/sph_types.h \
+  crypto/echo/echo512.h
 
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
@@ -250,16 +256,12 @@ libbitcoin_util_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_util_a_SOURCES = \
   compat/glibc_sanity.cpp \
   compat/glibcxx_sanity.cpp \
-  chainparamsbase.cpp \
+  chainparams.cpp \
   clientversion.cpp \
-  random.cpp \
   rpcprotocol.cpp \
   sync.cpp \
-  uint256.cpp \
   util.cpp \
   utilstrencodings.cpp \
-  utilmoneystr.cpp \
-  utiltime.cpp \
   $(BITCOIN_CORE_H)
 
 if GLIBC_BACK_COMPAT
