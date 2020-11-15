@@ -20,10 +20,10 @@
 #endif
 
 #ifdef USE_UPNP
-#include <miniupnpc-2.1/miniupnpc.h>
-#include <miniupnpc-2.1/miniwget.h>
-#include <miniupnpc-2.1/upnpcommands.h>
-#include <miniupnpc-2.1/upnperrors.h>
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/miniwget.h>
+#include <miniupnpc/upnpcommands.h>
+#include <miniupnpc/upnperrors.h>
 #endif
 
 #include <boost/filesystem.hpp>
@@ -751,7 +751,7 @@ void RefreshRecentConnections(int RefreshMinutes)
         SecondsPassed = CurrentTimestamp - LastRefreshstamp;
         MinutesPassed = SecondsPassed / 60;
 
-        if (MinutesPassed > RefreshMinutes - 2) 
+        if (MinutesPassed > RefreshMinutes - 2)
         {
             FirstCycle = false;
         }
@@ -765,7 +765,7 @@ void RefreshRecentConnections(int RefreshMinutes)
 
     if (FirstCycle == false)
     {
-        if (MinutesPassed < RefreshMinutes) 
+        if (MinutesPassed < RefreshMinutes)
         {
             return;
         }
@@ -786,7 +786,7 @@ void RefreshRecentConnections(int RefreshMinutes)
                 if (!adb.Read(addrman))
                     LogPrintf("Invalid or missing peers.dat; recreating\n");
             }
-            
+
             LogPrintf("Loaded %i addresses from peers.dat  %dms\n",
             addrman.size(), GetTimeMillis() - nStart);
 
@@ -799,8 +799,8 @@ void RefreshRecentConnections(int RefreshMinutes)
                 if (HaveNameProxy())
                 {
                     AddOneShot(seed.host);
-                } 
-                else 
+                }
+                else
                 {
                     vector<CNetAddr> vIPs;
                     vector<CAddress> vAdd;
