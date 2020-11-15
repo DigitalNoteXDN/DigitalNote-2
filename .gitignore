@@ -63,8 +63,8 @@ src/qt/res/.dirstamp
 # Compilation and Qt preprocessor part
 *.qm
 Makefile
-bitcoin-qt
-Bitcoin-Qt.app
+DigitalNote-qt
+DigitalNote-Qt.app
 
 # Unit-tests
 Makefile.test
@@ -109,3 +109,11 @@ src/crypto/common/.dirstamp
 src/support/.deps/.dirstamp
 src/support/.dirstamp
 src/qt/plugins/mrichtexteditor/ui_mrichtextedit.h
+libtool
+build-aux/config.guess
+build-aux/config.sub
+libtool
+src/qt/plugins/mrichtexteditor/.deps/.dirstamp
+src/qt/plugins/mrichtexteditor/.dirstamp
+build-aux/config.guess
+libtool
