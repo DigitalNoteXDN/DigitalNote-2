@@ -241,7 +241,7 @@
   <customwidget>
    <class>MRichTextEdit</class>
    <extends>QWidget</extends>
-   <header>mrichtextedit.h</header>
+   <header>qt/plugins/mrichtexteditor/mrichtextedit.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

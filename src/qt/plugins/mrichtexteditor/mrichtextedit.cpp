@@ -21,7 +21,7 @@
 ** $QT_END_LICENSE$
 */
 
-#include "mrichtextedit.h"
+#include "plugins/mrichtexteditor/mrichtextedit.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QMimeData>
