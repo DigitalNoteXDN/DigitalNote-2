@@ -1,3 +1,4 @@
+DIST_SUBDIRS = secp256k1
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS)
 
 
@@ -62,9 +63,9 @@ if BUILD_BITCOIND
   bin_PROGRAMS += bitcoind
 endif
 
-if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += bitcoin-cli bitcoin-tx
-endif
+#if BUILD_BITCOIN_UTILS
+#  bin_PROGRAMS += bitcoin-cli bitcoin-tx
+#endif
 
 .PHONY: FORCE
 # bitcoin core #
@@ -85,6 +86,7 @@ BITCOIN_CORE_H = \
   coincontrol.h \
   compat.h \
   crypter.h \
+  scrypt.h \
   db.h \
   ecwrapper.h \
   fork.h \
@@ -97,6 +99,7 @@ BITCOIN_CORE_H = \
   keystore.h \
   limitedmap.h \
   main.h \
+  protocol.h \
   masternode-payments.h \
   masternode.h \
   masternodeconfig.h \
@@ -110,17 +113,11 @@ BITCOIN_CORE_H = \
   pbkdf2.h \
   protocol.h \
   pubkey.h \
-  random.h \
   rpcclient.h \
   rpcprotocol.h \
   rpcserver.h \
   rpcvelocity.h \
-  script/interpreter.h \
   script.h \
-  script/sigcache.h \
-  script/sign.h \
-  script/standard.h \
-  script/script_error.h \
   serialize.h \
   smessage.h \
   spork.h \
@@ -164,22 +161,30 @@ libbitcoin_server_a_SOURCES = \
   chain.cpp \
   checkpoints.cpp \
   init.cpp \
-  #leveldbwrapper.cpp \
+  txdb-leveldb.cpp \
   main.cpp \
+  blocksizecalculator.cpp \
+  velocity.cpp \
+  mnengine.cpp \
+  protocol.cpp \
+  kernel.cpp \
   miner.cpp \
   net.cpp \
   noui.cpp \
-  pow.cpp \
-  rest.cpp \
   rpcblockchain.cpp \
   rpcmining.cpp \
   rpcmisc.cpp \
   rpcnet.cpp \
   rpcrawtransaction.cpp \
   rpcserver.cpp \
-  script/sigcache.cpp \
-  timedata.cpp \
-  txdb.cpp \
+  rpcmnengine.cpp \
+  rpcvelocity.cpp \
+  blockparams.cpp \
+  rpcsmessage.cpp \
+  smessage.cpp \
+  webwalletconnector.cpp \
+  stealth.cpp \
+  support/cleanse.cpp \
   txmempool.cpp \
   $(JSON_H) \
   $(BITCOIN_CORE_H)
@@ -188,12 +193,21 @@ libbitcoin_server_a_SOURCES = \
 # when wallet enabled
 libbitcoin_wallet_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_SOURCES = \
+  activemasternode.cpp \
   db.cpp \
   crypter.cpp \
+  scrypt.cpp \
+  instantx.cpp \
+  masternode.cpp \
+  masternode-payments.cpp \
+  masternodeconfig.cpp \
+  masternodeman.cpp \
   rpcdump.cpp \
   rpcwallet.cpp \
   wallet.cpp \
   walletdb.cpp \
+  rpcclient.cpp \
+  pbkdf2.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
@@ -225,28 +239,16 @@ crypto_libbitcoin_crypto_a_SOURCES = \
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_common_a_SOURCES = \
   allocators.cpp \
-  #amount.cpp \
   base58.cpp \
   chainparams.cpp \
-  coins.cpp \
-  compressor.cpp \
-  core/block.cpp \
-  core/transaction.cpp \
-  core_read.cpp \
-  core_write.cpp \
-  eccryptoverify.cpp \
   ecwrapper.cpp \
   hash.cpp \
   key.cpp \
   keystore.cpp \
   netbase.cpp \
-  protocol.cpp \
+  script.cpp \
   pubkey.cpp \
-  script/interpreter.cpp \
-  script/script.cpp \
-  script/sign.cpp \
-  script/standard.cpp \
-  script/script_error.cpp \
+  spork.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
@@ -270,10 +272,10 @@ libbitcoin_util_a_SOURCES += compat/glibcxx_compat.cpp
 endif
 
 # cli: shared between bitcoin-cli and bitcoin-qt
-libbitcoin_cli_a_CPPFLAGS = $(BITCOIN_INCLUDES)
-libbitcoin_cli_a_SOURCES = \
-  rpcclient.cpp \
-  $(BITCOIN_CORE_H)
+#libbitcoin_cli_a_CPPFLAGS = $(BITCOIN_INCLUDES)
+#libbitcoin_cli_a_SOURCES = \
+#  rpcclient.cpp \
+#  $(BITCOIN_CORE_H)
 
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
@@ -304,15 +306,15 @@ bitcoind_CPPFLAGS = $(BITCOIN_INCLUDES)
 bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 # bitcoin-cli binary #
-bitcoin_cli_LDADD = \
-  $(LIBBITCOIN_CLI) \
-  $(LIBBITCOIN_UTIL) \
-  $(BOOST_LIBS) \
-  $(SSL_LIBS) \
-  $(CRYPTO_LIBS)
+#bitcoin_cli_LDADD = \
+#  $(LIBBITCOIN_CLI) \
+#  $(LIBBITCOIN_UTIL) \
+#  $(BOOST_LIBS) \
+#  $(SSL_LIBS) \
+#  $(CRYPTO_LIBS)
 
-bitcoin_cli_SOURCES = \
-  bitcoin-cli.cpp
+#bitcoin_cli_SOURCES = \
+#  bitcoin-cli.cpp
 
 bitcoin_cli_CPPFLAGS = $(BITCOIN_INCLUDES)
 #
@@ -332,10 +334,10 @@ bitcoin_tx_CPPFLAGS = $(BITCOIN_INCLUDES)
 #
 bitcoin_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
-if TARGET_WINDOWS
-bitcoin_cli_SOURCES += bitcoin-cli-res.rc
-endif
-bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+#if TARGET_WINDOWS
+#bitcoin_cli_SOURCES += bitcoin-cli-res.rc
+#endif
+#bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno
 

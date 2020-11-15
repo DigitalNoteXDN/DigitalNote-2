@@ -1,6 +1,6 @@
 #! /bin/sh
 # Generated automatically by config.status (bitcoin) 1.0.3
-# Libtool was configured on host buddillalappy.local:
+# Libtool was configured on host Vadims-MacBook-Pro.local:
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 
 # Provide generalized library-building support services.
@@ -82,13 +82,13 @@ SED="/usr/local/bin/gsed"
 Xsed="$SED -e 1s/^X//"
 
 # A grep program that handles long lines.
-GREP="/usr/local/bin/ggrep"
+GREP="/usr/bin/grep"
 
 # An ERE matcher.
-EGREP="/usr/local/bin/ggrep -E"
+EGREP="/usr/bin/grep -E"
 
 # A literal string matcher.
-FGREP="/usr/local/bin/ggrep -F"
+FGREP="/usr/bin/grep -F"
 
 # A BSD- or MS-compatible name lister.
 NM="/usr/bin/nm -B"
@@ -162,7 +162,7 @@ old_postuninstall_cmds=""
 lock_old_archive_extraction=yes
 
 # A C compiler.
-LTCC="/usr/local/bin/ccache gcc"
+LTCC="gcc"
 
 # LTCC compiler flags.
 LTCFLAGS="-g -O2"
@@ -282,7 +282,7 @@ finish_eval=""
 hardcode_into_libs=no
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/12.0.0  /usr/local/lib"
+sys_lib_search_path_spec="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/11.0.3  /usr/local/lib"
 
 # Detected run-time system search path for libraries.
 sys_lib_dlsearch_path_spec="/usr/local/lib /lib /usr/lib"

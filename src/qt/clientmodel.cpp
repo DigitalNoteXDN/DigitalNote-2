@@ -195,11 +195,6 @@ QString ClientModel::formatFullVersion() const
     return QString::fromStdString(FormatFullVersion());
 }
 
-QString ClientModel::formatBuildDate() const
-{
-    return QString::fromStdString(CLIENT_DATE);
-}
-
 bool ClientModel::isReleaseVersion() const
 {
     return CLIENT_VERSION_IS_RELEASE;
@@ -213,6 +208,11 @@ QString ClientModel::clientName() const
 QString ClientModel::formatClientStartupTime() const
 {
     return QDateTime::fromTime_t(nClientStartupTime).toString();
+}
+
+QString ClientModel::dataDir() const
+{
+    return QString::fromStdString(GetDataDir().string());
 }
 
 QString ClientModel::getConfigFileContent() const

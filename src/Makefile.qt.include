@@ -76,67 +76,83 @@ QT_TS = \
   qt/locale/bitcoin_zh_TW.ts
 
 QT_FORMS_UI = \
-  qt/forms/addressbookpage.ui \
-  qt/forms/askpassphrasedialog.ui \
   qt/forms/coincontroldialog.ui \
-  qt/forms/editaddressdialog.ui \
-  qt/forms/helpmessagedialog.ui \
-  qt/forms/intro.ui \
-  qt/forms/openuridialog.ui \
-  qt/forms/optionsdialog.ui \
-  qt/forms/overviewpage.ui \
-  qt/forms/receivecoinsdialog.ui \
-  qt/forms/receiverequestdialog.ui \
-  qt/forms/rpcconsole.ui \
   qt/forms/sendcoinsdialog.ui \
-  qt/forms/sendcoinsentry.ui \
+  qt/forms/addressbookpage.ui \
   qt/forms/signverifymessagedialog.ui \
-  qt/forms/transactiondescdialog.ui
+  qt/forms/aboutdialog.ui \
+  qt/forms/editaddressdialog.ui \
+  qt/forms/importprivatekeydialog.ui \
+  qt/forms/editconfigdialog.ui \
+  qt/forms/transactiondescdialog.ui \
+  qt/forms/overviewpage.ui \
+  qt/forms/sendcoinsentry.ui \
+  qt/forms/askpassphrasedialog.ui \
+  qt/forms/rpcconsole.ui \
+  qt/forms/optionsdialog.ui \
+  qt/forms/masternodemanager.ui \
+  qt/forms/addeditadrenalinenode.ui \
+  qt/forms/adrenalinenodeconfigdialog.ui \
+  qt/forms/messagepage.ui \
+  qt/forms/sendmessagesentry.ui \
+  qt/forms/sendmessagesdialog.ui \
+  qt/forms/blockbrowser.ui \
+  qt/plugins/mrichtexteditor/mrichtextedit.ui
 
 QT_MOC_CPP = \
-  qt/moc_addressbookpage.cpp \
-  qt/moc_addresstablemodel.cpp \
-  qt/moc_askpassphrasedialog.cpp \
-  qt/moc_bitcoinaddressvalidator.cpp \
-  qt/moc_bitcoinamountfield.cpp \
   qt/moc_bitcoingui.cpp \
-  qt/moc_bitcoinunits.cpp \
-  qt/moc_clientmodel.cpp \
+  qt/moc_transactiontablemodel.cpp \
+  qt/moc_addresstablemodel.cpp \
+  qt/moc_bantablemodel.cpp \
+  qt/moc_optionsdialog.cpp \
   qt/moc_coincontroldialog.cpp \
   qt/moc_coincontroltreewidget.cpp \
-  qt/moc_csvmodelwriter.cpp \
-  qt/moc_editaddressdialog.cpp \
-  qt/moc_guiutil.cpp \
-  qt/moc_intro.cpp \
-  qt/moc_macdockiconhandler.cpp \
-  qt/moc_macnotificationhandler.cpp \
-  qt/moc_notificator.cpp \
-  qt/moc_openuridialog.cpp \
-  qt/moc_optionsdialog.cpp \
-  qt/moc_optionsmodel.cpp \
-  qt/moc_overviewpage.cpp \
-  qt/moc_peertablemodel.cpp \
-  qt/moc_paymentserver.cpp \
-  qt/moc_qvalidatedlineedit.cpp \
-  qt/moc_qvaluecombobox.cpp \
-  qt/moc_receivecoinsdialog.cpp \
-  qt/moc_receiverequestdialog.cpp \
-  qt/moc_recentrequeststablemodel.cpp \
-  qt/moc_rpcconsole.cpp \
   qt/moc_sendcoinsdialog.cpp \
-  qt/moc_sendcoinsentry.cpp \
+  qt/moc_addressbookpage.cpp \
   qt/moc_signverifymessagedialog.cpp \
-  qt/moc_splashscreen.cpp \
+  qt/moc_aboutdialog.cpp \
+  qt/moc_editaddressdialog.cpp \
+  qt/moc_importprivatekeydialog.cpp \
+  qt/moc_editconfigdialog.cpp \
+  qt/moc_bitcoinaddressvalidator.cpp \
+  qt/moc_masternodemanager.cpp \
+  qt/moc_addeditadrenalinenode.cpp \
+  qt/moc_adrenalinenodeconfigdialog.cpp \
+  qt/moc_qcustomplot.cpp \
+  qt/moc_messagepage.cpp \
+  qt/moc_messagemodel.cpp \
+  qt/moc_sendmessagesdialog.cpp \
+  qt/moc_sendmessagesentry.cpp \
+  qt/moc_blockbrowser.cpp \
+  qt/moc_superblockpage.cpp \
+  qt/moc_plugins/mrichtexteditor/mrichtextedit.cpp \
+  qt/moc_qvalidatedtextedit.cpp \
+  qt/moc_flowlayout.cpp \
+  qt/moc_clientmodel.cpp \
+  qt/moc_guiutil.cpp \
+  qt/moc_transactionrecord.cpp \
+  qt/moc_guiconstants.cpp \
+  qt/moc_optionsmodel.cpp \
+  qt/moc_monitoreddatamapper.cpp \
+  qt/moc_peertablemodel.cpp \
   qt/moc_trafficgraphwidget.cpp \
   qt/moc_transactiondesc.cpp \
   qt/moc_transactiondescdialog.cpp \
+  qt/moc_bitcoinamountfield.cpp \
   qt/moc_transactionfilterproxy.cpp \
-  qt/moc_transactiontablemodel.cpp \
   qt/moc_transactionview.cpp \
-  qt/moc_utilitydialog.cpp \
-  qt/moc_walletframe.cpp \
   qt/moc_walletmodel.cpp \
-  qt/moc_walletview.cpp
+  qt/moc_walletmodeltransaction.cpp \
+  qt/moc_overviewpage.cpp \
+  qt/moc_csvmodelwriter.cpp \
+  qt/moc_sendcoinsentry.cpp \
+  qt/moc_qvalidatedlineedit.cpp \
+  qt/moc_bitcoinunits.cpp \
+  qt/moc_qvaluecombobox.cpp \
+  qt/moc_askpassphrasedialog.cpp \
+  qt/moc_notificator.cpp \
+  qt/moc_paymentserver.cpp \
+  qt/moc_rpcconsole.cpp
 
 BITCOIN_MM = \
   qt/macdockiconhandler.mm \
@@ -154,166 +170,210 @@ QT_QRC = qt/bitcoin.qrc
 QT_QRC_LOCALE_CPP = qt/qrc_bitcoin_locale.cpp
 QT_QRC_LOCALE = qt/bitcoin_locale.qrc
 
-PROTOBUF_CC = qt/paymentrequest.pb.cc
-PROTOBUF_H = qt/paymentrequest.pb.h
-PROTOBUF_PROTO = qt/paymentrequest.proto
+#PROTOBUF_CC = qt/paymentrequest.pb.cc
+#PROTOBUF_H = qt/paymentrequest.pb.h
+#PROTOBUF_PROTO = qt/paymentrequest.proto
 
 BITCOIN_QT_H = \
-  qt/addressbookpage.h \
-  qt/addresstablemodel.h \
-  qt/askpassphrasedialog.h \
-  qt/bitcoinaddressvalidator.h \
-  qt/bitcoinamountfield.h \
   qt/bitcoingui.h \
-  qt/bitcoinunits.h \
-  qt/clientmodel.h \
+  qt/transactiontablemodel.h \
+  qt/addresstablemodel.h \
+  qt/bantablemodel.h \
+  qt/optionsdialog.h \
   qt/coincontroldialog.h \
   qt/coincontroltreewidget.h \
-  qt/csvmodelwriter.h \
-  qt/editaddressdialog.h \
-  qt/guiconstants.h \
-  qt/guiutil.h \
-  qt/intro.h \
-  qt/macdockiconhandler.h \
-  qt/macnotificationhandler.h \
-  qt/networkstyle.h \
-  qt/notificator.h \
-  qt/openuridialog.h \
-  qt/optionsdialog.h \
-  qt/optionsmodel.h \
-  qt/overviewpage.h \
-  qt/paymentrequestplus.h \
-  qt/paymentserver.h \
-  qt/peertablemodel.h \
-  qt/qvalidatedlineedit.h \
-  qt/qvaluecombobox.h \
-  qt/receivecoinsdialog.h \
-  qt/receiverequestdialog.h \
-  qt/recentrequeststablemodel.h \
-  qt/rpcconsole.h \
   qt/sendcoinsdialog.h \
-  qt/sendcoinsentry.h \
+  qt/addressbookpage.h \
   qt/signverifymessagedialog.h \
-  qt/splashscreen.h \
+  qt/aboutdialog.h \
+  qt/editaddressdialog.h \
+  qt/importprivatekeydialog.h \
+  qt/editconfigdialog.h \
+  qt/bitcoinaddressvalidator.h \
+  qt/masternodemanager.h \
+  qt/addeditadrenalinenode.h \
+  qt/adrenalinenodeconfigdialog.h \
+  qt/qcustomplot.h \
+  qt/plugins/mrichtexteditor/mrichtextedit.h \
+  qt/messagepage.h \
+  qt/messagemodel.h \
+  qt/sendmessagesdialog.h \
+  qt/sendmessagesentry.h \
+  qt/blockbrowser.h \
+  qt/superblockpage.h \
+  qt/qvalidatedtextedit.h \
+  qt/flowlayout.h \
+  qt/clientmodel.h \
+  qt/guiutil.h \
+  qt/transactionrecord.h \
+  qt/guiconstants.h \
+  qt/optionsmodel.h \
+  qt/monitoreddatamapper.h \
+  qt/peertablemodel.h \
   qt/trafficgraphwidget.h \
   qt/transactiondesc.h \
   qt/transactiondescdialog.h \
+  qt/bitcoinamountfield.h \
   qt/transactionfilterproxy.h \
-  qt/transactionrecord.h \
-  qt/transactiontablemodel.h \
   qt/transactionview.h \
-  qt/utilitydialog.h \
-  qt/walletframe.h \
   qt/walletmodel.h \
   qt/walletmodeltransaction.h \
-  qt/walletview.h \
-  qt/winshutdownmonitor.h
-
+  qt/overviewpage.h \
+  qt/csvmodelwriter.h \
+  qt/sendcoinsentry.h \
+  qt/qvalidatedlineedit.h \
+  qt/bitcoinunits.h \
+  qt/qvaluecombobox.h \
+  qt/askpassphrasedialog.h \
+  qt/notificator.h \
+  qt/paymentserver.h \
+  qt/rpcconsole.h 
+    
 RES_ICONS = \
+  qt/res/icons/quit.png \
+  qt/res/icons/editcopy.png \
+  qt/res/icons/address-book-sidebar.png \
+  qt/res/icons/onion.png \
   qt/res/icons/add.png \
-  qt/res/icons/address-book.png \
-  qt/res/icons/bitcoin.ico \
-  qt/res/icons/bitcoin.png \
-  qt/res/icons/bitcoin_testnet.ico \
-  qt/res/icons/bitcoin_testnet.png \
-  qt/res/icons/clock1.png \
-  qt/res/icons/clock2.png \
-  qt/res/icons/clock3.png \
-  qt/res/icons/clock4.png \
-  qt/res/icons/clock5.png \
+  qt/res/icons/transaction2.png \
+  qt/res/icons/trade.png \
+  qt/res/icons/folder.png \
+  qt/res/icons/staking_on.png \
+  qt/res/icons/tx_inout.png \
+  qt/res/icons/eye.png \
   qt/res/icons/configure.png \
+  qt/res/icons/send-sidebar.png \
+  qt/res/icons/receive.png \
+  qt/res/icons/eye_plus.png \
+  qt/res/icons/history.png \
+  qt/res/icons/tx_output.png \
+  qt/res/icons/key.png \
   qt/res/icons/connect0_16.png \
   qt/res/icons/connect1_16.png \
   qt/res/icons/connect2_16.png \
+  qt/res/icons/digitalnote.png \
   qt/res/icons/connect3_16.png \
   qt/res/icons/connect4_16.png \
+  qt/res/icons/remove.png \
   qt/res/icons/debugwindow.png \
   qt/res/icons/edit.png \
-  qt/res/icons/editcopy.png \
-  qt/res/icons/editpaste.png \
-  qt/res/icons/export.png \
-  qt/res/icons/eye.png \
-  qt/res/icons/eye_minus.png \
-  qt/res/icons/eye_plus.png \
-  qt/res/icons/filesave.png \
-  qt/res/icons/history.png \
-  qt/res/icons/key.png \
-  qt/res/icons/lock_closed.png \
+  qt/res/icons/transaction0.png \
+  qt/res/icons/tx_input.png \
+  qt/res/icons/browse.png \
+  qt/res/icons/mnodes.png \
+  qt/res/icons/clock1.png \
   qt/res/icons/lock_open.png \
+  qt/res/icons/staking_off.png \
+  qt/res/icons/clock2.png \
   qt/res/icons/overview.png \
   qt/res/icons/qrcode.png \
-  qt/res/icons/quit.png \
-  qt/res/icons/receive.png \
-  qt/res/icons/remove.png \
-  qt/res/icons/send.png \
-  qt/res/icons/synced.png \
-  qt/res/icons/transaction0.png \
-  qt/res/icons/transaction2.png \
-  qt/res/icons/transaction_conflicted.png \
-  qt/res/icons/tx_inout.png \
-  qt/res/icons/tx_input.png \
-  qt/res/icons/tx_output.png \
+  qt/res/icons/clock3.png \
   qt/res/icons/tx_mined.png \
-  qt/res/icons/unit_btc.png \
-  qt/res/icons/unit_mbtc.png \
-  qt/res/icons/unit_ubtc.png
-
-BITCOIN_QT_CPP = \
-  qt/bitcoinaddressvalidator.cpp \
-  qt/bitcoinamountfield.cpp \
-  qt/bitcoingui.cpp \
-  qt/bitcoinunits.cpp \
-  qt/clientmodel.cpp \
-  qt/csvmodelwriter.cpp \
-  qt/guiutil.cpp \
-  qt/intro.cpp \
-  qt/networkstyle.cpp \
-  qt/notificator.cpp \
-  qt/optionsdialog.cpp \
-  qt/optionsmodel.cpp \
-  qt/peertablemodel.cpp \
-  qt/qvalidatedlineedit.cpp \
-  qt/qvaluecombobox.cpp \
-  qt/rpcconsole.cpp \
-  qt/splashscreen.cpp \
-  qt/trafficgraphwidget.cpp \
-  qt/utilitydialog.cpp \
-  qt/winshutdownmonitor.cpp
+  qt/res/icons/clock4.png \
+  qt/res/icons/address-book.png \
+  qt/res/icons/clock5.png \
+  qt/res/icons/block.png \
+  qt/res/icons/lock_closed_toolbar.png \
+  qt/res/icons/onion-black.png \
+  qt/res/icons/eye_minus.png \
+  qt/res/icons/digitalnote_testnet.png \
+  qt/res/icons/synced.png \
+  qt/res/icons/transaction_conflicted.png \
+  qt/res/icons/lock_open_toolbar\ .png \
+  qt/res/icons/superblock.png \
+  qt/res/icons/export.png \
+  qt/res/icons/editconf.png \
+  qt/res/icons/digitalnote-16_testnet.png \
+  qt/res/icons/filesave.png \
+  qt/res/icons/digitalnote-16.png \
+  qt/res/icons/send.png \
+  qt/res/icons/message.png \
+  qt/res/icons/editpaste.png \
+  qt/res/icons/lock_closed.png \
+  qt/res/icons/dark/digitalnote_dark-16_testnet.png \
+  qt/res/icons/dark/synced.png \
+  qt/res/icons/dark/lock_open.png \
+  qt/res/icons/dark/tx_mined.png \
+  qt/res/icons/dark/lock_closed.png \
+  qt/res/icons/dark/connect0_16.png \
+  qt/res/icons/dark/connect1_16.png \
+  qt/res/icons/dark/connect2_16.png \
+  qt/res/icons/dark/connect3_16.png \
+  qt/res/icons/dark/connect4_16.png \
+  qt/res/icons/dark/digitalnote_dark-16.png \
+  qt/res/icons/dark/digitalnote_dark_testnet.png \
+  qt/res/icons/dark/tx_input.png \
+  qt/res/icons/dark/tx_inout.png \
+  qt/res/icons/dark/digitalnote_dark.png \
+  qt/res/icons/dark/tx_output.png \
+  qt/res/icons/dark/staking_on.png \
+  qt/res/icons/dark/staking_off.png
 
 if ENABLE_WALLET
-BITCOIN_QT_CPP += \
-  qt/addressbookpage.cpp \
+BITCOIN_QT_CPP = \
+  qt/bitcoin.cpp \
+  qt/bitcoingui.cpp \
+  qt/transactiontablemodel.cpp \
   qt/addresstablemodel.cpp \
-  qt/askpassphrasedialog.cpp \
+  qt/bantablemodel.cpp \
+  qt/optionsdialog.cpp \
+  qt/sendcoinsdialog.cpp \
   qt/coincontroldialog.cpp \
   qt/coincontroltreewidget.cpp \
-  qt/editaddressdialog.cpp \
-  qt/openuridialog.cpp \
-  qt/overviewpage.cpp \
-  qt/paymentrequestplus.cpp \
-  qt/paymentserver.cpp \
-  qt/receivecoinsdialog.cpp \
-  qt/receiverequestdialog.cpp \
-  qt/recentrequeststablemodel.cpp \
-  qt/sendcoinsdialog.cpp \
-  qt/sendcoinsentry.cpp \
+  qt/addressbookpage.cpp \
   qt/signverifymessagedialog.cpp \
+  qt/aboutdialog.cpp \
+  qt/editaddressdialog.cpp \
+  qt/importprivatekeydialog.cpp \
+  qt/editconfigdialog.cpp \
+  qt/bitcoinaddressvalidator.cpp \
+  qt/clientmodel.cpp \
+  qt/guiutil.cpp \
+  qt/transactionrecord.cpp \
+  qt/optionsmodel.cpp \
+  qt/monitoreddatamapper.cpp \
+  qt/peertablemodel.cpp \
+  qt/trafficgraphwidget.cpp \
   qt/transactiondesc.cpp \
   qt/transactiondescdialog.cpp \
+  qt/bitcoinstrings.cpp \
+  qt/bitcoinamountfield.cpp \
   qt/transactionfilterproxy.cpp \
-  qt/transactionrecord.cpp \
-  qt/transactiontablemodel.cpp \
   qt/transactionview.cpp \
-  qt/walletframe.cpp \
   qt/walletmodel.cpp \
   qt/walletmodeltransaction.cpp \
-  qt/walletview.cpp
+  qt/overviewpage.cpp \
+  qt/csvmodelwriter.cpp \
+  qt/sendcoinsentry.cpp \
+  qt/qvalidatedlineedit.cpp \
+  qt/bitcoinunits.cpp \
+  qt/qvaluecombobox.cpp \
+  qt/askpassphrasedialog.cpp \
+  qt/notificator.cpp \
+  qt/paymentserver.cpp \
+  qt/rpcconsole.cpp \
+  qt/flowlayout.cpp \
+  qt/masternodemanager.cpp \
+  qt/addeditadrenalinenode.cpp \
+  qt/adrenalinenodeconfigdialog.cpp \
+  qt/qcustomplot.cpp \
+  qt/messagepage.cpp \
+  qt/messagemodel.cpp \
+  qt/sendmessagesdialog.cpp \
+  qt/sendmessagesentry.cpp \
+  qt/blockbrowser.cpp \
+  qt/qvalidatedtextedit.cpp \
+  qt/plugins/mrichtexteditor/mrichtextedit.cpp 
 endif
 
 RES_IMAGES = \
+  qt/res/images/header.png \
   qt/res/images/about.png \
   qt/res/images/splash.png \
-  qt/res/images/splash_testnet.png
+  qt/res/images/splash_dark.png \
+  qt/res/images/about_dark.png \
+  qt/res/images/header_dark.png
+
 
 RES_MOVIES = $(wildcard qt/res/movies/spinner-*.png)
 
@@ -326,10 +386,10 @@ qt_libbitcoinqt_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \
   $(QT_INCLUDES) $(QT_DBUS_INCLUDES) $(PROTOBUF_CFLAGS) $(QR_CFLAGS)
 
 qt_libbitcoinqt_a_SOURCES = $(BITCOIN_QT_CPP) $(BITCOIN_QT_H) $(QT_FORMS_UI) \
-  $(QT_QRC) $(QT_QRC_LOCALE) $(QT_TS) $(PROTOBUF_PROTO) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
+  $(QT_QRC) $(QT_QRC_LOCALE) $(QT_TS) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
 
-nodist_qt_libbitcoinqt_a_SOURCES = $(QT_MOC_CPP) $(QT_MOC) $(PROTOBUF_CC) \
-  $(PROTOBUF_H) $(QT_QRC_CPP) $(QT_QRC_LOCALE_CPP)
+nodist_qt_libbitcoinqt_a_SOURCES = $(QT_MOC_CPP) $(QT_MOC) \
+  $(QT_QRC_CPP) $(QT_QRC_LOCALE_CPP)
 
 # forms/foo.h -> forms/ui_foo.h
 QT_FORMS_H=$(join $(dir $(QT_FORMS_UI)),$(addprefix ui_, $(notdir $(QT_FORMS_UI:.ui=.h))))
@@ -338,11 +398,6 @@ QT_FORMS_H=$(join $(dir $(QT_FORMS_UI)),$(addprefix ui_, $(notdir $(QT_FORMS_UI:
 # before anything else.
 $(QT_MOC): $(QT_FORMS_H)
 $(qt_libbitcoinqt_a_OBJECTS) $(qt_bitcoin_qt_OBJECTS) : | $(QT_MOC)
-
-#Generating these with a half-written protobuf header leads to wacky results.
-#This makes sure it's done.
-$(QT_MOC): $(PROTOBUF_H)
-$(QT_MOC_CPP): $(PROTOBUF_H)
 
 # bitcoin-qt binary #
 qt_bitcoin_qt_CPPFLAGS = $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \
@@ -383,7 +438,7 @@ $(QT_QRC_LOCALE_CPP): $(QT_QRC_LOCALE) $(QT_QM)
 	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin_locale $(@D)/$(<F) | \
 	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
 
-$(QT_QRC_CPP): $(QT_QRC) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES) $(PROTOBUF_H)
+$(QT_QRC_CPP): $(QT_QRC) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
 	@test -f $(RCC)
 	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin $< | \
 	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@

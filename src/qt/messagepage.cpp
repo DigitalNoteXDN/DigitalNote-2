@@ -2,7 +2,7 @@
 #include "ui_messagepage.h"
 
 #include "sendmessagesdialog.h"
-#include "mrichtextedit.h"
+#include "plugins/mrichtexteditor/mrichtextedit.h"
 #include "messagemodel.h"
 #include "bitcoingui.h"
 #include "csvmodelwriter.h"
