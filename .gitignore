@@ -117,3 +117,8 @@ src/qt/plugins/mrichtexteditor/.deps/.dirstamp
 src/qt/plugins/mrichtexteditor/.dirstamp
 build-aux/config.guess
 libtool
+libbitcoinconsensus.pc
+src/qt/plugins/mrichtexteditor/moc_mrichtextedit.cpp
+src/qt/bitcoin-qt
+build-aux/config.guess
+build-aux/config.sub
