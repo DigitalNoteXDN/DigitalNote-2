@@ -1,12 +1,10 @@
 #include "sendmessagesdialog.h"
 #include "ui_sendmessagesdialog.h"
-//#include "init.h"
 #include "walletmodel.h"
 #include "messagemodel.h"
 #include "addressbookpage.h"
 #include "optionsmodel.h"
 #include "sendmessagesentry.h"
-//#include "guiutil.h"
 
 #include <QMessageBox>
 #include <QLocale>
@@ -155,7 +153,7 @@ void SendMessagesDialog::on_sendButton_clicked()
     QStringList formatted;
     foreach(const SendMessagesRecipient &rcp, recipients)
     {
-        formatted.append(tr("<b>%1</b> to %2 (%3)").arg(rcp.message, Qt::escape(rcp.label), rcp.address));
+        formatted.append(tr("<b>%1</b> to %2 (%3)").arg(rcp.message, rcp.label.toHtmlEscaped(), rcp.address));
     }
 
     fNewRecipientAllowed = false;
