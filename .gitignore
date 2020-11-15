@@ -99,3 +99,12 @@ qa/pull-tester/test.*/*
 !src/leveldb-*/Makefile
 
 /doc/doxygen/
+*.Po
+src/compat/.deps/.dirstamp
+src/compat/.dirstamp
+src/config/stamp-h1
+src/crypto/.dirstamp
+src/crypto/common/.deps/.dirstamp
+src/crypto/common/.dirstamp
+src/support/.deps/.dirstamp
+src/support/.dirstamp
