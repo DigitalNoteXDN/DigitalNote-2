@@ -78,6 +78,7 @@ QT_TS = \
 QT_FORMS_UI = \
   qt/forms/coincontroldialog.ui \
   qt/forms/sendcoinsdialog.ui \
+  qt/forms/qrcodedialog.ui \
   qt/forms/addressbookpage.ui \
   qt/forms/signverifymessagedialog.ui \
   qt/forms/aboutdialog.ui \
@@ -133,6 +134,8 @@ QT_MOC_CPP = \
   qt/moc_guiconstants.cpp \
   qt/moc_optionsmodel.cpp \
   qt/moc_monitoreddatamapper.cpp \
+  qt/moc_macdockiconhandler.cpp \
+  qt/moc_macnotificationhandler.cpp \
   qt/moc_peertablemodel.cpp \
   qt/moc_trafficgraphwidget.cpp \
   qt/moc_transactiondesc.cpp \
@@ -151,6 +154,7 @@ QT_MOC_CPP = \
   qt/moc_askpassphrasedialog.cpp \
   qt/moc_notificator.cpp \
   qt/moc_paymentserver.cpp \
+  qt/moc_qrcodedialog.cpp \
   qt/moc_rpcconsole.cpp
 
 BITCOIN_MM = \
@@ -207,6 +211,8 @@ BITCOIN_QT_H = \
   qt/guiconstants.h \
   qt/optionsmodel.h \
   qt/monitoreddatamapper.h \
+  qt/macdockiconhandler.h \
+  qt/macnotificationhandler.h \
   qt/peertablemodel.h \
   qt/trafficgraphwidget.h \
   qt/transactiondesc.h \
@@ -225,6 +231,7 @@ BITCOIN_QT_H = \
   qt/askpassphrasedialog.h \
   qt/notificator.h \
   qt/paymentserver.h \
+  qt/qrcodedialog.h \
   qt/rpcconsole.h 
     
 RES_ICONS = \
@@ -360,7 +367,8 @@ BITCOIN_QT_CPP = \
   qt/sendmessagesentry.cpp \
   qt/blockbrowser.cpp \
   qt/qvalidatedtextedit.cpp \
-  qt/plugins/mrichtexteditor/mrichtextedit.cpp 
+  qt/qrcodedialog.cpp \
+  qt/plugins/mrichtexteditor/mrichtextedit.cpp
 endif
 
 RES_IMAGES = \
@@ -372,7 +380,7 @@ RES_IMAGES = \
   qt/res/images/header_dark.png
 
 
-RES_MOVIES = $(wildcard qt/res/movies/spinner-*.png)
+RES_MOVIES = $(wildcard $(srcdir)/qt/res/movies/spinner-*.png)
 
 BITCOIN_RC = qt/res/bitcoin-qt-res.rc
 
@@ -411,7 +419,7 @@ qt_bitcoin_qt_LDADD = qt/libbitcoinqt.a $(LIBBITCOIN_SERVER)
 if ENABLE_WALLET
 qt_bitcoin_qt_LDADD += $(LIBBITCOIN_WALLET)
 endif
-qt_bitcoin_qt_LDADD += $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
+qt_bitcoin_qt_LDADD += $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
   $(BOOST_LIBS) $(QT_LIBS) $(QT_DBUS_LIBS) $(QR_LIBS) $(PROTOBUF_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(LIBSECP256K1)
 qt_bitcoin_qt_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(QT_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 qt_bitcoin_qt_LIBTOOLFLAGS = --tag CXX
@@ -435,10 +443,12 @@ translate: qt/bitcoinstrings.cpp $(QT_FORMS_UI) $(QT_FORMS_UI) $(BITCOIN_QT_CPP)
 #	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin_locale $(@D)/$(<F) | \
 #	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
 
-$(QT_QRC_CPP): $(QT_QRC) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES)
+$(QT_QRC_CPP): $(QT_QRC) $(QT_FORMS_H) $(RES_ICONS) $(RES_IMAGES) $(RES_MOVIES) $(PROTOBUF_H)
 	@test -f $(RCC)
-	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin $< | \
+	@cp -f $< $(@D)/temp_$(<F)
+	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(RCC) -name bitcoin $(@D)/temp_$(<F) | \
 	  $(SED) -e '/^\*\*.*Created:/d' -e '/^\*\*.*by:/d' > $@
+	@rm $(@D)/temp_$(<F)
 
 CLEAN_QT = $(nodist_qt_libbitcoinqt_a_SOURCES) $(QT_QM) $(QT_FORMS_H) qt/*.gcda qt/*.gcno
 
@@ -447,7 +457,7 @@ CLEANFILES += $(CLEAN_QT)
 bitcoin_qt_clean: FORCE
 	rm -f $(CLEAN_QT) $(qt_libbitcoinqt_a_OBJECTS) $(qt_bitcoin_qt_OBJECTS) qt/bitcoin-qt$(EXEEXT) $(LIBBITCOINQT)
 
-bitcoin_qt : qt/bitcoin-qt$(EXEEXT)
+bitcoin_qt : qt/digitalnote-qt$(EXEEXT)
 
 ui_%.h: %.ui
 	@test -f $(UIC)
