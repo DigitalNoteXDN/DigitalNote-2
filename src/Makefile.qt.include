@@ -127,7 +127,6 @@ QT_MOC_CPP = \
   qt/moc_blockbrowser.cpp \
   qt/plugins/mrichtexteditor/moc_mrichtextedit.cpp \
   qt/moc_qvalidatedtextedit.cpp \
-  qt/moc_flowlayout.cpp \
   qt/moc_clientmodel.cpp \
   qt/moc_guiutil.cpp \
   qt/moc_optionsmodel.cpp \
@@ -138,7 +137,6 @@ QT_MOC_CPP = \
   qt/moc_trafficgraphwidget.cpp \
   qt/moc_transactiondesc.cpp \
   qt/moc_transactiondescdialog.cpp \
-  qt/moc_bitcoinamountfield.cpp \
   qt/moc_transactionfilterproxy.cpp \
   qt/moc_transactionview.cpp \
   qt/moc_walletmodel.cpp \

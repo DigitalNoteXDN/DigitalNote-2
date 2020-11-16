@@ -579,7 +579,7 @@ int64_t GetMasternodePayment(int nHeight, int64_t blockValue)
     {
         seesawRollover = seesawArcend * seesawEpoch;
         LogPrint("creation", "GetMasternodePayment(): seesawRollover=%lu\n", seesawRollover);
-        seesawInterval =- seesawRollover;
+        seesawInterval = -seesawRollover;
         LogPrint("creation", "GetMasternodePayment(): seesawInterval=%lu\n", seesawInterval);
     }
     else

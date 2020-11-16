@@ -8,8 +8,6 @@
 #include "chainparams.h"
 #include "main.h"
 #include "util.h"
-// TODO: Verify the requirement of below link
-// #include "base58.h"
 
 #include <boost/assign/list_of.hpp>
 
