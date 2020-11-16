@@ -12,6 +12,7 @@
 #include "mruset.h"
 #include "netbase.h"
 #include "protocol.h"
+#include "random.h"
 #include "sync.h"
 #include "uint256.h"
 #include "util.h"
@@ -29,7 +30,6 @@
 #define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/signals2/signal.hpp>
 #undef BOOST_ALLOW_DEPRECATED_HEADERS
-#include <openssl/rand.h>
 
 class CAddrMan;
 class CBlockIndex;

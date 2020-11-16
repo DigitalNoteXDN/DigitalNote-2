@@ -6,6 +6,7 @@
 #include "assert.h"
 
 #include "chainparams.h"
+#include "random.h"
 #include "main.h"
 #include "util.h"
 
@@ -54,13 +55,13 @@ public:
         vAlertPubKey = ParseHex("01b88735a49f1996be6b659c91a94fbfebeb5d517698712acdbef262f7c2f81f85d131a669df3be611393f454852a2d08c6314bba5ca3cbe5616262da3b1a6afed");
         nDefaultPort = 18092;
         nRPCPort = 18094;
-        bnProofOfWorkLimit = CBigNum(~uint256(0) >> 14);
-        bnProofOfStakeLimit = CBigNum(~uint256(0) >> 16);
+        bnProofOfWorkLimit = ~uint256(0) >> 14;
+        bnProofOfStakeLimit = ~uint256(0) >> 16;
 
         const char* pszTimestamp = "Elon Musk Wants to Embed AI-on-a-Chip Into Every Human Brain | JP Buntinx | January 18, 2019 | News, Technology | TheMerkle";
         std::vector<CTxIn> vin;
         vin.resize(1);
-        vin[0].scriptSig = CScript() << 0 << CBigNum(42) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+        vin[0].scriptSig = CScript() << 0 << 42 << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         std::vector<CTxOut> vout;
         vout.resize(1);
         vout[0].nValue = 1 * COIN;
@@ -138,8 +139,8 @@ public:
         pchMessageStart[1] = 0xbc;
         pchMessageStart[2] = 0x1c;
         pchMessageStart[3] = 0xf4;
-        bnProofOfWorkLimit = CBigNum(~uint256(0) >> 12);
-        bnProofOfStakeLimit = CBigNum(~uint256(0) >> 14);
+        bnProofOfWorkLimit = ~uint256(0) >> 12;
+        bnProofOfStakeLimit = ~uint256(0) >> 14;
         vAlertPubKey = ParseHex("00f88735a49f1996be6b659c91a94fbfebeb5d517698712acdbef262f7c2f81f85d131a669df3be611393f454852a2d08c6314bba5ca3cbe5616262da3b1a6afed");
         nDefaultPort = 28092;
         nRPCPort = 28094;
@@ -188,7 +189,7 @@ public:
         pchMessageStart[1] = 0xbb;
         pchMessageStart[2] = 0x0a;
         pchMessageStart[3] = 0xa9;
-        bnProofOfWorkLimit = CBigNum(~uint256(0) >> 1);
+        bnProofOfWorkLimit = ~uint256(0) >> 1;
         genesis.nTime = timeRegNetGenesis;
         genesis.nBits  = bnProofOfWorkLimit.GetCompact();
         genesis.nNonce = 8;

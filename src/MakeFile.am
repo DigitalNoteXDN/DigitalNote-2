@@ -74,8 +74,8 @@ BITCOIN_CORE_H = \
   addrman.h \
   alert.h \
   allocators.h \
+  attributes.h \
   base58.h \
-  bignum.h \
   blockparams.h \
   blocksizecalculator.h \
   chain.h \
@@ -92,6 +92,7 @@ BITCOIN_CORE_H = \
   fork.h \
   genesis.h \
   hash.h \
+  prevector.h \
   init.h \
   instantx.h \
   kernel.h \
@@ -100,6 +101,7 @@ BITCOIN_CORE_H = \
   limitedmap.h \
   main.h \
   protocol.h \
+  random.h \
   masternode-payments.h \
   masternode.h \
   masternodeconfig.h \
@@ -111,7 +113,6 @@ BITCOIN_CORE_H = \
   net.h \
   netbase.h \
   pbkdf2.h \
-  protocol.h \
   pubkey.h \
   rpcclient.h \
   rpcprotocol.h \
@@ -119,12 +120,14 @@ BITCOIN_CORE_H = \
   rpcvelocity.h \
   script.h \
   serialize.h \
+  span.h \
   smessage.h \
   spork.h \
   stealth.h \
   support/cleanse.h \
   sync.h \
   threadsafety.h \
+  timedata.h \
   tinyformat.h \
   txdb.h \
   txmempool.h \
@@ -184,6 +187,7 @@ libbitcoin_server_a_SOURCES = \
   smessage.cpp \
   webwalletconnector.cpp \
   stealth.cpp \
+  timedata.cpp \
   support/cleanse.cpp \
   txmempool.cpp \
   $(JSON_H) \
@@ -261,6 +265,8 @@ libbitcoin_util_a_SOURCES = \
   chainparams.cpp \
   clientversion.cpp \
   rpcprotocol.cpp \
+  random.cpp \
+  uint256.cpp \
   sync.cpp \
   util.cpp \
   utilstrencodings.cpp \

@@ -6,7 +6,6 @@
 #ifndef MASTERNODE_POS_H
 #define MASTERNODE_POS_H
 
-#include "bignum.h"
 #include "sync.h"
 #include "net.h"
 #include "key.h"

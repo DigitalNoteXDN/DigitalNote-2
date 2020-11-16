@@ -15,6 +15,7 @@
 #include "netbase.h"
 #include <string>
 #include "uint256.h"
+#include "version.h"
 
 /** Message header.
  * (4) message start.

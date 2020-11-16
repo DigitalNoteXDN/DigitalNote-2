@@ -233,15 +233,15 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, unsigned 
         return error("CheckStakeKernelHash() : nTime violation");
 
     // Base target
-    CBigNum bnTarget;
+    uint256 bnTarget;
     bnTarget.SetCompact(nBits);
 
     // Weighted target
     int64_t nValueIn = txPrev.vout[prevout.n].nValue;
-    CBigNum bnWeight = CBigNum(nValueIn);
+    uint256 bnWeight = uint256(nValueIn);
     bnTarget *= bnWeight;
 
-    targetProofOfStake = bnTarget.getuint256();
+    targetProofOfStake = bnTarget;
 
     uint64_t nStakeModifier = pindexPrev->nStakeModifier;
     uint256 bnStakeModifierV2 = pindexPrev->bnStakeModifierV2;
@@ -268,7 +268,7 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, unsigned 
     }
 
     // Now check if proof-of-stake hash meets target protocol
-    if (CBigNum(hashProofOfStake) > bnTarget){
+    if (hashProofOfStake > bnTarget){
          return false;
     }
 

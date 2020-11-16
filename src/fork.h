@@ -6,8 +6,6 @@
 #ifndef BITCOIN_FORK_H
 #define BITCOIN_FORK_H
 
-#include "bignum.h"
-
 /** Reserve Phase start block */ 
 static const int64_t nReservePhaseStart = 1;
 /** Masternode/Devops Payment Update 1 **/

@@ -29,6 +29,9 @@
 /* Define to 1 to enable wallet functions */
 #define ENABLE_WALLET 1
 
+/* Define to 1 to enable ZMQ functions */
+#define ENABLE_ZMQ 0
+
 /* parameter and return value type for __fdelt_chk */
 /* #undef FDELT_TYPE */
 

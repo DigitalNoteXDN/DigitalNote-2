@@ -49,8 +49,8 @@ double VRFup3 = 2;
 double TerminalAverage = 0;
 double TerminalFactor = 10000;
 double debugTerminalAverage = 0;
-CBigNum newBN = 0;
-CBigNum oldBN = 0;
+uint256 newBN = 0;
+uint256 oldBN = 0;
 int64_t VLrate1 = 0;
 int64_t VLrate2 = 0;
 int64_t VLrate3 = 0;
@@ -82,9 +82,9 @@ bool fDryRun;
 bool fCRVreset;
 const CBlockIndex* pindexPrev = 0;
 const CBlockIndex* BlockVelocityType = 0;
-CBigNum bnVelocity = 0;
-CBigNum bnOld;
-CBigNum bnNew;
+uint256 bnVelocity = 0;
+uint256 bnOld;
+uint256 bnNew;
 std::string difType ("");
 unsigned int retarget = DIFF_VRX; // Default with VRX
 
@@ -146,8 +146,6 @@ void VRXdebug()
     LogPrintf("Terminal-Velocity 4th multiplier set to: %f: \n",VLF4);
     LogPrintf("Terminal-Velocity 5th multiplier set to: %f: \n",VLF5);
     LogPrintf("Terminal-Velocity averaged a final multiplier of: %f: \n",TerminalAverage);
-    LogPrintf("Prior Terminal-Velocity: %u\n", oldBN);
-    LogPrintf("New Terminal-Velocity:  %u\n", newBN);
     return;
 }
 

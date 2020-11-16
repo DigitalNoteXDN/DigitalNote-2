@@ -7,8 +7,6 @@
 #ifndef BITCOIN_MINING_H
 #define BITCOIN_MINING_H
 
-#include "bignum.h"
-
 /** Minimum nCoinAge required to stake PoS */
 static const unsigned int nStakeMinAge = 2 / 60; // 30 minutes
 /** Time to elapse before new modifier is computed */

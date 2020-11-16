@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 
-#include "bignum.h"
 #include "sync.h"
 #include "net.h"
 #include "key.h"

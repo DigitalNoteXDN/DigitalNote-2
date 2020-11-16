@@ -11,7 +11,6 @@
 
 #include "clientversion.h"
 #include "chain.h"
-#include "bignum.h"
 #include "sync.h"
 #include "txmempool.h"
 #include "net.h"
@@ -21,6 +20,7 @@
 #include "fork.h"
 #include "genesis.h"
 #include "mining.h"
+#include "timedata.h"
 
 #include <list>
 

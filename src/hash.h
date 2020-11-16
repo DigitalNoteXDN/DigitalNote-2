@@ -13,6 +13,7 @@
 
 #include "crypto/common/ripemd160.h"
 #include "crypto/common/sha256.h"
+#include "version.h"
 
 #include <vector>
 

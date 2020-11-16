@@ -11,6 +11,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "rpcserver.h"
+#include "timedata.h"
 #include "util.h"
 #include "stealth.h"
 #include "spork.h"

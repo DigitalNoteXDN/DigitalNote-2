@@ -7,8 +7,6 @@
 #ifndef BITCOIN_GENESIS_H
 #define BITCOIN_GENESIS_H
 
-#include "bignum.h"
-
 /** Genesis Start Time */
 static const unsigned int timeGenesisBlock = 1547848800; // Friday, January 18, 2019 10:00:00 PM
 /** Genesis TestNet Start Time */

@@ -5,7 +5,6 @@
 #ifndef SPORK_H
 #define SPORK_H
 
-#include "bignum.h"
 #include "sync.h"
 #include "net.h"
 #include "key.h"
@@ -49,7 +48,6 @@ using namespace boost;
 class CSporkMessage;
 class CSporkManager;
 
-#include "bignum.h"
 #include "net.h"
 #include "key.h"
 #include "util.h"
