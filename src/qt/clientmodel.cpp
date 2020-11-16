@@ -17,7 +17,7 @@
 #include <QTimer>
 #include <QDebug>
 #include <QFile>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 static const int64_t nClientStartupTime = GetTime();
 
@@ -222,7 +222,7 @@ QString ClientModel::getConfigFileContent() const
     boost::filesystem::path path = GetConfigFile();
     QString pathString = QString::fromStdString(path.string());
     QFile file(pathString);
-    
+
     if (file.exists())
     {
         QString line;
@@ -233,7 +233,7 @@ QString ClientModel::getConfigFileContent() const
             {
                 line = stream.readLine();
                 result += line + "\n";
-            }   
+            }
         }
     }
 
@@ -246,7 +246,7 @@ void ClientModel::setConfigFileContent(const QString &content)
     boost::filesystem::path path = GetConfigFile();
     QString pathString = QString::fromStdString(path.string());
     QFile file(pathString);
-    
+
     if (file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
         QTextStream stream(&file);
@@ -294,16 +294,16 @@ static void BannedListChanged(ClientModel *clientmodel)
 void ClientModel::subscribeToCoreSignals()
 {
     // Connect signals to client
-    uiInterface.ShowProgress.connect(boost::bind(ShowProgress, this, _1, _2));
-    uiInterface.NotifyNumConnectionsChanged.connect(boost::bind(NotifyNumConnectionsChanged, this, _1));
-    uiInterface.NotifyAlertChanged.connect(boost::bind(NotifyAlertChanged, this, _1, _2));
+    uiInterface.ShowProgress.connect(boost::bind(ShowProgress, this, boost::placeholders::_1, boost::placeholders::_2));
+    uiInterface.NotifyNumConnectionsChanged.connect(boost::bind(NotifyNumConnectionsChanged, this, boost::placeholders::_1));
+    uiInterface.NotifyAlertChanged.connect(boost::bind(NotifyAlertChanged, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
 void ClientModel::unsubscribeFromCoreSignals()
 {
     // Disconnect signals from client
-    uiInterface.ShowProgress.disconnect(boost::bind(ShowProgress, this, _1, _2));
-    uiInterface.NotifyNumConnectionsChanged.disconnect(boost::bind(NotifyNumConnectionsChanged, this, _1));
-    uiInterface.NotifyAlertChanged.disconnect(boost::bind(NotifyAlertChanged, this, _1, _2));
+    uiInterface.ShowProgress.disconnect(boost::bind(ShowProgress, this, boost::placeholders::_1, boost::placeholders::_2));
+    uiInterface.NotifyNumConnectionsChanged.disconnect(boost::bind(NotifyNumConnectionsChanged, this, boost::placeholders::_1));
+    uiInterface.NotifyAlertChanged.disconnect(boost::bind(NotifyAlertChanged, this, boost::placeholders::_1, boost::placeholders::_2));
     uiInterface.BannedListChanged.disconnect(boost::bind(BannedListChanged, this));
 }
