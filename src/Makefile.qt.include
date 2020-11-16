@@ -130,8 +130,6 @@ QT_MOC_CPP = \
   qt/moc_flowlayout.cpp \
   qt/moc_clientmodel.cpp \
   qt/moc_guiutil.cpp \
-  qt/moc_transactionrecord.cpp \
-  qt/moc_guiconstants.cpp \
   qt/moc_optionsmodel.cpp \
   qt/moc_monitoreddatamapper.cpp \
   qt/moc_macdockiconhandler.cpp \
@@ -164,7 +162,6 @@ BITCOIN_MM = \
 QT_MOC = \
   qt/bitcoin.moc \
   qt/bitcoinamountfield.moc \
-  qt/intro.moc \
   qt/overviewpage.moc \
   qt/rpcconsole.moc
 
@@ -232,7 +229,7 @@ BITCOIN_QT_H = \
   qt/notificator.h \
   qt/paymentserver.h \
   qt/qrcodedialog.h \
-  qt/rpcconsole.h 
+  qt/rpcconsole.h
     
 RES_ICONS = \
   qt/res/icons/quit.png \
@@ -421,7 +418,7 @@ qt_bitcoin_qt_LDADD += $(LIBBITCOIN_WALLET)
 endif
 qt_bitcoin_qt_LDADD += $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
   $(BOOST_LIBS) $(QT_LIBS) $(QT_DBUS_LIBS) $(QR_LIBS) $(PROTOBUF_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(LIBSECP256K1)
-qt_bitcoin_qt_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(QT_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+qt_bitcoin_qt_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(QT_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 qt_bitcoin_qt_LIBTOOLFLAGS = --tag CXX
 
 #locale/foo.ts -> locale/foo.qm
