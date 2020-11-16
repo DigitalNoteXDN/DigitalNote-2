@@ -24,7 +24,7 @@
 #define CLIENT_VERSION_REVISION 3
 
 /* Version is release */
-#define COPYRIGHT_YEAR 2014
+#define COPYRIGHT_YEAR 2020
 
 /* Define to 1 to enable wallet functions */
 #define ENABLE_WALLET 1
@@ -268,10 +268,10 @@
 #define PACKAGE_BUGREPORT "info@bitcoin.org"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "Bitcoin Core"
+#define PACKAGE_NAME "DigitalNote"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Bitcoin Core 1.0.3"
+#define PACKAGE_STRING "DigitalNote 1.0.3"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "bitcoin"
