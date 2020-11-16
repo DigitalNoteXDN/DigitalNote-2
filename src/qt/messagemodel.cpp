@@ -297,7 +297,7 @@ private:
             cachedMessageTable.append(message);
         } else
         {
-            int index = qLowerBound(cachedMessageTable.begin(), cachedMessageTable.end(), message.received_datetime, MessageTableEntryLessThan()) - cachedMessageTable.begin();
+            int index = std::lower_bound(cachedMessageTable.begin(), cachedMessageTable.end(), message.received_datetime, MessageTableEntryLessThan()) - cachedMessageTable.begin();
             parent->beginInsertRows(QModelIndex(), index, index);
             cachedMessageTable.insert(
                         index,
@@ -518,7 +518,7 @@ Qt::ItemFlags MessageModel::flags(const QModelIndex & index) const
     if(index.isValid())
         return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
 
-    return 0;
+    return QFlag(0);
 }
 
 QModelIndex MessageModel::index(int row, int column, const QModelIndex & parent) const

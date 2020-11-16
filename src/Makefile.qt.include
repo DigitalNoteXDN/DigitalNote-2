@@ -142,7 +142,6 @@ QT_MOC_CPP = \
   qt/moc_transactionfilterproxy.cpp \
   qt/moc_transactionview.cpp \
   qt/moc_walletmodel.cpp \
-  qt/moc_walletmodeltransaction.cpp \
   qt/moc_overviewpage.cpp \
   qt/moc_csvmodelwriter.cpp \
   qt/moc_sendcoinsentry.cpp \
@@ -312,7 +311,6 @@ RES_ICONS = \
 
 if ENABLE_WALLET
 BITCOIN_QT_CPP = \
-  qt/bitcoin.cpp \
   qt/bitcoingui.cpp \
   qt/transactiontablemodel.cpp \
   qt/addresstablemodel.cpp \

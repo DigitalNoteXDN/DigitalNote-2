@@ -8,7 +8,10 @@
 #include "key.h"
 #include "pubkey.h"
 #include "sync.h"
+//temporary until they fix their own deprecated class
+#define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/signals2/signal.hpp>
+#undef BOOST_ALLOW_DEPRECATED_HEADERS
 #include "script.h"
 
 #include <boost/variant.hpp>

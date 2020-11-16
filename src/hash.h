@@ -16,6 +16,8 @@
 
 #include <vector>
 
+#pragma GCC diagnostic ignored "-Wvla-extension"
+
 /** A hasher class for DigitalNote's 256-bit hash (double SHA-256). */
 class CHash256 {
 private:

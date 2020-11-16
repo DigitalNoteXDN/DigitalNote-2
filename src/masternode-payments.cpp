@@ -216,7 +216,7 @@ void CMasternodePayments::CleanPaymentList()
 
 bool CMasternodePayments::NodeisCapable()
 {
-    bool fNodeisCapable;
+    bool fNodeisCapable = false;
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes){
         if(pnode->nVersion >= MIN_MASTERNODE_BSC_RELAY) {

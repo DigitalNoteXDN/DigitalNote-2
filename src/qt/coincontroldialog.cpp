@@ -516,7 +516,6 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
     bool fLowOutput = false;
     bool fDust = false;
     CTransaction txDummy;
-    const int listSize = CoinControlDialog::payAmounts.size();
     clock_t begin = clock();
     //for (int i = 0; i < listSize; ++i)
     foreach(const qint64 &amount, CoinControlDialog::payAmounts)

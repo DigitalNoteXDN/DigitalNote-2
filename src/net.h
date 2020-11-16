@@ -25,7 +25,10 @@
 
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
+//temporary until they fix their own deprecated class
+#define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/signals2/signal.hpp>
+#undef BOOST_ALLOW_DEPRECATED_HEADERS
 #include <openssl/rand.h>
 
 class CAddrMan;

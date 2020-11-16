@@ -67,7 +67,7 @@ void ProcessMessageInstantX(CNode* pfrom, std::string& strCommand, CDataStream& 
 
         bool fMissingInputs = false;
         CValidationState state;
-        CBlockIndex* pindex;
+        CBlockIndex* pindex = nullptr;
         CBlock block;
         CTxDB txdb("r");
 
@@ -343,7 +343,7 @@ bool ProcessConsensusVote(CNode* pnode, CConsensusVote& ctx)
         LogPrint("instantx", "InstantX::ProcessConsensusVote - Transaction Lock Exists %s !\n", ctx.txHash.ToString().c_str());
     }
 
-    CBlockIndex* pindex;
+    CBlockIndex* pindex = nullptr;
     CBlock block;
     CTxDB txdb("r");
     //compile consessus vote
