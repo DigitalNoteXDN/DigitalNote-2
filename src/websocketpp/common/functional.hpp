@@ -52,7 +52,7 @@
 #ifdef _WEBSOCKETPP_CPP11_FUNCTIONAL_
     #include <functional>
 #else
-    #include <boost/bind.hpp>
+    #include <boost/bind/bind.hpp>
     #include <boost/function.hpp>
     #include <boost/ref.hpp>
 #endif
