@@ -112,6 +112,7 @@ QT_MOC_CPP = \
   qt/moc_addressbookpage.cpp \
   qt/moc_signverifymessagedialog.cpp \
   qt/moc_aboutdialog.cpp \
+  #qt/moc_bitcoin.cpp \
   qt/moc_editaddressdialog.cpp \
   qt/moc_importprivatekeydialog.cpp \
   qt/moc_editconfigdialog.cpp \
@@ -311,6 +312,7 @@ RES_ICONS = \
 if ENABLE_WALLET
 BITCOIN_QT_CPP = \
   qt/bitcoingui.cpp \
+  qt/bitcoin.cpp \
   qt/transactiontablemodel.cpp \
   qt/addresstablemodel.cpp \
   qt/bantablemodel.cpp \
