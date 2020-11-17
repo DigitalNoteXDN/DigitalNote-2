@@ -119,6 +119,7 @@ QT_MOC_CPP = \
   qt/moc_masternodemanager.cpp \
   qt/moc_addeditadrenalinenode.cpp \
   qt/moc_adrenalinenodeconfigdialog.cpp \
+  qt/moc_bitcoinamountfield.cpp \
   qt/moc_qcustomplot.cpp \
   qt/moc_messagepage.cpp \
   qt/moc_messagemodel.cpp \

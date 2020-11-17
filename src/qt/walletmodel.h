@@ -77,12 +77,10 @@ public:
         READWRITE(amount);
         READWRITE(sMessage);
 
-        if (ser_action.ForRead())
-        {
-            address = QString::fromStdString(sAddress);
-            label = QString::fromStdString(sLabel);
-            message = QString::fromStdString(sMessage);
-        }
+
+        address = QString::fromStdString(sAddress);
+        label = QString::fromStdString(sLabel);
+        message = QString::fromStdString(sMessage);
     }
 };
 
