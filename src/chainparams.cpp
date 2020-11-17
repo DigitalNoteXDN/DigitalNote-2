@@ -61,7 +61,7 @@ public:
         const char* pszTimestamp = "Elon Musk Wants to Embed AI-on-a-Chip Into Every Human Brain | JP Buntinx | January 18, 2019 | News, Technology | TheMerkle";
         std::vector<CTxIn> vin;
         vin.resize(1);
-        vin[0].scriptSig = CScript() << 0 << 42 << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+        vin[0].scriptSig = CScript() << 0 << CScriptNum(42) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         std::vector<CTxOut> vout;
         vout.resize(1);
         vout[0].nValue = 1 * COIN;

@@ -7,6 +7,7 @@
 #include "crypto/common/common.h"
 #include "crypto/common/hmac_sha512.h"
 #include "pubkey.h"
+#include "random.h"
 
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>

@@ -37,7 +37,7 @@ std::string EncodeBase58(const std::vector<unsigned char>& vch);
  * return true if decoding is successful.
  * psz cannot be NULL.
  */
-bool DecodeBase58(const char* psz, std::vector<unsigned char>& vchRet);
+bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch);
 
 /**
  * Decode a base58-encoded string (str) into a byte vector (vchRet).

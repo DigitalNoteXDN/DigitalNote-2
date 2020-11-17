@@ -1931,8 +1931,8 @@ bool CWallet::GetStakeWeightFromValue(const int64_t& nTime, const int64_t& nValu
         if (nTimeWeight < 0 )
                 nTimeWeight=0;
 
-        CBigNum bnCoinDayWeight = CBigNum(nValue) * nTimeWeight / COIN / (24 * 60 * 60);
-        nWeight = bnCoinDayWeight.getuint64();
+        uint256 bnCoinDayWeight = uint256(nValue) * nTimeWeight / COIN / (24 * 60 * 60);
+        nWeight = bnCoinDayWeight.Get64();
         return true;
 }
 
@@ -2885,7 +2885,7 @@ uint64_t CWallet::GetStakeWeight() const
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key)
 {
     CBlockIndex* pindexPrev = pindexBest;
-    CBigNum bnTargetPerCoinDay;
+    uint256 bnTargetPerCoinDay;
     bnTargetPerCoinDay.SetCompact(nBits);
 
     txNew.vin.clear();

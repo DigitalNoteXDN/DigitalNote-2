@@ -3227,17 +3227,12 @@ int SecureMsgSetHash(uint8_t *pHeader, uint8_t *pPayload, uint32_t nPayload)
 
     uint32_t nonse = 0;
 
-    //CBigNum bnTarget(2);
-    //bnTarget = bnTarget.pow(256 - 40);
-
     // -- break for HMAC_CTX_cleanup
     for (;;)
     {
         if (!fSecMsgEnabled)
            break;
 
-        //psmsg->timestamp = GetTime();
-        //memcpy(&psmsg->timestamp, &now, 8);
         memcpy(&psmsg->nonse[0], &nonse, 4);
 
         for (int i = 0; i < 32; i+=4)
@@ -3252,16 +3247,6 @@ int SecureMsgSetHash(uint8_t *pHeader, uint8_t *pPayload, uint32_t nPayload)
             //|| !HMAC_Final(ctx, &vchHash[0], &nBytes)
             || nBytes != 32)
             break;
-
-        /*
-        if (CBigNum(vchHash) <= bnTarget)
-        {
-            found = true;
-            if (fDebugSmsg)
-                LogPrint("smessage", "Match %u\n", nonse);
-            break;
-        };
-        */
 
         if (sha256Hash[31] == 0
             && sha256Hash[30] == 0
