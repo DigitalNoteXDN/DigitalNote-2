@@ -585,8 +585,13 @@ AC_ARG_WITH([daemon],
   [build_bitcoind=$withval],
   [build_bitcoind=yes])
 
+use_pkgconfig=yes
 case $host in
   *mingw*)
+
+     #pkgconfig does more harm than good with MinGW
+     use_pkgconfig=no
+
      TARGET_OS=windows
      AC_CHECK_LIB([kernel32], [GetModuleFileNameA],, AC_MSG_ERROR(libkernel32 missing))
      AC_CHECK_LIB([user32],   [main],, AC_MSG_ERROR(libuser32 missing))
@@ -643,8 +648,13 @@ case $host in
          dnl It's safe to add these paths even if the functionality is disabled by
          dnl the user (--without-wallet or --without-gui for example).
 
+         openssl_prefix=`$BREW --prefix openssl 2>/dev/null`
          bdb_prefix=$($BREW --prefix berkeley-db4 2>/dev/null)
          qt5_prefix=$($BREW --prefix qt5 2>/dev/null)
+         if test x$openssl_prefix != x; then
+                    PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
+                    export PKG_CONFIG_PATH
+         fi
          if test x$bdb_prefix != x && test "x$BDB_CFLAGS" = "x" && test "x$BDB_LIBS" = "x"; then
            dnl This must precede the call to BITCOIN_FIND_BDB48 below.
            BDB_CFLAGS="-I$bdb_prefix/include"
@@ -690,6 +700,16 @@ case $host in
      TARGET_OS=linux
      ;;
 esac
+
+if test x$use_pkgconfig = xyes; then
+  m4_ifndef([PKG_PROG_PKG_CONFIG], [AC_MSG_ERROR(PKG_PROG_PKG_CONFIG macro not found. Please install pkg-config and re-run autogen.sh.)])
+  m4_ifdef([PKG_PROG_PKG_CONFIG], [
+  PKG_PROG_PKG_CONFIG
+  if test x"$PKG_CONFIG" = "x"; then
+    AC_MSG_ERROR(pkg-config not found.)
+  fi
+  ])
+fi
 
 if test x$use_extended_functional_tests != xno; then
   AC_SUBST(EXTENDED_FUNCTIONAL_TESTS, --extended)
@@ -1461,6 +1481,20 @@ fi
 
 fi
 
+if test x$use_pkgconfig = xyes; then
+  : dnl
+  m4_ifdef(
+    [PKG_CHECK_MODULES],
+    [
+      PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto not found.)])
+    ]
+  )
+else
+  AC_CHECK_HEADER([openssl/crypto.h],,AC_MSG_ERROR(libcrypto headers missing))
+  AC_CHECK_LIB([crypto],      [main],CRYPTO_LIBS=-lcrypto, AC_MSG_ERROR(libcrypto missing))
+fi
+
+
 dnl libevent check
 
 if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench != xnonononono; then
@@ -1788,6 +1822,7 @@ AC_SUBST(MINIUPNPC_CPPFLAGS)
 AC_SUBST(MINIUPNPC_LIBS)
 AC_SUBST(EVENT_LIBS)
 AC_SUBST(EVENT_PTHREADS_LIBS)
+AC_SUBST(CRYPTO_LIBS)
 AC_SUBST(ZMQ_LIBS)
 AC_SUBST(QR_LIBS)
 AC_SUBST(HAVE_GMTIME_R)
