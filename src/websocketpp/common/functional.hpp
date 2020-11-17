@@ -85,9 +85,9 @@ namespace lib {
     using boost::ref;
     namespace placeholders {
         /// \todo this feels hacky, is there a better way?
-        using ::_1;
-        using ::_2;
-        using ::_3;
+        using boost::placeholders::_1;
+        using boost::placeholders::_2;
+        using boost::placeholders::_3;
     }
 
     // See above definition for more details on what this is and why it exists

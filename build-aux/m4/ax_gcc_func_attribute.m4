@@ -31,6 +31,7 @@
 #    cold
 #    const
 #    constructor
+#    constructor_priority for constructor attribute with priority
 #    deprecated
 #    destructor
 #    dllexport
@@ -73,10 +74,11 @@
 #   and this notice are preserved.  This file is offered as-is, without any
 #   warranty.
 
-#serial 2
+#serial 3
 
 AC_DEFUN([AX_GCC_FUNC_ATTRIBUTE], [
     AS_VAR_PUSHDEF([ac_var], [ax_cv_have_func_attribute_$1])
+
     AC_CACHE_CHECK([for __attribute__(($1))], [ac_var], [
         AC_LINK_IFELSE([AC_LANG_PROGRAM([
             m4_case([$1],
@@ -101,6 +103,9 @@ AC_DEFUN([AX_GCC_FUNC_ATTRIBUTE], [
                 ],
                 [const], [
                     int foo( void ) __attribute__(($1));
+                ],
+                [constructor_priority], [
+                    int foo( void ) __attribute__((__constructor__(65535/2)));
                 ],
                 [constructor], [
                     int foo( void ) __attribute__(($1));
@@ -209,8 +214,10 @@ AC_DEFUN([AX_GCC_FUNC_ATTRIBUTE], [
                 [AS_VAR_SET([ac_var], [yes])])],
             [AS_VAR_SET([ac_var], [no])])
     ])
+
     AS_IF([test yes = AS_VAR_GET([ac_var])],
         [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_FUNC_ATTRIBUTE_$1), 1,
             [Define to 1 if the system has the `$1' function attribute])], [])
+
     AS_VAR_POPDEF([ac_var])
 ])
