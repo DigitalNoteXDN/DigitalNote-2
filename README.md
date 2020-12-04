@@ -106,13 +106,13 @@ export BDB_INCLUDE_PATH="/usr/local/BerkeleyDB.6.2/include"; export BDB_LIB_PATH
 With UPNP:
 
 ```
-cd ~; cd ~/DigitalNote; qmake -qt=qt5; make
+cd ~/DigitalNote; qmake -qt=qt5; make
 ```
 
 **Recommended Without** UPNP:
 
 ```
-cd ~; cd ~/DigitalNote; qmake -qt=qt5 USE_UPNP=-; make
+cd ~/DigitalNote; qmake -qt=qt5 USE_UPNP=-; make
 ```
 
 
