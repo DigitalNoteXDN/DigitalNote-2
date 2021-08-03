@@ -79,35 +79,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ### Dependencies install
 ```
-cd ~
-sudo apt-get install -y ntp
-sudo apt-get install -y git
-sudo apt-get install -y build-essential
-sudo apt-get install -y libssl-dev
-sudo apt-get install -y libdb-dev
-sudo apt-get install -y libdb++-dev
-sudo apt-get install -y libboost-all-dev
-sudo apt-get install -y libqrencode-dev
-sudo apt-get install -y libcurl4-openssl-dev
-sudo apt-get install -y curl
-sudo apt-get install -y libzip-dev
-
-sudo apt-get update -y
-
-sudo apt-get install -y git
-sudo apt-get install -y make
-sudo apt-get install -y automake
-sudo apt-get install -y yasm
-sudo apt-get install -y binutils
-sudo apt-get install -y libcurl4-openssl-dev
-sudo apt-get install -y openssl
-sudo apt-get install -y libgmp-dev
-sudo apt-get install -y libtool
-sudo apt-get install -y qt5-default
-sudo apt-get install -y qttools5-dev-tools
-sudo apt-get install -y miniupnpc
-sudo apt-get install -y qt5-qmake
-sudo apt-get install -y libevent-dev
+cd ~ && sudo su && apt-get -y update && apt-get install -y ntp git build-essential libssl-dev libdb-dev libdb++-dev libboost-all-dev libqrencode-dev libcurl4-openssl-dev curl libzip-dev git make automake yasm binutils libcurl4-openssl-dev openssl libgmp-dev  libtool qt5-default qttools5-dev-tools miniupnpc qt5-qmake libevent-dev && exit
 ```
 
 ### Dependencies build and link
@@ -133,6 +105,17 @@ cd DigitalNote
 ```
 
 ### Build DigitalNote daemon
+
+Note: You may encounter a warning after running qmake simular to the following 
+
+`
+Info: creating stash file /root/DigitalNote/.qmake.stash
+Project MESSAGE: Building without UPNP support
+lrelease warning: Met no 'TRANSLATIONS' entry in project file '/root/DigitalNote/DigitalNote.daemon.pro'
+`
+
+You may continue forward with the make proccess without issue.
+
 
 With UPNP:
 ```
