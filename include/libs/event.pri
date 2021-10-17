@@ -1,5 +1,5 @@
 win32 {
-	exists($${DIGITALNOTE_EVENT_PATH}/.libs/libevent.a) {
+	exists($${DIGITALNOTE_EVENT_LIB_PATH}/libevent.a) {
 		message("found event lib")
 	} else {
 		message("You need to compile lib event yourself.")

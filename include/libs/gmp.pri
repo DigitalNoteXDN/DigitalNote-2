@@ -1,5 +1,5 @@
 win32 {
-	exists($${DIGITALNOTE_GMP_PATH}/.libs/libgmp.a) {
+	exists($${DIGITALNOTE_GMP_LIB_PATH}/libgmp.a) {
 		message("found gmp lib")
 	} else {
 		message("You need to compile leveldb yourself with msys2.")
