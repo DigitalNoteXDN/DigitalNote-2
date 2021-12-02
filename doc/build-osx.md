@@ -111,4 +111,18 @@ DigitalNote-qt: Qt5 GUI Release for DigitalNote
    make
    python2.7 contrib/macdeploy/macdeployqtplus DigitalNote-Qt.app -add-qt-tr da,de,es,hu,ru,uk,zh_CN,zh_TW -dmg -fancy contrib/macdeploy/fancy.plist
    ```
+   
+4. For builds upwards of 2.0.0.4 do the following instead of step 3.
+   Run in the ./DigitalNote-2
+   ```
+   cd DigitalNote 
+   cd src
+   cd leveldb 
+   make libleveldb.a libmemenv.a
+   cd ../../
+   qmake DigitalNote.app.pro USE_UPNP=- USE_DBUS=1 USE_QRCODE=1 USE_UNITY_BUILD=1
+   make -j 4
+   python2.7 contrib/macdeploy/macdeployqtplus DigitalNote-qt.app -add-qt-tr da,de,es,hu,ru,uk,zh_CN,zh_TW -dmg -fancy contrib/macdeploy/fancy.plist
+   ```
+  
  
