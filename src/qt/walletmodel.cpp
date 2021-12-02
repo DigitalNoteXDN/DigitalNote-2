@@ -551,6 +551,17 @@ bool WalletModel::backupWallet(const QString &filename)
     return BackupWallet(*wallet, filename.toLocal8Bit().data());
 }
 
+void WalletModel::checkWallet(int& nMismatchSpent, int64_t& nBalanceInQuestion)
+{
+	wallet->FixSpentCoins(nMismatchSpent, nBalanceInQuestion, true);
+}
+
+void WalletModel::repairWallet(int& nMismatchSpent, int64_t& nBalanceInQuestion)
+{
+	wallet->FixSpentCoins(nMismatchSpent, nBalanceInQuestion);
+}
+
+
 // Handlers for core signals
 static void NotifyKeyStoreStatusChanged(WalletModel *walletmodel, CCryptoKeyStore *wallet)
 {

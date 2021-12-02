@@ -111,6 +111,8 @@ private:
     QAction *changePassphraseAction;
     QAction *unlockWalletAction;
     QAction *lockWalletAction;
+	QAction *checkWalletAction;
+	QAction *repairWalletAction;
     QAction *aboutQtAction;
     QAction *openRPCConsoleAction;
     QAction *masternodeManagerAction;
@@ -214,7 +216,11 @@ private slots:
     void incomingMessage(const QModelIndex & parent, int start, int end);
     /** Encrypt the wallet */
     void encryptWallet();
-    /** Backup the wallet */
+	/** Check the wallet */
+    void checkWallet();
+    /** Repair the wallet */
+    void repairWallet();
+	/** Backup the wallet */
     void backupWallet();
     /** Import a private key */
     void importPrivateKey();
