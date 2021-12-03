@@ -1145,21 +1145,19 @@ void CMasternodeMan::RelayMasternodeEntryPing(const CTxIn vin, const std::vector
 
 void CMasternodeMan::Remove(CTxIn vin)
 {
-    LOCK(cs);
+	LOCK(cs);
 
-    std::vector<CMasternode>::iterator it = vMasternodes.begin();
-	
-    while(it != vMasternodes.end())
+	for(std::vector<CMasternode>::iterator it = vMasternodes.begin(); it != vMasternodes.end(); it++)
 	{
-        if((*it).vin == vin)
+		if((*it).vin == vin)
 		{
-            LogPrint("masternode", "CMasternodeMan: Removing Masternode %s - %i now\n", (*it).addr.ToString().c_str(), size() - 1);
-            
+			LogPrint("masternode", "CMasternodeMan: Removing Masternode %s - %i now\n", (*it).addr.ToString().c_str(), size() - 1);
+
 			vMasternodes.erase(it);
-            
+
 			break;
-        }
-    }
+		}
+	}
 }
 
 std::string CMasternodeMan::ToString() const
