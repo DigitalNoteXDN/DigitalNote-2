@@ -24,7 +24,7 @@
 #include "init.h"
 #include "kernel.h"
 #include "net.h"
-#include "txdb.h"
+#include "txdb-leveldb.h"
 #include "ctxmempool.h"
 #include "velocity.h"
 #include "cmasternode.h"

@@ -8,7 +8,8 @@ class CBlock;
 class uint256;
 class CBlockLocator;
 
-struct CMainSignals {
+struct CMainSignals
+{
     // Notifies listeners of updated transaction data (passing hash, transaction, and optionally the block it is found in.
     boost::signals2::signal<void (const CTransaction&, const CBlock*, bool, bool)> SyncTransaction;
     // Notifies listeners of an erased transaction (currently disabled, requires transaction replacement).

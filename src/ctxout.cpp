@@ -17,8 +17,8 @@ CTxOut::CTxOut()
 
 CTxOut::CTxOut(int64_t nValueIn, CScript scriptPubKeyIn)
 {
-    nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
+	nValue = nValueIn;
+	scriptPubKey = scriptPubKeyIn;
 }
 
 unsigned int CTxOut::GetSerializeSize(int nType, int nVersion) const
@@ -32,10 +32,10 @@ unsigned int CTxOut::GetSerializeSize(int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	s.nType = nType;
 	s.nVersion = nVersion;
-	
+
 	READWRITE(nValue);
-    READWRITE(scriptPubKey);
-	
+	READWRITE(scriptPubKey);
+
 	return nSerSize;
 }
 
@@ -48,9 +48,9 @@ void CTxOut::Serialize(Stream& s, int nType, int nVersion) const
 	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(nValue);
-    READWRITE(scriptPubKey);
+	READWRITE(scriptPubKey);
 }
 
 template<typename Stream>
@@ -62,9 +62,9 @@ void CTxOut::Unserialize(Stream& s, int nType, int nVersion)
 	const bool fRead = true;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(nValue);
-    READWRITE(scriptPubKey);
+	READWRITE(scriptPubKey);
 }
 
 template void CTxOut::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
@@ -98,7 +98,7 @@ bool CTxOut::IsEmpty() const
 
 uint256 CTxOut::GetHash() const
 {
-    return SerializeHash(*this);
+	return SerializeHash(*this);
 }
 
 bool CTxOut::IsDust(int64_t MIN_RELAY_TX_FEE) const
@@ -111,7 +111,7 @@ bool CTxOut::IsDust(int64_t MIN_RELAY_TX_FEE) const
 	// need a CTxIn of at least 148 bytes to spend,
 	// so dust is a txout less than 546 satoshis
 	// with default nMinRelayTxFee.
-	return ((nValue*1000)/(3*((int)GetSerializeSize(SER_DISK,0)+148)) < MIN_RELAY_TX_FEE);
+	return ((nValue * 1000) / (3 * ((int)GetSerializeSize(SER_DISK,0) + 148)) < MIN_RELAY_TX_FEE);
 }
 
 bool operator==(const CTxOut& a, const CTxOut& b)
@@ -128,7 +128,11 @@ bool operator!=(const CTxOut& a, const CTxOut& b)
 
 std::string CTxOut::ToString() const
 {
-    if (IsEmpty()) return "CTxOut(empty)";
-    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", FormatMoney(nValue), scriptPubKey.ToString());
+	if (IsEmpty())
+	{
+		return "CTxOut(empty)";
+	}
+	
+	return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", FormatMoney(nValue), scriptPubKey.ToString());
 }
 

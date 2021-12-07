@@ -102,15 +102,26 @@ bool operator!=(const CTxIn& a, const CTxIn& b)
 std::string CTxIn::ToString() const
 {
     std::string str;
+	
     str += "CTxIn(";
     str += prevout.ToString();
-    if (prevout.IsNull())
+    
+	if (prevout.IsNull())
+	{
         str += strprintf(", coinbase %s", HexStr(scriptSig));
+	}
     else
+	{
         str += strprintf(", scriptSig=%s", scriptSig.ToString().substr(0,24));
+	}
+	
     if (nSequence != std::numeric_limits<unsigned int>::max())
+	{
         str += strprintf(", nSequence=%u", nSequence);
+	}
+	
     str += ")";
-    return str;
+    
+	return str;
 }
 

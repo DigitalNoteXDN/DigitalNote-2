@@ -3,8 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_LEVELDB_H
-#define BITCOIN_LEVELDB_H
+#ifndef TXDB_LEVELDB_H
+#define TXDB_LEVELDB_H
 
 #include <string>
 #include <vector>
@@ -100,4 +100,4 @@ private:
 };
 
 
-#endif // BITCOIN_DB_H
+#endif // TXDB_LEVELDB_H

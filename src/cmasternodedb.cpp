@@ -100,12 +100,14 @@ CMasternodeDB::ReadResult CMasternodeDB::Read(CMasternodeMan& mnodemanToLoad)
         
 		return HashReadError;
     }
+	
     filein.fclose();
 
     CDataStream ssMasternodes(vchData, SER_DISK, CLIENT_VERSION);
 
     // verify stored checksum matches input data
     uint256 hashTmp = Hash(ssMasternodes.begin(), ssMasternodes.end());
+	
     if (hashIn != hashTmp)
     {
         error("%s : Checksum mismatch, data corrupted", __func__);
@@ -119,7 +121,6 @@ CMasternodeDB::ReadResult CMasternodeDB::Read(CMasternodeMan& mnodemanToLoad)
 	try
 	{
         // de-serialize file header (masternode cache file specific magic message) and ..
-
         ssMasternodes >> strMagicMessageTmp;
 
         // ... verify the message matches predefined one

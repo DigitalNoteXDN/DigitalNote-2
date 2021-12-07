@@ -17,7 +17,6 @@
 #include "init.h"
 #include "kernel.h"
 #include "net.h"
-#include "txdb.h"
 #include "velocity.h"
 #include "masternodeman.h"
 #include "cblockindex.h"
@@ -535,6 +534,7 @@ void VRX_Dry_Run(const CBlockIndex* pindexLast)
 
     // Standard, non-Dry Run
     fDryRun = false;
+	
     return;
 }
 
@@ -548,25 +548,39 @@ unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake)
 
     // Check for a dry run
     VRX_Dry_Run(pindexLast);
-    if(fDryRun) { return bnVelocity.GetCompact(); }
+    
+	if(fDryRun)
+	{
+		return bnVelocity.GetCompact();
+	}
 
     // Run VRX threadcurve
     VRX_ThreadCurve(pindexLast, fProofOfStake);
-    if (fCRVreset) { return bnVelocity.GetCompact(); }
+    
+	if (fCRVreset)
+	{
+		return bnVelocity.GetCompact();
+	}
 
     // Retarget using simulation
     VRX_Simulate_Retarget();
 
     // Limit
-    if (bnNew > bnVelocity) { bnNew = bnVelocity; }
+    if (bnNew > bnVelocity)
+	{
+		bnNew = bnVelocity;
+	}
 
     // Final log
     oldBN = bnOld.GetCompact();
     newBN = bnNew.GetCompact();
 
     // Debug print toggle
-    if(fDebug) VRXdebug();
-
+    if(fDebug)
+	{
+		VRXdebug();
+	}
+	
     // Return difficulty
     return bnNew.GetCompact();
 }
@@ -757,3 +771,4 @@ int64_t GetDevOpsPayment(int nHeight, int64_t blockValue)
 	
     return 50 * COIN; // 50 XDN per block
 }
+

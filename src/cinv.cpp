@@ -39,16 +39,22 @@ CInv::CInv(int typeIn, const uint256& hashIn)
 CInv::CInv(const std::string& strType, const uint256& hashIn)
 {
     unsigned int i;
+	
     for (i = 1; i < ARRAYLEN(ppszTypeName); i++)
     {
         if (strType == ppszTypeName[i])
         {
             type = i;
-            break;
+            
+			break;
         }
     }
+	
     if (i == ARRAYLEN(ppszTypeName))
+	{
         throw std::out_of_range(strprintf("CInv::CInv(std::string, uint256) : unknown type '%s'", strType));
+	}
+	
     hash = hashIn;
 }
 
@@ -65,7 +71,10 @@ bool CInv::IsKnownType() const
 const char* CInv::GetCommand() const
 {
     if (!IsKnownType())
+	{
         throw std::out_of_range(strprintf("CInv::GetCommand() : type=%d unknown type", type));
+	}
+	
     return ppszTypeName[type];
 }
 
@@ -122,3 +131,4 @@ void CInv::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CInv::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CInv::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

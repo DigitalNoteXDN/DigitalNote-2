@@ -16,7 +16,6 @@ protected:
     std::vector<uint256> vHave;
 
 public:
-
     CBlockLocator();
 	explicit CBlockLocator(const CBlockIndex* pindex);
 	explicit CBlockLocator(uint256 hashBlock);

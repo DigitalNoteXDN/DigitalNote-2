@@ -27,7 +27,8 @@ CCrypter::~CCrypter()
 	LockedPageManager::Instance().UnlockRange(&chIV[0], sizeof chIV);
 }
 
-bool CCrypter::SetKeyFromPassphrase(const SecureString& strKeyData, const std::vector<unsigned char>& chSalt, const unsigned int nRounds, const unsigned int nDerivationMethod)
+bool CCrypter::SetKeyFromPassphrase(const SecureString& strKeyData, const std::vector<unsigned char>& chSalt,
+		const unsigned int nRounds, const unsigned int nDerivationMethod)
 {
     if (nRounds < 1 || chSalt.size() != WALLET_CRYPTO_SALT_SIZE)
 	{
@@ -35,6 +36,7 @@ bool CCrypter::SetKeyFromPassphrase(const SecureString& strKeyData, const std::v
 	}
 	
     int i = 0;
+	
     if (nDerivationMethod == 0)
     {
         i = EVP_BytesToKey(

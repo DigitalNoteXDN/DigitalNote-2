@@ -51,6 +51,7 @@ bool CMasternodePayments::CheckSignature(CMasternodePaymentWinner& winner)
     CPubKey pubkey(ParseHex(strPubKey));
 
     std::string errorMessage = "";
+	
     if(!mnEngineSigner.VerifyMessage(pubkey, winner.vchSig, strMessage, errorMessage))
 	{
         return false;
@@ -150,7 +151,8 @@ bool CMasternodePayments::GetWinningMasternode(int nBlockHeight, CTxIn& vinOut)
 	
 	for(CMasternodePaymentWinner& winner : vWinning)
 	{
-        if(winner.nBlockHeight == nBlockHeight) {
+        if(winner.nBlockHeight == nBlockHeight)
+		{
             vinOut = winner.vin;
 			
             return true;
@@ -172,11 +174,13 @@ bool CMasternodePayments::AddWinningMasternode(CMasternodePaymentWinner& winnerI
     winnerIn.score = CalculateScore(blockHash, winnerIn.vin);
 
     bool foundBlock = false;
+	
     for(CMasternodePaymentWinner& winner : vWinning)
 	{
         if(winner.nBlockHeight == winnerIn.nBlockHeight)
 		{
             foundBlock = true;
+			
             if(winner.score < winnerIn.score)
 			{
                 winner.score = winnerIn.score;
@@ -213,9 +217,8 @@ void CMasternodePayments::CleanPaymentList()
 	}
 	
     int nLimit = std::max(((int)mnodeman.size())*((int)1.25), 1000);
-
-    std::vector<CMasternodePaymentWinner>::iterator it;
-    for(it=vWinning.begin();it<vWinning.end();it++)
+	
+    for(std::vector<CMasternodePaymentWinner>::iterator it = vWinning.begin(); it < vWinning.end(); it++)
 	{
         if(pindexBest->nHeight - (*it).nBlockHeight > nLimit)
 		{
@@ -250,6 +253,7 @@ bool CMasternodePayments::ProcessBlock(int nBlockHeight)
 	CScript payeeSource;
 
 	uint256 hash;
+	
 	if(!GetBlockHash(hash, nBlockHeight-10))
 	{
 		return false;
@@ -276,6 +280,7 @@ bool CMasternodePayments::ProcessBlock(int nBlockHeight)
 
 	// pay to the oldest MN that still had no payment but its input is old enough and it was active long enough
 	CMasternode* pmn = mnodeman.FindOldestNotInVec(vecLastPayments, nMinimumAge);
+	
 	if(pmn != NULL)
 	{
 		LogPrintf(" Found by FindOldestNotInVec \n");
@@ -365,51 +370,52 @@ bool CMasternodePayments::ProcessBlock(int nBlockHeight)
 
 void CMasternodePayments::Relay(CMasternodePaymentWinner& winner)
 {
-    CInv inv(MSG_MASTERNODE_WINNER, winner.GetHash());
-    std::vector<CInv> vInv;
-    vInv.push_back(inv);
-    
-	LOCK(cs_vNodes);
+	CInv inv(MSG_MASTERNODE_WINNER, winner.GetHash());
+	std::vector<CInv> vInv;
 	
-    for(CNode* pnode : vNodes)
+	vInv.push_back(inv);
+
+	LOCK(cs_vNodes);
+
+	for(CNode* pnode : vNodes)
 	{
-        pnode->PushMessage("inv", vInv);
-    }
+		pnode->PushMessage("inv", vInv);
+	}
 }
 
 void CMasternodePayments::Sync(CNode* node)
 {
-    LOCK(cs_masternodepayments);
+	LOCK(cs_masternodepayments);
 
-    for(CMasternodePaymentWinner& winner : vWinning)
+	for(CMasternodePaymentWinner& winner : vWinning)
 	{
-        if(winner.nBlockHeight >= pindexBest->nHeight-10 && winner.nBlockHeight <= pindexBest->nHeight + 20)
+		if(winner.nBlockHeight >= pindexBest->nHeight-10 && winner.nBlockHeight <= pindexBest->nHeight + 20)
 		{
-            node->PushMessage("mnw", winner);
+			node->PushMessage("mnw", winner);
 		}
 	}
 }
 
 bool CMasternodePayments::SetPrivKey(const std::string &strPrivKey)
 {
-    CMasternodePaymentWinner winner;
+	CMasternodePaymentWinner winner;
 
-    // Test signing successful, proceed
-    strMasterPrivKey = strPrivKey;
+	// Test signing successful, proceed
+	strMasterPrivKey = strPrivKey;
 
-    Sign(winner);
+	Sign(winner);
 
-    if(CheckSignature(winner))
+	if(CheckSignature(winner))
 	{
-        LogPrintf("CMasternodePayments::SetPrivKey - Successfully initialized as Masternode payments master\n");
-        
+		LogPrintf("CMasternodePayments::SetPrivKey - Successfully initialized as Masternode payments master\n");
+		
 		enabled = true;
-        
+		
 		return true;
-    }
+	}
 	else
 	{
-        return false;
-    }
+		return false;
+	}
 }
 

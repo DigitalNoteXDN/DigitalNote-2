@@ -29,9 +29,11 @@ unsigned int CKeyPool::GetSerializeSize(int nType, int nVersion) const
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
-	if (!(nType & SER_GETHASH)) {
+	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(nTime);
 	READWRITE(vchPubKey);
 	
@@ -48,9 +50,11 @@ void CKeyPool::Serialize(Stream& s, int nType, int nVersion) const
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
-	if (!(nType & SER_GETHASH)) {
+	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(nTime);
 	READWRITE(vchPubKey);
 }
@@ -65,9 +69,11 @@ void CKeyPool::Unserialize(Stream& s, int nType, int nVersion)
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
-	if (!(nType & SER_GETHASH)) {
+	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(nTime);
 	READWRITE(vchPubKey);
 }

@@ -87,12 +87,15 @@ bool CConsensusVote::SignatureValid()
     if(pmn == NULL)
     {
         LogPrintf("InstantX::CConsensusVote::SignatureValid() - Unknown Masternode\n");
+		
         return false;
     }
 
-    if(!mnEngineSigner.VerifyMessage(pmn->pubkey2, vchMasterNodeSignature, strMessage, errorMessage)) {
+    if(!mnEngineSigner.VerifyMessage(pmn->pubkey2, vchMasterNodeSignature, strMessage, errorMessage))
+	{
         LogPrintf("InstantX::CConsensusVote::SignatureValid() - Verify message failed\n");
-        return false;
+        
+		return false;
     }
 
     return true;
@@ -111,17 +114,22 @@ bool CConsensusVote::Sign()
     if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, key2, pubkey2))
     {
         LogPrintf("CConsensusVote::Sign() - ERROR: Invalid masternodeprivkey: '%s'\n", errorMessage.c_str());
-        return false;
+        
+		return false;
     }
 
-    if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, key2)) {
+    if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, key2))
+	{
         LogPrintf("CConsensusVote::Sign() - Sign message failed");
-        return false;
+        
+		return false;
     }
 
-    if(!mnEngineSigner.VerifyMessage(pubkey2, vchMasterNodeSignature, strMessage, errorMessage)) {
+    if(!mnEngineSigner.VerifyMessage(pubkey2, vchMasterNodeSignature, strMessage, errorMessage))
+	{
         LogPrintf("CConsensusVote::Sign() - Verify message failed");
-        return false;
+        
+		return false;
     }
 
     return true;

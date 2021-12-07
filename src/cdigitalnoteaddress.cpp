@@ -1,6 +1,3 @@
-//#include <boost/variant/apply_visitor.hpp>
-//#include <boost/variant/static_visitor.hpp>
-
 #include "cchainparams.h"
 #include "chainparams.h"
 #include "cdigitalnoteaddressvisitor.h"
@@ -104,3 +101,4 @@ bool CDigitalNoteAddress::IsScript() const
 {
     return IsValid() && vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS);
 }
+

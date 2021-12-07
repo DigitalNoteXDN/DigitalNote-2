@@ -1,8 +1,8 @@
 // Copyright (c) 2009-2012 The Bitcoin Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef __CRYPTER_H__
-#define __CRYPTER_H__
+#ifndef CRYPTER_H
+#define CRYPTER_H
 
 #include <string>
 #include <vector>
@@ -24,4 +24,4 @@ bool EncryptAES256(const SecureString& sKey, const SecureString& sPlaintext,
 bool DecryptAES256(const SecureString& sKey, const std::string& sCiphertext,
 		const std::string& sIV, SecureString& sPlaintext);
 
-#endif // __CRYPTER_H__
+#endif // CRYPTER_H

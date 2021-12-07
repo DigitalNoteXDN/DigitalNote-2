@@ -10,7 +10,7 @@
 #include <openssl/sha.h>
 
 #include "blockparams.h"
-#include "txdb.h"
+#include "txdb-leveldb.h"
 #include "kernel.h"
 #include "cmasternode.h"
 #include "cmasternodeman.h"

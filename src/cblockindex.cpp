@@ -54,6 +54,7 @@ CBlockIndex::CBlockIndex(unsigned int nFileIn, unsigned int nBlockPosIn, CBlock&
 	bnStakeModifierV2 = 0;
 	hashProof = 0;
 	nSequenceId = 0;
+	
 	if (block.IsProofOfStake())
 	{
 		SetProofOfStake();
@@ -76,21 +77,28 @@ CBlockIndex::CBlockIndex(unsigned int nFileIn, unsigned int nBlockPosIn, CBlock&
 CBlock CBlockIndex::GetBlockHeader() const
 {
 	CBlock block;
+	
 	block.nVersion       = nVersion;
-	if (pprev)
-		block.hashPrevBlock = pprev->GetBlockHash();
 	block.hashMerkleRoot = hashMerkleRoot;
 	block.nTime          = nTime;
 	block.nBits          = nBits;
 	block.nNonce         = nNonce;
+	
+	if (pprev)
+	{
+		block.hashPrevBlock = pprev->GetBlockHash();
+	}
+	
 	return block;
 }
 
 CDiskBlockPos CBlockIndex::GetBlockPos() const
 {
 	CDiskBlockPos ret;
+	
 	ret.nFile = nFile;
 	ret.nPos  = nBlockPos;
+	
 	return ret;
 }
 
@@ -107,13 +115,16 @@ int64_t CBlockIndex::GetBlockTime() const
 /* Calculates trust score for a block given */
 uint256 CBlockIndex::GetBlockTrust() const
 {
-    CBigNum bnTarget;
-    bnTarget.SetCompact(nBits);
+	CBigNum bnTarget;
 
-    if (bnTarget <= 0)
-        return 0;
+	bnTarget.SetCompact(nBits);
 
-    return ((CBigNum(1)<<256) / (bnTarget+1)).getuint256();
+	if (bnTarget <= 0)
+	{
+		return 0;
+	}
+
+	return ((CBigNum(1) << 256) / (bnTarget + 1)).getuint256();
 }
 
 bool CBlockIndex::IsInMainChain() const
@@ -138,11 +149,15 @@ int64_t CBlockIndex::GetMedianTimePast() const
 	int64_t* pend = &pmedian[nMedianTimeSpan];
 
 	const CBlockIndex* pindex = this;
+	
 	for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
+	{
 		*(--pbegin) = pindex->GetBlockTime();
-
+	}
+	
 	std::sort(pbegin, pend);
-	return pbegin[(pend - pbegin)/2];
+	
+	return pbegin[(pend - pbegin) / 2];
 }
 
 bool CBlockIndex::IsProofOfWork() const
@@ -168,8 +183,12 @@ unsigned int CBlockIndex::GetStakeEntropyBit() const
 bool CBlockIndex::SetStakeEntropyBit(unsigned int nEntropyBit)
 {
 	if (nEntropyBit > 1)
+	{
 		return false;
+	}
+
 	nFlags |= (nEntropyBit? BLOCK_STAKE_ENTROPY : 0);
+	
 	return true;
 }
 
@@ -181,8 +200,11 @@ bool CBlockIndex::GeneratedStakeModifier() const
 void CBlockIndex::SetStakeModifier(uint64_t nModifier, bool fGeneratedStakeModifier)
 {
 	nStakeModifier = nModifier;
+	
 	if (fGeneratedStakeModifier)
+	{
 		nFlags |= BLOCK_STAKE_MODIFIER;
+	}
 }
 
 std::string CBlockIndex::ToString() const
@@ -195,5 +217,7 @@ std::string CBlockIndex::ToString() const
 		hashProof.ToString(),
 		prevoutStake.ToString(), nStakeTime,
 		hashMerkleRoot.ToString(),
-		GetBlockHash().ToString());
+		GetBlockHash().ToString()
+	);
 }
+

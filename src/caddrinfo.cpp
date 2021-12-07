@@ -145,6 +145,7 @@ unsigned int CAddrInfo::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	CAddress* pthis = (CAddress*)(this);
+	
 	READWRITE(*pthis);
 	READWRITE(source);
 	READWRITE(nLastSuccess);
@@ -164,6 +165,7 @@ void CAddrInfo::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAddress* pthis = (CAddress*)(this);
+	
 	READWRITE(*pthis);
 	READWRITE(source);
 	READWRITE(nLastSuccess);
@@ -181,6 +183,7 @@ void CAddrInfo::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAddress* pthis = (CAddress*)(this);
+	
 	READWRITE(*pthis);
 	READWRITE(source);
 	READWRITE(nLastSuccess);
@@ -189,3 +192,4 @@ void CAddrInfo::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CAddrInfo::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CAddrInfo::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

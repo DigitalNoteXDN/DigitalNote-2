@@ -127,3 +127,4 @@ void CAddress::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CAddress::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CAddress::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

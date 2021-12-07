@@ -22,7 +22,10 @@ unsigned int CAccount::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	READWRITE(vchPubKey);
 	
 	return nSerSize;
@@ -39,7 +42,10 @@ void CAccount::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	READWRITE(vchPubKey);
 }
 
@@ -54,7 +60,10 @@ void CAccount::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	READWRITE(vchPubKey);
 }
 

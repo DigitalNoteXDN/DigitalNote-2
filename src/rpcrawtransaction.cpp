@@ -8,7 +8,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include "rpcserver.h"
-#include "txdb.h"
+#include "txdb-leveldb.h"
 #include "init.h"
 #include "ctransaction.h"
 #include "script.h"
@@ -346,8 +346,8 @@ json_spirit::Value createrawtransaction(const json_spirit::Array& params, bool f
     for(json_spirit::Value& input : inputs)
     {
         const json_spirit::Object& o = input.get_obj();
-
         const json_spirit::Value& txid_v = find_value(o, "txid");
+		
         if (txid_v.type() != json_spirit::str_type)
 		{
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing txid key");

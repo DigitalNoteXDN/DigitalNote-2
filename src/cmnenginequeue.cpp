@@ -24,14 +24,14 @@ CMNengineQueue::CMNengineQueue()
 bool CMNengineQueue::GetAddress(CService &addr)
 {
 	CMasternode* pmn = mnodeman.Find(vin);
-	
+
 	if(pmn != NULL)
 	{
 		addr = pmn->addr;
 		
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -39,14 +39,14 @@ bool CMNengineQueue::GetAddress(CService &addr)
 bool CMNengineQueue::GetProtocolVersion(int &protocolVersion)
 {
 	CMasternode* pmn = mnodeman.Find(vin);
-	
+
 	if(pmn != NULL)
 	{
 		protocolVersion = pmn->protocolVersion;
 		
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -59,55 +59,55 @@ bool CMNengineQueue::GetProtocolVersion(int &protocolVersion)
  */
 bool CMNengineQueue::Sign()
 {
-    if(!fMasterNode)
+	if(!fMasterNode)
 	{
 		return false;
 	}
-	
-    std::string strMessage = vin.ToString() + boost::lexical_cast<std::string>(time) + boost::lexical_cast<std::string>(ready);
 
-    CKey key2;
-    CPubKey pubkey2;
-    std::string errorMessage = "";
+	std::string strMessage = vin.ToString() + boost::lexical_cast<std::string>(time) + boost::lexical_cast<std::string>(ready);
 
-    if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, key2, pubkey2))
-    {
-        LogPrintf("CMNengineQueue():Relay - ERROR: Invalid Masternodeprivkey: '%s'\n", errorMessage);
-        LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - SetKey checks!!!\n");
-        
-		return false;
-    }
+	CKey key2;
+	CPubKey pubkey2;
+	std::string errorMessage = "";
 
-    if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchSig, key2))
+	if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, key2, pubkey2))
 	{
-        LogPrintf("CMNengineQueue():Relay - Sign message failed\n");
-        LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - SignMessage checks!!!\n");
-        
+		LogPrintf("CMNengineQueue():Relay - ERROR: Invalid Masternodeprivkey: '%s'\n", errorMessage);
+		LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - SetKey checks!!!\n");
+		
 		return false;
-    }
+	}
 
-    if(!mnEngineSigner.VerifyMessage(pubkey2, vchSig, strMessage, errorMessage))
+	if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchSig, key2))
 	{
-        LogPrintf("CMNengineQueue():Relay - Verify message failed\n");
-        LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - VerifyMessage checks!!!\n");
-        
+		LogPrintf("CMNengineQueue():Relay - Sign message failed\n");
+		LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - SignMessage checks!!!\n");
+		
 		return false;
-    }
+	}
 
-    return true;
+	if(!mnEngineSigner.VerifyMessage(pubkey2, vchSig, strMessage, errorMessage))
+	{
+		LogPrintf("CMNengineQueue():Relay - Verify message failed\n");
+		LogPrintf("CMNengineQueue():Relay - FORCE BYPASS - VerifyMessage checks!!!\n");
+		
+		return false;
+	}
+
+	return true;
 }
 
 bool CMNengineQueue::Relay()
 {
-    LOCK(cs_vNodes);
-	
-    for(CNode* pnode : vNodes)
-	{
-        // always relay to everyone
-        pnode->PushMessage("dsq", (*this));
-    }
+	LOCK(cs_vNodes);
 
-    return true;
+	for(CNode* pnode : vNodes)
+	{
+		// always relay to everyone
+		pnode->PushMessage("dsq", (*this));
+	}
+
+	return true;
 }
 
 /// Is this MNengine expired?
@@ -119,23 +119,24 @@ bool CMNengineQueue::IsExpired()
 /// Check if we have a valid Masternode address
 bool CMNengineQueue::CheckSignature()
 {
-    CMasternode* pmn = mnodeman.Find(vin);
-    if(pmn != NULL)
-    {
-        std::string strMessage = vin.ToString() + boost::lexical_cast<std::string>(time) + boost::lexical_cast<std::string>(ready);
-        std::string errorMessage = "";
-        
+	CMasternode* pmn = mnodeman.Find(vin);
+
+	if(pmn != NULL)
+	{
+		std::string strMessage = vin.ToString() + boost::lexical_cast<std::string>(time) + boost::lexical_cast<std::string>(ready);
+		std::string errorMessage = "";
+		
 		if(!mnEngineSigner.VerifyMessage(pmn->pubkey2, vchSig, strMessage, errorMessage))
 		{
-            LogPrintf("CMNengineQueue::CheckSignature() - WARNING - Could not verify masternode address signature %s \n", vin.ToString().c_str());
-            
+			LogPrintf("CMNengineQueue::CheckSignature() - WARNING - Could not verify masternode address signature %s \n", vin.ToString().c_str());
+			
 			return error("CMNengineQueue::CheckSignature() - Got bad Masternode address signature %s \n", vin.ToString().c_str());
-        }
+		}
 
-        return true;
-    }
+		return true;
+	}
 
-    return false;
+	return false;
 }
 
 unsigned int CMNengineQueue::GetSerializeSize(int nType, int nVersion) const
@@ -149,12 +150,12 @@ unsigned int CMNengineQueue::GetSerializeSize(int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	s.nType = nType;
 	s.nVersion = nVersion;
-	
+
 	READWRITE(vin);
 	READWRITE(time);
 	READWRITE(ready);
 	READWRITE(vchSig);
-	
+
 	return nSerSize;
 }
 
@@ -167,7 +168,7 @@ void CMNengineQueue::Serialize(Stream& s, int nType, int nVersion) const
 	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(vin);
 	READWRITE(time);
 	READWRITE(ready);
@@ -183,7 +184,7 @@ void CMNengineQueue::Unserialize(Stream& s, int nType, int nVersion)
 	const bool fRead = true;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(vin);
 	READWRITE(time);
 	READWRITE(ready);

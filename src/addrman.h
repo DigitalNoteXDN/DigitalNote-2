@@ -2,8 +2,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef _BITCOIN_ADDRMAN
-#define _BITCOIN_ADDRMAN
+#ifndef ADDRMAN_H
+#define ADDRMAN_H
 
 // Stochastic address manager
 //
@@ -73,4 +73,4 @@
 // the maximum number of nodes to return in a getaddr call
 #define ADDRMAN_GETADDR_MAX 2500
 
-#endif
+#endif // ADDRMAN_H

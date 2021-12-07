@@ -23,8 +23,12 @@ unsigned int CAccountingEntry::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	CAccountingEntry& me = *const_cast<CAccountingEntry*>(this);
+	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	// Note: strAccount is serialized as part of the key, not here.
 	READWRITE(nCreditDebit);
 	READWRITE(nTime);
@@ -37,9 +41,11 @@ unsigned int CAccountingEntry::GetSerializeSize(int nType, int nVersion) const
 		if (!(mapValue.empty() && _ssExtra.empty()))
 		{
 			CDataStream ss(nType, nVersion);
+			
 			ss.insert(ss.begin(), '\0');
 			ss << mapValue;
 			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
+			
 			me.strComment.append(ss.str());
 		}
 	}
@@ -47,20 +53,28 @@ unsigned int CAccountingEntry::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
+	
 	if (fRead)
 	{
 		me.mapValue.clear();
+		
 		if (std::string::npos != nSepPos)
 		{
 			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
+			
 			ss >> me.mapValue;
+			
 			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
 		}
+		
 		ReadOrderPos(me.nOrderPos, me.mapValue);
 	}
+	
 	if (std::string::npos != nSepPos)
+	{
 		me.strComment.erase(nSepPos);
-
+	}
+	
 	me.mapValue.erase("n");
 	
 	return nSerSize;
@@ -77,8 +91,12 @@ void CAccountingEntry::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAccountingEntry& me = *const_cast<CAccountingEntry*>(this);
+	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	// Note: strAccount is serialized as part of the key, not here.
 	READWRITE(nCreditDebit);
 	READWRITE(nTime);
@@ -91,9 +109,11 @@ void CAccountingEntry::Serialize(Stream& s, int nType, int nVersion) const
 		if (!(mapValue.empty() && _ssExtra.empty()))
 		{
 			CDataStream ss(nType, nVersion);
+			
 			ss.insert(ss.begin(), '\0');
 			ss << mapValue;
 			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
+			
 			me.strComment.append(ss.str());
 		}
 	}
@@ -101,20 +121,28 @@ void CAccountingEntry::Serialize(Stream& s, int nType, int nVersion) const
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
+	
 	if (fRead)
 	{
 		me.mapValue.clear();
+		
 		if (std::string::npos != nSepPos)
 		{
 			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
+			
 			ss >> me.mapValue;
+			
 			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
 		}
+		
 		ReadOrderPos(me.nOrderPos, me.mapValue);
 	}
+	
 	if (std::string::npos != nSepPos)
+	{
 		me.strComment.erase(nSepPos);
-
+	}
+	
 	me.mapValue.erase("n");
 }
 
@@ -129,8 +157,12 @@ void CAccountingEntry::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAccountingEntry& me = *const_cast<CAccountingEntry*>(this);
+	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
+	}
+	
 	// Note: strAccount is serialized as part of the key, not here.
 	READWRITE(nCreditDebit);
 	READWRITE(nTime);
@@ -143,9 +175,11 @@ void CAccountingEntry::Unserialize(Stream& s, int nType, int nVersion)
 		if (!(mapValue.empty() && _ssExtra.empty()))
 		{
 			CDataStream ss(nType, nVersion);
+			
 			ss.insert(ss.begin(), '\0');
 			ss << mapValue;
 			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
+			
 			me.strComment.append(ss.str());
 		}
 	}
@@ -153,20 +187,28 @@ void CAccountingEntry::Unserialize(Stream& s, int nType, int nVersion)
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
+	
 	if (fRead)
 	{
 		me.mapValue.clear();
+		
 		if (std::string::npos != nSepPos)
 		{
 			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
+			
 			ss >> me.mapValue;
+			
 			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
 		}
+		
 		ReadOrderPos(me.nOrderPos, me.mapValue);
 	}
+	
 	if (std::string::npos != nSepPos)
+	{
 		me.strComment.erase(nSepPos);
-
+	}
+	
 	me.mapValue.erase("n");
 }
 

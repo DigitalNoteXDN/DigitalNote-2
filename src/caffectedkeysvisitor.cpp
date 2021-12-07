@@ -18,6 +18,7 @@ void CAffectedKeysVisitor::Process(const CScript &script)
 	txnouttype type;
 	std::vector<CTxDestination> vDest;
 	int nRequired;
+	
 	if (ExtractDestinations(script, type, vDest, nRequired))
 	{
 		for(const CTxDestination &dest : vDest)
@@ -30,7 +31,9 @@ void CAffectedKeysVisitor::Process(const CScript &script)
 void CAffectedKeysVisitor::operator()(const CKeyID &keyId)
 {
 	if (keystore.HaveKey(keyId))
+	{
 		vKeys.push_back(keyId);
+	}
 }
 
 void CAffectedKeysVisitor::operator()(const CScriptID &scriptId)
@@ -38,7 +41,9 @@ void CAffectedKeysVisitor::operator()(const CScriptID &scriptId)
 	CScript script;
 	
 	if (keystore.GetCScript(scriptId, script))
+	{
 		Process(script);
+	}
 }
 
 void CAffectedKeysVisitor::operator()(const CStealthAddress &stxAddr)
@@ -50,3 +55,4 @@ void CAffectedKeysVisitor::operator()(const CNoDestination &none)
 {
 	
 }
+

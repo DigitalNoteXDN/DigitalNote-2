@@ -296,6 +296,7 @@ bool CActiveMasternode::Dseep(CTxIn vin, CService service, CKey keyMasternode, C
 
     // Update Last Seen timestamp in masternode list
     CMasternode* pmn = mnodeman.Find(vin);
+	
     if(pmn != NULL)
     {
         if(stop)
@@ -359,7 +360,8 @@ bool CActiveMasternode::Register(const std::string &strService, const std::strin
         if(!address.SetString(strDonationAddress))
         {
             LogPrintf("ActiveMasternode::Register - Invalid Donation Address\n");
-            return false;
+            
+			return false;
         }
 		
         donationAddress.SetDestination(address.Get());
@@ -410,6 +412,7 @@ bool CActiveMasternode::Register(CTxIn vin, CService service, CKey keyCollateral
     if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, keyCollateralAddress))
 	{
 		retErrorMessage = "sign message failed: " + errorMessage;
+		
 		LogPrintf("CActiveMasternode::Register() - Error: %s\n", retErrorMessage.c_str());
 		
 		return false;
@@ -417,29 +420,40 @@ bool CActiveMasternode::Register(CTxIn vin, CService service, CKey keyCollateral
 
     if(!mnEngineSigner.VerifyMessage(pubKeyCollateralAddress, vchMasterNodeSignature, strMessage, errorMessage)) {
 		retErrorMessage = "Verify message failed: " + errorMessage;
+		
 		LogPrintf("CActiveMasternode::Register() - Error: %s\n", retErrorMessage.c_str());
 		
 		return false;
 	}
 
     CMasternode* pmn = mnodeman.Find(vin);
+	
     if(pmn == NULL)
     {
         LogPrintf("CActiveMasternode::Register() - Adding to masternode list service: %s - vin: %s\n", service.ToString().c_str(), vin.ToString().c_str());
-        CMasternode mn(service, vin, pubKeyCollateralAddress, vchMasterNodeSignature, masterNodeSignatureTime, pubKeyMasternode, PROTOCOL_VERSION, donationAddress, donationPercentage);
-        mn.ChangeNodeStatus(false);
+        
+		CMasternode mn(service, vin, pubKeyCollateralAddress, vchMasterNodeSignature, masterNodeSignatureTime, pubKeyMasternode,
+			PROTOCOL_VERSION, donationAddress, donationPercentage
+		);
+        
+		mn.ChangeNodeStatus(false);
         mn.UpdateLastSeen(masterNodeSignatureTime);
-        mnodeman.Add(mn);
+        
+		mnodeman.Add(mn);
     }
 
     //send to all peers
     LogPrintf("CActiveMasternode::Register() - RelayElectionEntry vin = %s\n", vin.ToString().c_str());
-    mnodeman.RelayMasternodeEntry(vin, service, vchMasterNodeSignature, masterNodeSignatureTime, pubKeyCollateralAddress, pubKeyMasternode, -1, -1, masterNodeSignatureTime, PROTOCOL_VERSION, donationAddress, donationPercentage);
+	
+    mnodeman.RelayMasternodeEntry(vin, service, vchMasterNodeSignature, masterNodeSignatureTime, pubKeyCollateralAddress,
+		pubKeyMasternode, -1, -1, masterNodeSignatureTime, PROTOCOL_VERSION, donationAddress, donationPercentage
+	);
 
     return true;
 }
 
-bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secretKey) {
+bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secretKey)
+{
 	return GetMasterNodeVin(vin, pubkey, secretKey, "", "");
 }
 
@@ -513,7 +527,8 @@ bool CActiveMasternode::GetMasterNodeVinForPubKey(const std::string &collateralA
     COutput *selectedOutput;
 
     // Find the vin
-	if(!strTxHash.empty()) {
+	if(!strTxHash.empty())
+	{
 		// Let's find it
 		uint256 txHash(strTxHash);
         int outputIndex = boost::lexical_cast<int>(strOutputIndex);
@@ -579,10 +594,12 @@ bool CActiveMasternode::GetVinFromOutput(COutput out, CTxIn& vin, CPubKey& pubke
     if (!pwalletMain->GetKey(keyID, secretKey))
 	{
         LogPrintf ("CActiveMasternode::GetMasterNodeVin - Private key for address is not known\n");
-        return false;
+        
+		return false;
     }
 
     pubkey = secretKey.GetPubKey();
+	
     return true;
 }
 
@@ -598,8 +615,9 @@ std::vector<COutput> CActiveMasternode::SelectCoinsMasternode()
     // Filter
     for(const COutput& out : vCoins)
     {
+		//exactly
         if(out.tx->vout[out.i].nValue == MasternodeCollateral(pindexBest->nHeight)*COIN)
-		{ //exactly
+		{
         	filteredCoins.push_back(out);
         }
     }
@@ -622,10 +640,13 @@ std::vector<COutput> CActiveMasternode::SelectCoinsMasternodeForPubKey(const std
     // Filter
     for(const COutput& out : vCoins)
     {
-        if(out.tx->vout[out.i].scriptPubKey == scriptPubKey && out.tx->vout[out.i].nValue == MasternodeCollateral(pindexBest->nHeight)*COIN) { //exactly
+		 //exactly
+        if(out.tx->vout[out.i].scriptPubKey == scriptPubKey && out.tx->vout[out.i].nValue == MasternodeCollateral(pindexBest->nHeight)*COIN)
+		{
         	filteredCoins.push_back(out);
         }
     }
+	
     return filteredCoins;
 }
 

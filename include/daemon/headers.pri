@@ -145,7 +145,6 @@ HEADERS += src/spork.h
 HEADERS += src/stealth.h
 HEADERS += src/strlcpy.h
 HEADERS += src/tinyformat.h
-HEADERS += src/txdb.h
 HEADERS += src/txdb-leveldb.h
 HEADERS += src/ctxmempool.h
 HEADERS += src/util.h

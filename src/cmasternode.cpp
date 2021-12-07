@@ -486,3 +486,4 @@ void CMasternode::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CMasternode::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CMasternode::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

@@ -30,11 +30,7 @@ uint256 CHashWriter::GetHash()
 	
 	SHA256_Final((unsigned char*)&hash1, &ctx);
 	
-	SHA256(
-		(unsigned char*)&hash1,
-		sizeof(hash1),
-		(unsigned char*)&hash2
-	);
+	SHA256((unsigned char*)&hash1, sizeof(hash1), (unsigned char*)&hash2);
 	
 	return hash2;
 }
@@ -54,3 +50,4 @@ template CHashWriter& CHashWriter::operator<< <CTransaction>(CTransaction const&
 template CHashWriter& CHashWriter::operator<< <CFlatData>(CFlatData const&);
 template CHashWriter& CHashWriter::operator<< <CVarInt<unsigned int> >(CVarInt<unsigned int> const&);
 template CHashWriter& CHashWriter::operator<< <CTxOut>(CTxOut const&);
+

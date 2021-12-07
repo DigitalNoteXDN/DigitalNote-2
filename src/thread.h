@@ -48,16 +48,26 @@ LEAVE_CRITICAL_SECTION(mutex); // no RAII
 
 #define AssertLockHeld(cs) AssertLockHeldInternal(#cs, __FILE__, __LINE__, &cs)
 
-
 #ifdef DEBUG_LOCKORDER
 	void EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false);
 	void LeaveCritical();
 	std::string LocksHeld();
 	void AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void *cs);
 #else // DEBUG_LOCKORDER
-	void static inline EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false) {}
-	void static inline LeaveCritical() {}
-	void static inline AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void *cs) {}
+	void static inline EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false)
+	{
+		
+	}
+	
+	void static inline LeaveCritical()
+	{
+		
+	}
+	
+	void static inline AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void *cs)
+	{
+		
+	}
 #endif // DEBUG_LOCKORDER
 
 #ifdef DEBUG_LOCKCONTENTION

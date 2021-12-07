@@ -33,7 +33,8 @@ public:
      * This must be called BEFORE strFile is opened.
      * Returns true if strFile is OK.
      */
-    enum VerifyResult {
+    enum VerifyResult
+	{
 		VERIFY_OK,
 		RECOVER_OK,
 		RECOVER_FAIL

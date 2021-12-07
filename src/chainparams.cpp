@@ -34,18 +34,19 @@ void SelectParams(CChainParams_Network network)
 	{
 		case CChainParams_Network::MAIN:
 			pCurrentParams = &mainParams;
-			break;
+		break;
 
 		case CChainParams_Network::TESTNET:
 			pCurrentParams = &testNetParams;
-			break;
+		break;
 
 		case CChainParams_Network::REGTEST:
 			pCurrentParams = &regTestParams;
-			break;
+		break;
 
 		default:
 			assert(false && "Unimplemented network");
+		
 			return;
     }
 }

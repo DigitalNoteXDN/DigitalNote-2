@@ -23,6 +23,7 @@ bool CCoinControl::HasSelected() const
 bool CCoinControl::IsSelected(const uint256& hash, unsigned int n) const
 {
 	COutPoint outpt(hash, n);
+	
 	return (setSelected.count(outpt) > 0);
 }
 
@@ -45,3 +46,4 @@ void CCoinControl::ListSelected(std::vector<COutPoint>& vOutpoints)
 {
 	vOutpoints.assign(setSelected.begin(), setSelected.end());
 }
+

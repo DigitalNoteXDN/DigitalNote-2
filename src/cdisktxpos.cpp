@@ -93,8 +93,12 @@ bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b)
 std::string CDiskTxPos::ToString() const
 {
 	if (IsNull())
+	{
 		return "null";
+	}
 	else
+	{
 		return strprintf("(nFile=%u, nBlockPos=%u, nTxPos=%u)", nFile, nBlockPos, nTxPos);
+	}
 }
 

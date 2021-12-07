@@ -11,6 +11,7 @@
 uint256 CSporkMessage::GetHash()
 {
 	uint256 n = Hash(BEGIN(nSporkID), END(nTimeSigned));
+	
 	return n;
 }
 

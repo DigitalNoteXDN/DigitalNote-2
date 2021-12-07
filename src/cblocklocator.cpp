@@ -52,6 +52,7 @@ unsigned int CBlockLocator::GetSerializeSize(int nType, int nVersion) const
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 	
 	return nSerSize;
@@ -71,6 +72,7 @@ void CBlockLocator::Serialize(Stream& s, int nType, int nVersion) const
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 }
 
@@ -88,6 +90,7 @@ void CBlockLocator::Unserialize(Stream& s, int nType, int nVersion)
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 }
 
@@ -170,6 +173,7 @@ CBlockIndex* CBlockLocator::GetBlockIndex()
 		if (mi != mapBlockIndex.end())
 		{
 			CBlockIndex* pindex = (*mi).second;
+			
 			if (pindex->IsInMainChain())
 			{
 				return pindex;
@@ -186,9 +190,11 @@ uint256 CBlockLocator::GetBlockHash()
 	for(const uint256& hash : vHave)
 	{
 		std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+		
 		if (mi != mapBlockIndex.end())
 		{
 			CBlockIndex* pindex = (*mi).second;
+			
 			if (pindex->IsInMainChain())
 			{
 				return hash;
@@ -210,3 +216,4 @@ int CBlockLocator::GetHeight()
 	
 	return pindex->nHeight;
 }
+

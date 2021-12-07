@@ -11,7 +11,8 @@ class CScript;
 class CStealthAddress;
 class CNoDestination;
 
-class CAffectedKeysVisitor : public boost::static_visitor<void> {
+class CAffectedKeysVisitor : public boost::static_visitor<void>
+{
 private:
     const CKeyStore &keystore;
     std::vector<CKeyID> &vKeys;

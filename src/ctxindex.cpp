@@ -34,14 +34,15 @@ unsigned int CTxIndex::GetSerializeSize(int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	s.nType = nType;
 	s.nVersion = nVersion;
-	
+
 	if (!(nType & SER_GETHASH))
 	{
 		READWRITE(nVersion);
 	}
+
 	READWRITE(pos);
 	READWRITE(vSpent);
-	
+
 	return nSerSize;
 }
 
@@ -54,11 +55,12 @@ void CTxIndex::Serialize(Stream& s, int nType, int nVersion) const
 	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	if (!(nType & SER_GETHASH))
 	{
 		READWRITE(nVersion);
 	}
+
 	READWRITE(pos);
 	READWRITE(vSpent);
 }
@@ -72,11 +74,12 @@ void CTxIndex::Unserialize(Stream& s, int nType, int nVersion)
 	const bool fRead = true;
 	unsigned int nSerSize = 0;
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	if (!(nType & SER_GETHASH))
 	{
 		READWRITE(nVersion);
 	}
+
 	READWRITE(pos);
 	READWRITE(vSpent);
 }
@@ -111,16 +114,28 @@ bool operator!=(const CTxIndex& a, const CTxIndex& b)
 
 int CTxIndex::GetDepthInMainChain() const
 {
-    // Read block header
-    CBlock block;
-    if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, false))
-        return 0;
-    // Find the block in the index
-    std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
-    if (mi == mapBlockIndex.end())
-        return 0;
-    CBlockIndex* pindex = (*mi).second;
-    if (!pindex || !pindex->IsInMainChain())
-        return 0;
-    return 1 + nBestHeight - pindex->nHeight;
+	// Read block header
+	CBlock block;
+
+	if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, false))
+	{
+		return 0;
+	}
+
+	// Find the block in the index
+	std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
+
+	if (mi == mapBlockIndex.end())
+	{
+		return 0;
+	}
+
+	CBlockIndex* pindex = (*mi).second;
+
+	if (!pindex || !pindex->IsInMainChain())
+	{
+		return 0;
+	}
+
+	return 1 + nBestHeight - pindex->nHeight;
 }

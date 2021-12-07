@@ -3,8 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CHAIN_PARAMS_H
-#define BITCOIN_CHAIN_PARAMS_H
+#ifndef CHAINPARAMS_H
+#define CHAINPARAMS_H
 
 #include "enums/cchainparams_network.h"
 
@@ -27,4 +27,4 @@ bool SelectParamsFromCommandLine();
 
 bool TestNet();
 
-#endif
+#endif // CHAINPARAMS_H

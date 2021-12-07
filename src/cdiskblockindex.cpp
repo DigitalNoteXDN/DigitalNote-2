@@ -37,8 +37,10 @@ unsigned int CDiskBlockIndex::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
-
+	}
+	
 	READWRITE(hashNext);
 	READWRITE(nFile);
 	READWRITE(nBlockPos);
@@ -48,6 +50,7 @@ unsigned int CDiskBlockIndex::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(nFlags);
 	READWRITE(nStakeModifier);
 	READWRITE(bnStakeModifierV2);
+	
 	if (IsProofOfStake())
 	{
 		READWRITE(prevoutStake);
@@ -58,6 +61,7 @@ unsigned int CDiskBlockIndex::GetSerializeSize(int nType, int nVersion) const
 		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
 		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
 	}
+	
 	READWRITE(hashProof);
 
 	// block header
@@ -83,8 +87,10 @@ void CDiskBlockIndex::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
-
+	}
+	
 	READWRITE(hashNext);
 	READWRITE(nFile);
 	READWRITE(nBlockPos);
@@ -94,6 +100,7 @@ void CDiskBlockIndex::Serialize(Stream& s, int nType, int nVersion) const
 	READWRITE(nFlags);
 	READWRITE(nStakeModifier);
 	READWRITE(bnStakeModifierV2);
+	
 	if (IsProofOfStake())
 	{
 		READWRITE(prevoutStake);
@@ -104,6 +111,7 @@ void CDiskBlockIndex::Serialize(Stream& s, int nType, int nVersion) const
 		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
 		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
 	}
+	
 	READWRITE(hashProof);
 
 	// block header
@@ -127,8 +135,10 @@ void CDiskBlockIndex::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
+	{
 		READWRITE(nVersion);
-
+	}
+	
 	READWRITE(hashNext);
 	READWRITE(nFile);
 	READWRITE(nBlockPos);
@@ -138,6 +148,7 @@ void CDiskBlockIndex::Unserialize(Stream& s, int nType, int nVersion)
 	READWRITE(nFlags);
 	READWRITE(nStakeModifier);
 	READWRITE(bnStakeModifierV2);
+	
 	if (IsProofOfStake())
 	{
 		READWRITE(prevoutStake);
@@ -148,6 +159,7 @@ void CDiskBlockIndex::Unserialize(Stream& s, int nType, int nVersion)
 		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
 		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
 	}
+	
 	READWRITE(hashProof);
 
 	// block header
@@ -166,8 +178,10 @@ template void CDiskBlockIndex::Unserialize<CDataStream>(CDataStream& s, int nTyp
 uint256 CDiskBlockIndex::GetBlockHash() const
 {
 	if (fUseFastIndex && (nTime < GetAdjustedTime() - 24 * 60 * 60) && blockHash != 0)
+	{
 		return blockHash;
-
+	}
+	
 	CBlock block;
 	block.nVersion        = nVersion;
 	block.hashPrevBlock   = hashPrev;
@@ -184,10 +198,13 @@ uint256 CDiskBlockIndex::GetBlockHash() const
 std::string CDiskBlockIndex::ToString() const
 {
 	std::string str = "CDiskBlockIndex(";
+	
 	str += CBlockIndex::ToString();
 	str += strprintf("\n                hashBlock=%s, hashPrev=%s, hashNext=%s)",
 		GetBlockHash().ToString(),
 		hashPrev.ToString(),
 		hashNext.ToString());
+		
 	return str;
 }
+

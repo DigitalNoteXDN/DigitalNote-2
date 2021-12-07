@@ -81,7 +81,6 @@ SOURCES += src/miner.cpp
 SOURCES += src/init.cpp
 SOURCES += src/net.cpp
 SOURCES += src/checkpoints.cpp
-SOURCES += src/addrman.cpp
 SOURCES += src/db.cpp
 SOURCES += src/walletdb.cpp
 SOURCES += src/txdb-leveldb.cpp

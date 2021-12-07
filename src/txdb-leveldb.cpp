@@ -14,7 +14,7 @@
 #include <leveldb/filter_policy.h>
 #include <leveldb/write_batch.h>
 
-#include "txdb.h"
+#include "txdb-leveldb.h"
 #include "main_extern.h"
 #include "ctransaction.h"
 #include "cbignum.h"

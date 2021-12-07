@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef blocksizecalculator_h
-#define blocksizecalculator_h
+#ifndef BLOCKSIZECALCUALTOR_H
+#define BLOCKSIZECALCUALTOR_H
 
 #include <vector>
 
@@ -20,4 +20,5 @@ namespace BlockSizeCalculator
     inline std::vector<unsigned int> GetBlockSizes(CBlockIndex*, unsigned int pastblocks = NUM_BLOCKS_FOR_MEDIAN_BLOCK);
     inline int GetBlockSize(CBlockIndex*);
 }
-#endif
+
+#endif // BLOCKSIZECALCUALTOR_H

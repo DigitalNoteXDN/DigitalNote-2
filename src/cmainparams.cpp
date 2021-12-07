@@ -27,10 +27,14 @@ static void convertSeed6(std::vector<CAddress> &vSeedsOut, const SeedSpec6 *data
     for (unsigned int i = 0; i < count; i++)
     {
         struct in6_addr ip;
+		
         memcpy(&ip, data[i].addr, sizeof(ip));
-        CAddress addr(CService(ip, data[i].port));
-        addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
-        vSeedsOut.push_back(addr);
+        
+		CAddress addr(CService(ip, data[i].port));
+        
+		addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
+        
+		vSeedsOut.push_back(addr);
     }
 }
 
@@ -43,9 +47,11 @@ CMainParams::CMainParams()
 	pchMessageStart[1] = 0xaf;
 	pchMessageStart[2] = 0x9c;
 	pchMessageStart[3] = 0xe3;
+	
 	vAlertPubKey = ParseHex("01b88735a49f1996be6b659c91a94fbfebeb5d517698712acdbef262f7c2f81f85d131a669df3be611393f454852a2d08c6314bba5ca3cbe5616262da3b1a6afed");
 	nDefaultPort = 18092;
 	nRPCPort = 18094;
+	
 	bnProofOfWorkLimit = CBigNum(~uint256(0) >> 14);
 	bnProofOfStakeLimit = CBigNum(~uint256(0) >> 16);
 

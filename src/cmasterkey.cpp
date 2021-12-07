@@ -88,3 +88,4 @@ void CMasterKey::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CMasterKey::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CMasterKey::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

@@ -78,3 +78,4 @@ void CMasternodePaymentWinner::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CMasternodePaymentWinner::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CMasternodePaymentWinner::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

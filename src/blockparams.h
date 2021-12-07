@@ -4,8 +4,8 @@
 // Copyright (c) 2018-2020 The DigitalNote project
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_BLOCKPARAMS_H
-#define BITCOIN_BLOCKPARAMS_H
+#ifndef BLOCKPARAMS_H
+#define BLOCKPARAMS_H
 
 #include <cstdint>
 
@@ -44,4 +44,4 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
 int64_t GetMasternodePayment(int nHeight, int64_t blockValue);
 int64_t GetDevOpsPayment(int nHeight, int64_t blockValue);
 
-#endif // BITCOIN_BLOCKPARAMS_H
+#endif // BLOCKPARAMS_H

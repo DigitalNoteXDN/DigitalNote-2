@@ -158,13 +158,15 @@ bool CDBEnv::Salvage(std::string strFile, bool fAggressive, std::vector<CDBEnv::
     // DATA=END
 
     std::string strLine;
+	
     while (!strDump.eof() && strLine != "HEADER=END")
 	{
         getline(strDump, strLine); // Skip past header
 	}
 	
     std::string keyHex, valueHex;
-    while (!strDump.eof() && keyHex != "DATA=END")
+    
+	while (!strDump.eof() && keyHex != "DATA=END")
     {
         getline(strDump, keyHex);
         
@@ -208,7 +210,7 @@ bool CDBEnv::Open(boost::filesystem::path pathEnv_)
     int nDbCache = GetArg("-dbcache", 100);
 	
     dbenv.set_lg_dir(pathLogDir.string().c_str());
-    dbenv.set_cachesize(nDbCache / 1024, (nDbCache % 1024)*1048576, 1);
+    dbenv.set_cachesize(nDbCache / 1024, (nDbCache % 1024) * 1048576, 1);
     dbenv.set_lg_bsize(1048576);
     dbenv.set_lg_max(10485760);
 
@@ -339,6 +341,7 @@ void CDBEnv::CloseDb(const std::string& strFile)
         {
             // Close the database handle
             Db* pdb = mapDb[strFile];
+			
             pdb->close(0);
             delete pdb;
             mapDb[strFile] = NULL;
@@ -369,5 +372,4 @@ DbTxn* CDBEnv::TxnBegin(int flags)
 	
 	return ptxn;
 }
-
 

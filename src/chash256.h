@@ -4,7 +4,8 @@
 #include "crypto/common/sha256.h"
 
 /** A hasher class for DigitalNote's 256-bit hash (double SHA-256). */
-class CHash256 {
+class CHash256
+{
 private:
     CSHA256 sha;
 	
