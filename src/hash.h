@@ -1,9 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_HASH_H
-#define BITCOIN_HASH_H
+#ifndef HASH_H
+#define HASH_H
 
 #include <vector>
 
@@ -38,4 +34,4 @@ int HMAC_SHA512_Final(unsigned char *pmd, HMAC_SHA512_CTX *pctx);
 void BIP32Hash(const unsigned char chainCode[32], unsigned int nChild, unsigned char header,
 		const unsigned char data[32], unsigned char output[64]);
 
-#endif // BITCOIN_HASH_H
+#endif // HASH_H

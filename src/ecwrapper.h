@@ -2,8 +2,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_EC_WRAPPER_H
-#define BITCOIN_EC_WRAPPER_H
+#ifndef ECWRAPPER_H
+#define ECWRAPPER_H
 
 #include <cstddef>
 #include <vector>
@@ -13,7 +13,8 @@
 class uint256;
 
 // RAII Wrapper around OpenSSL's EC_KEY
-class CECKey {
+class CECKey
+{
 private:
     EC_KEY *pkey;
 
@@ -21,7 +22,7 @@ public:
     CECKey();
     ~CECKey();
 
-    EC_KEY* GetECKey() {return pkey;};
+    EC_KEY* GetECKey();
 
     void GetSecretBytes(unsigned char vch[32]) const;
     void SetSecretBytes(const unsigned char vch[32]);
@@ -45,4 +46,4 @@ public:
     static bool SanityCheck();
 };
 
-#endif
+#endif // ECWRAPPER_H

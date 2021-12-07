@@ -29,6 +29,7 @@ unsigned int CWalletKey::GetSerializeSize(int nType, int nVersion) const
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vchPrivKey);
 	READWRITE(nTimeCreated);
 	READWRITE(nTimeExpires);
@@ -51,6 +52,7 @@ void CWalletKey::Serialize(Stream& s, int nType, int nVersion) const
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vchPrivKey);
 	READWRITE(nTimeCreated);
 	READWRITE(nTimeExpires);
@@ -71,6 +73,7 @@ void CWalletKey::Unserialize(Stream& s, int nType, int nVersion)
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vchPrivKey);
 	READWRITE(nTimeCreated);
 	READWRITE(nTimeExpires);

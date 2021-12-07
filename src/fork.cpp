@@ -16,3 +16,4 @@ std::string getDevelopersAdress(const CBlockIndex* pindex)
 	
 	return VERION_1_0_4_2_DEVELOPER_ADDRESS;
 }
+

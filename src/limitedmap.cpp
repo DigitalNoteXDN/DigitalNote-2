@@ -147,3 +147,4 @@ typename limitedmap<K, V>::size_type limitedmap<K, V>::max_size(limitedmap<K, V>
 }
 
 template class limitedmap<CInv, int64_t>;
+

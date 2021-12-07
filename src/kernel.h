@@ -1,8 +1,5 @@
-// Copyright (c) 2012-2013 The PPCoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef PPCOIN_KERNEL_H
-#define PPCOIN_KERNEL_H
+#ifndef KERNEL_H
+#define KERNEL_H
 
 #include <cstdint>
 #include <cstddef>
@@ -15,7 +12,6 @@ class COutPoint;
 // To decrease granularity of timestamp
 // Supposed to be 2^n-1
 static const int STAKE_TIMESTAMP_MASK = 15;
-
 
 // MODIFIER_INTERVAL_RATIO:
 // ratio of group interval length between the last group and the first group
@@ -44,4 +40,4 @@ int64_t GetWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd);
 // Convenient for searching a kernel
 bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, int64_t nTime, const COutPoint& prevout, int64_t* pBlockTime = NULL);
 
-#endif // PPCOIN_KERNEL_H
+#endif // KERNEL_H

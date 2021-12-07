@@ -1,10 +1,5 @@
-// Copyright (c) 2016-2020 The CryptoCoderz Team / Espers
-// Copyright (c) 2018-2020 The Rubix project
-// Copyright (c) 2018-2020 The DigitalNote project
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_FORK_H
-#define BITCOIN_FORK_H
+#ifndef FORK_H
+#define FORK_H
 
 #include <cstdint>
 #include <string>
@@ -62,4 +57,4 @@ static const int64_t VELOCITY_TDIFF = 0; // Use Velocity's retargetting method.
 
 std::string getDevelopersAdress(const CBlockIndex* pindex);
 
-#endif // BITCOIN_FORK_H
+#endif // FORK_H
