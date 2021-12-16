@@ -3,6 +3,7 @@
 #include "addeditadrenalinenode.h"
 #include "ui_addeditadrenalinenode.h"
 #include "masternodeconfig.h"
+#include "cmasternodeconfig.h"
 #include "masternodemanager.h"
 #include "ui_masternodemanager.h"
 

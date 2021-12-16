@@ -8,9 +8,12 @@
 #include <boost/thread.hpp>
 
 #include "util.h"
+#include "enums/httpstatuscode.h"
+#include "enums/rpcerrorcode.h"
 #include "main_const.h"
 #include "uint/uint256.h"
 #include "init.h"
+#include "ssliostreamdevice.h"
 #include "rpcvelocity.h"
 #include "cchainparams.h"
 #include "chainparams.h"

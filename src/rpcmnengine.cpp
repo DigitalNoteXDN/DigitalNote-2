@@ -8,6 +8,7 @@
 #include <fstream>
 #include <boost/lexical_cast.hpp>
 
+#include "enums/rpcerrorcode.h"
 #include "init.h"
 #include "cactivemasternode.h"
 #include "rpcserver.h"
@@ -25,6 +26,8 @@
 #include "cmasternode.h"
 #include "cmasternodeman.h"
 #include "cmasternodepayments.h"
+#include "cmasternodeconfig.h"
+#include "cmasternodeconfigentry.h"
 #include "masternode.h"
 #include "masternodeman.h"
 #include "masternodeconfig.h"
@@ -232,7 +235,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		json_spirit::Object statusObj;
 		statusObj.push_back(json_spirit::Pair("alias", alias));
 
-    	for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+    	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
     		if(mne.getAlias() == alias)
 			{
@@ -290,7 +293,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		
 		json_spirit::Object resultsObj;
 
-		for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
 			total++;
 
@@ -456,7 +459,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		json_spirit::Object statusObj;
 		statusObj.push_back(json_spirit::Pair("alias", alias));
 
-    	for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+    	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
     		if(mne.getAlias() == alias)
 			{
@@ -514,7 +517,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			}
 		}
 
-		std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+		std::vector<CMasternodeConfigEntry> mnEntries;
 		mnEntries = masternodeConfig.getEntries();
 
 		int total = 0;
@@ -523,7 +526,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
 		json_spirit::Object resultsObj;
 
-		for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
 			total++;
 
@@ -715,12 +718,12 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
     if(strCommand == "list-conf")
     {
-    	std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+    	std::vector<CMasternodeConfigEntry> mnEntries;
     	mnEntries = masternodeConfig.getEntries();
 
         json_spirit::Object resultObj;
 
-        for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+        for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
     		json_spirit::Object mnObj;
     		
@@ -753,7 +756,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
     if(strCommand == "vote-many")
     {
-        std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+        std::vector<CMasternodeConfigEntry> mnEntries;
         mnEntries = masternodeConfig.getEntries();
 
         if (params.size() != 2)
@@ -784,7 +787,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
         json_spirit::Object resultObj;
 
-        for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+        for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
             std::string errorMessage;
             std::vector<unsigned char> vchMasterNodeSignature;
@@ -850,7 +853,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
     if(strCommand == "vote")
     {
-        std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+        std::vector<CMasternodeConfigEntry> mnEntries;
         mnEntries = masternodeConfig.getEntries();
 
         if (params.size() != 2)
@@ -912,7 +915,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
     if(strCommand == "status")
     {
-        std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+        std::vector<CMasternodeConfigEntry> mnEntries;
         mnEntries = masternodeConfig.getEntries();
 
         CScript pubkey;

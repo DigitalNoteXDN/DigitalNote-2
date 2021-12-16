@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "enums/rpcerrorcode.h"
 #include "base58.h"
 #include "blockparams.h"
 #include "stealth.h"

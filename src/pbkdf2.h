@@ -1,12 +1,11 @@
-// Copyright (c) 2013 NovaCoin Developers
-
 #ifndef PBKDF2_H
 #define PBKDF2_H
 
 #include <openssl/sha.h>
 #include <stdint.h>
 
-typedef struct HMAC_SHA256Context {
+typedef struct HMAC_SHA256Context
+{
     SHA256_CTX ictx;
     SHA256_CTX octx;
 } HMAC_SHA256_CTX;

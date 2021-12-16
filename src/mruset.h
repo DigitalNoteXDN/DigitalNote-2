@@ -1,8 +1,5 @@
-// Copyright (c) 2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_MRUSET_H
-#define BITCOIN_MRUSET_H
+#ifndef MRUSET_H
+#define MRUSET_H
 
 #include <set>
 #include <deque>
@@ -54,4 +51,4 @@ public:
 	size_type max_size(size_type s);
 };
 
-#endif
+#endif // MRUSET_H

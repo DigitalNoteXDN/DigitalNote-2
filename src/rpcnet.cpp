@@ -4,6 +4,7 @@
 
 #include "compat.h"
 
+#include "enums/rpcerrorcode.h"
 #include "rpcserver.h"
 #include "calert.h"
 #include "cnodestatestats.h"

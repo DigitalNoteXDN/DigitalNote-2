@@ -127,7 +127,6 @@ HEADERS += src/netbase.h
 HEADERS += src/net.h
 HEADERS += src/pbkdf2.h
 HEADERS += src/protocol.h
-HEADERS += src/pubkey.h
 HEADERS += src/rpcclient.h
 HEADERS += src/rpcprotocol.h
 HEADERS += src/rpcserver.h

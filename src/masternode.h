@@ -26,4 +26,4 @@ class uint256;
 
 bool GetBlockHash(uint256& hash, int nBlockHeight);
 
-#endif
+#endif // MASTERNODE_H

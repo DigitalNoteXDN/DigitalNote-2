@@ -12,6 +12,7 @@
 #include <signal.h>
 #endif
 
+#include "ssliostreamdevice.h"
 #include "cclientuiinterface.h"
 #include "eccverifyhandle.h"
 #include "util.h"
@@ -32,6 +33,8 @@
 #include "ui_translate.h"
 #include "main_const.h"
 #include "chainparams.h"
+#include "cmasternodeconfig.h"
+#include "cmasternodeconfigentry.h"
 #include "masternodeconfig.h"
 #include "netbase.h"
 #include "wallet.h"
@@ -1498,7 +1501,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 		
 		uint256 mnTxHash;
 		
-		for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
 			LogPrintf("  %s %s\n", mne.getTxHash(), mne.getOutputIndex());
 			

@@ -3,8 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef _BITCOINRPC_SERVER_H_
-#define _BITCOINRPC_SERVER_H_ 1
+#ifndef RPCSERVER_H
+#define RPCSERVER_H
 
 #include "rpcprotocol.h"
 
@@ -211,10 +211,10 @@ extern json_spirit::Value smsgsendanon(const json_spirit::Array& params, bool fH
 extern json_spirit::Value smsginbox(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value smsgoutbox(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value smsgbuckets(const json_spirit::Array& params, bool fHelp);
-
 extern json_spirit::Value smsggetmessagesforaccount(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value cclistcoins(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value mintblock(const json_spirit::Array& params, bool fHelp);
-#endif
+
+#endif // RPCSERVER_H

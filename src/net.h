@@ -1,9 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_NET_H
-#define BITCOIN_NET_H
+#ifndef NET_H
+#define NET_H
 
 #include <vector>
 #include <list>
@@ -28,7 +24,8 @@ class CService;
 class CAddress;
 class uint256;
 
-namespace boost {
+namespace boost
+{
     class thread_group;
 }
 
@@ -43,7 +40,8 @@ enum
     LOCAL_MAX
 };
 
-enum {
+enum
+{
     MSG_TX = 1,
     MSG_BLOCK,
     // Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
@@ -59,7 +57,8 @@ enum {
 
 
 
-struct LocalServiceInfo {
+struct LocalServiceInfo
+{
     int nScore;
     int nPort;
 };
@@ -73,8 +72,6 @@ struct CNodeSignals
     boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
     boost::signals2::signal<void (NodeId)> FinalizeNode;
 };
-
-
 
 /** Time between pings automatically sent out for latency probing and keepalive (in seconds). */
 static const int PING_INTERVAL = 1 * 60;
@@ -94,7 +91,6 @@ static const size_t MAPASKFOR_MAX_SZ = MAX_INV_SZ;
 static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
 /** The maximum number of new addresses to accumulate before announcing. */
 static const unsigned int MAX_ADDR_TO_SEND = 1000;
-
 
 extern int nBestHeight;
 extern bool fDiscover;
@@ -162,4 +158,4 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
 void RelayTransactionLockReq(const CTransaction& tx, bool relayToAll=false);
 void DumpBanlist();
 
-#endif
+#endif // NET_H

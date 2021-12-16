@@ -7,6 +7,7 @@
 
 #include <boost/assign/list_of.hpp>
 
+#include "enums/rpcerrorcode.h"
 #include "rpcserver.h"
 #include "blockparams.h"
 #include "cchainparams.h"

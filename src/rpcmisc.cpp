@@ -10,6 +10,7 @@
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
 
+#include "enums/rpcerrorcode.h"
 #include "init.h"
 #include "rpcserver.h"
 #include "util.h"

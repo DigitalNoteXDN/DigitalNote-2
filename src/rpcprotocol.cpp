@@ -7,6 +7,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "util.h"
+#include "enums/httpstatuscode.h"
 #include "json/json_spirit_writer_template.h"
 
 #include "rpcprotocol.h"

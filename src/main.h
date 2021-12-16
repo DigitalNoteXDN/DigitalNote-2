@@ -1,9 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_MAIN_H
-#define BITCOIN_MAIN_H
+#ifndef MAIN_H
+#define MAIN_H
 
 #include <cstdint>
 #include <cstdio>
@@ -154,4 +150,4 @@ FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly);
 /** Translation to a filesystem path */
 boost::filesystem::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
 
-#endif
+#endif // MAIN_H

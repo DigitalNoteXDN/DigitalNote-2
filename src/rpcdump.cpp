@@ -8,6 +8,7 @@
 #include <boost/variant/get.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include "enums/rpcerrorcode.h"
 #include "init.h" // for pwalletMain
 #include "rpcserver.h"
 #include "cwallet.h"

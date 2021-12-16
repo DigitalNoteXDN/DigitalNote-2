@@ -27,60 +27,61 @@ std::map<uint256, CMasternodePaymentWinner> mapSeenMasternodeVotes;
 //Get the last hash that matches the modulus given. Processed in reverse order
 bool GetBlockHash(uint256& hash, int nBlockHeight)
 {
-    if (pindexBest == NULL)
+	if (pindexBest == NULL)
 	{
 		return false;
 	}
-	
-    if(nBlockHeight == 0)
+
+	if(nBlockHeight == 0)
 	{
-        nBlockHeight = pindexBest->nHeight;
+		nBlockHeight = pindexBest->nHeight;
 	}
-	
-    if(mapCacheBlockHashes.count(nBlockHeight))
+
+	if(mapCacheBlockHashes.count(nBlockHeight))
 	{	
-        hash = mapCacheBlockHashes[nBlockHeight];
-        
+		hash = mapCacheBlockHashes[nBlockHeight];
+		
 		return true;
-    }
+	}
 
-    const CBlockIndex *BlockLastSolved = pindexBest;
-    const CBlockIndex *BlockReading = pindexBest;
+	const CBlockIndex *BlockLastSolved = pindexBest;
+	const CBlockIndex *BlockReading = pindexBest;
 
-    if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || pindexBest->nHeight+1 < nBlockHeight)
+	if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || pindexBest->nHeight+1 < nBlockHeight)
 	{
 		return false;
 	}
-	
-    int nBlocksAgo = 0;
-    if(nBlockHeight > 0)
+
+	int nBlocksAgo = 0;
+	if(nBlockHeight > 0)
 	{
 		nBlocksAgo = (pindexBest->nHeight+1)-nBlockHeight;
 	}
-    assert(nBlocksAgo >= 0);
 
-    int n = 0;
-    for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++)
+	assert(nBlocksAgo >= 0);
+
+	int n = 0;
+	for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++)
 	{
-        if(n >= nBlocksAgo)
+		if(n >= nBlocksAgo)
 		{
-            hash = BlockReading->GetBlockHash();
-            mapCacheBlockHashes[nBlockHeight] = hash;
-            
+			hash = BlockReading->GetBlockHash();
+			mapCacheBlockHashes[nBlockHeight] = hash;
+			
 			return true;
-        }
+		}
 		
-        n++;
+		n++;
 
-        if (BlockReading->pprev == NULL)
+		if (BlockReading->pprev == NULL)
 		{
 			assert(BlockReading);
 			break;
 		}
 		
-        BlockReading = BlockReading->pprev;
-    }
+		BlockReading = BlockReading->pprev;
+	}
 
-    return false;
+	return false;
 }
 
