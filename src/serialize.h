@@ -9,6 +9,7 @@
 #include <ios>
 #include <set>
 #include <map>
+#include <limits>
 #include <cassert>
 #include <cstring>
 #include <boost/type_traits/is_fundamental.hpp>
