@@ -4,5 +4,5 @@
 ##
 
 contains(USE_LIMITS_PATCH, 1) {
-	QMAKE_CXXFLAGS_WARN_ON += -include /usr/include/c++/11*/limits
+	QMAKE_CXXFLAGS_WARN_ON += -include /usr/include/c++/10/climits
 }
