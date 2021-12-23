@@ -1,3 +1,5 @@
+#include "boost_ioservices.h"
+
 #include "ssliostreamdevice.h"
 
 template <typename Protocol>

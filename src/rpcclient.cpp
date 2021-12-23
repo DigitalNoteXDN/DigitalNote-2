@@ -20,6 +20,7 @@
 #include "cchainparams.h"
 #include "chainparams.h"
 #include "ui_translate.h"
+#include "types/iocontext.h"
 
 #include "rpcclient.h"
 

@@ -22,20 +22,14 @@
 #include "thread.h"
 #include "ui_interface.h"
 #include "ui_translate.h"
+#include "types/iocontext.h"
+#include "boost_ioservicess.h"
 
 #ifdef ENABLE_WALLET
 #include "cwallet.h"
 #endif
 
 #include "rpcserver.h"
-
-// ====== BOOST RETROCOMPATIBILITY WORKAROUND========
-
-#if BOOST_VERSION >= 107000
-#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s)->get_executor().context())
-#else
-#define GET_IO_SERVICE(s) ((s)->get_io_service())
-#endif
 
 // RETROCOMPATIBILITY SHOULD NOT BE AN OPTION
 
@@ -548,14 +542,6 @@ static void RPCAcceptHandler(boost::shared_ptr< boost::asio::basic_socket_accept
 template <typename Protocol>
 static void RPCListen(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor, boost::asio::ssl::context& context, const bool fUseSSL)
 {
-    // Accept connection
-    //
-    // Boost Version < 1.70 handling - Thank you Mino#8171
-    // Boost 1.70+ update patch by https://github.com/g1itch
-    // (This improves upon Mino's 1.70 support update)
-    //
-    // AcceptedConnectionImpl<Protocol>* conn = new AcceptedConnectionImpl<Protocol>(acceptor->get_io_service(), context, fUseSSL);
-    // AcceptedConnectionImpl<Protocol>* conn = new AcceptedConnectionImpl<Protocol>(GET_IO_SERVICE(acceptor), context, fUseSSL);
     AcceptedConnectionImpl<Protocol>* conn = new AcceptedConnectionImpl<Protocol>(GetIOServiceFromPtr(acceptor), context, fUseSSL);
     
 	acceptor->async_accept(
