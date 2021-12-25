@@ -11,6 +11,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include "json/json_spirit_reader_template.h"
+#include "json/json_spirit_utils.h"
 #include "json/json_spirit_writer_template.h"
 
 #include "ssliostreamdevice.h"

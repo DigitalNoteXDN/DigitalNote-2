@@ -13,6 +13,7 @@
 #include "ctxin.h"
 #include "ctransaction.h"
 #include "enums/serialize_type.h"
+#include "rpcprotocol.h"
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
 

@@ -1,9 +1,10 @@
 #ifndef RPCCLIENT_H
 #define RPCCLIENT_H
 
-#include "json/json_spirit_reader_template.h"
-#include "json/json_spirit_utils.h"
-#include "json/json_spirit_writer_template.h"
+#include <string>
+#include <vector>
+
+#include "json/json_spirit_value.h"
 
 int CommandLineRPC(int argc, char *argv[]);
 

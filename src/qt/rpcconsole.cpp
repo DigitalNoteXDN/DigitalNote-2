@@ -11,6 +11,9 @@
 #include <QStringList>
 #include <openssl/crypto.h>
 
+#include "json/json_spirit_writer_template.h"
+#include "json/json_spirit_utils.h"
+
 #include "ui_rpcconsole.h"
 #include "bantablemodel.h"
 #include "clientmodel.h"
@@ -23,6 +26,7 @@
 #include "net/cnode.h"
 #include "net.h"
 #include "netbase.h"
+#include "crpctable.h"
 
 #include "rpcconsole.h"
 

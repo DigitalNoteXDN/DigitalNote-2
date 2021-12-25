@@ -1,11 +1,8 @@
-// Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <boost/assign/list_of.hpp>
+
+#include "json/json_spirit_utils.h"
 
 #include "enums/rpcerrorcode.h"
 #include "rpcserver.h"
@@ -40,6 +37,8 @@
 #include "util.h"
 #include "enums/serialize_type.h"
 #include "ctxindex.h"
+#include "types/mapnewblock_t.h"
+#include "rpcprotocol.h"
 
 // Key used by getwork/getblocktemplate miners.
 // Allocated in InitRPCMining, free'd in ShutdownRPCMining
@@ -47,587 +46,585 @@ static CReserveKey* pMiningKey = NULL;
 
 void InitRPCMining()
 {
-    if (!pwalletMain)
+	if (!pwalletMain)
 	{
-        return;
+		return;
 	}
-	
-    // getwork/getblocktemplate mining rewards paid here:
-    pMiningKey = new CReserveKey(pwalletMain);
+
+	// getwork/getblocktemplate mining rewards paid here:
+	pMiningKey = new CReserveKey(pwalletMain);
 }
 
 void ShutdownRPCMining()
 {
-    if (!pMiningKey)
+	if (!pMiningKey)
 	{
-        return;
+		return;
 	}
 
-    delete pMiningKey; pMiningKey = NULL;
+	delete pMiningKey; pMiningKey = NULL;
 }
 
 json_spirit::Value getsubsidy(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+	if (fHelp || params.size() > 1)
 	{
-        throw std::runtime_error(
-            "getsubsidy [nTarget]\n"
-            "Returns proof-of-work subsidy value for the specified value of target."
+		throw std::runtime_error(
+			"getsubsidy [nTarget]\n"
+			"Returns proof-of-work subsidy value for the specified value of target."
 		);
 	}
 
-    return (int64_t)GetProofOfStakeReward(pindexBest->pprev, 0, 0);
+	return (int64_t)GetProofOfStakeReward(pindexBest->pprev, 0, 0);
 }
 
 json_spirit::Value getstakesubsidy(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+	if (fHelp || params.size() != 1)
 	{
-        throw std::runtime_error(
-            "getstakesubsidy <hex string>\n"
-            "Returns proof-of-stake subsidy value for the specified coinstake."
+		throw std::runtime_error(
+			"getstakesubsidy <hex string>\n"
+			"Returns proof-of-stake subsidy value for the specified coinstake."
 		);
 	}
 
-    RPCTypeCheck(params, boost::assign::list_of(json_spirit::str_type));
+	RPCTypeCheck(params, boost::assign::list_of(json_spirit::str_type));
 
-    std::vector<unsigned char> txData(ParseHex(params[0].get_str()));
-    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
-    CTransaction tx;
-    
+	std::vector<unsigned char> txData(ParseHex(params[0].get_str()));
+	CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+	CTransaction tx;
+
 	try
 	{
-        ssData >> tx;
-    }
-    catch (std::exception &e)
+		ssData >> tx;
+	}
+	catch (std::exception &e)
 	{
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    }
+		throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+	}
 
-    uint64_t nCoinAge;
-    CTxDB txdb("r");
-    
+	uint64_t nCoinAge;
+	CTxDB txdb("r");
+
 	if (!tx.GetCoinAge(txdb, pindexBest, nCoinAge))
 	{
-        throw JSONRPCError(RPC_MISC_ERROR, "GetCoinAge failed");
+		throw JSONRPCError(RPC_MISC_ERROR, "GetCoinAge failed");
 	}
-	
-    return (uint64_t)GetProofOfStakeReward(pindexBest->pprev, nCoinAge, 0);
+
+	return (uint64_t)GetProofOfStakeReward(pindexBest->pprev, nCoinAge, 0);
 }
 
 json_spirit::Value getmininginfo(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+	if (fHelp || params.size() != 0)
 	{
-        throw std::runtime_error(
-            "getmininginfo\n"
-            "Returns an object containing mining-related information."
+		throw std::runtime_error(
+			"getmininginfo\n"
+			"Returns an object containing mining-related information."
 		);
 	}
 
-    uint64_t nWeight = 0;
-    if (pwalletMain)
+	uint64_t nWeight = 0;
+	if (pwalletMain)
 	{
-        nWeight = pwalletMain->GetStakeWeight();
+		nWeight = pwalletMain->GetStakeWeight();
 	}
-	
-    // Define block rewards
-    int64_t nRewardPoW = (uint64_t)GetProofOfWorkReward(nBestHeight, 0);
 
-    json_spirit::Object obj, diff, weight;
-    
+	// Define block rewards
+	int64_t nRewardPoW = (uint64_t)GetProofOfWorkReward(nBestHeight, 0);
+
+	json_spirit::Object obj, diff, weight;
+
 	obj.push_back(json_spirit::Pair("blocks",        (int)nBestHeight));
-    obj.push_back(json_spirit::Pair("currentblocksize",(uint64_t)nLastBlockSize));
-    obj.push_back(json_spirit::Pair("currentblocktx",(uint64_t)nLastBlockTx));
+	obj.push_back(json_spirit::Pair("currentblocksize",(uint64_t)nLastBlockSize));
+	obj.push_back(json_spirit::Pair("currentblocktx",(uint64_t)nLastBlockTx));
 
-    diff.push_back(json_spirit::Pair("proof-of-work", GetDifficulty()));
-    diff.push_back(json_spirit::Pair("proof-of-stake", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
-    diff.push_back(json_spirit::Pair("search-interval", (int)nLastCoinStakeSearchInterval));
-    
+	diff.push_back(json_spirit::Pair("proof-of-work", GetDifficulty()));
+	diff.push_back(json_spirit::Pair("proof-of-stake", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
+	diff.push_back(json_spirit::Pair("search-interval", (int)nLastCoinStakeSearchInterval));
+
 	obj.push_back(json_spirit::Pair("difficulty", diff));
-    obj.push_back(json_spirit::Pair("blockvalue-PoS", (uint64_t)getstakesubsidy));
-    obj.push_back(json_spirit::Pair("blockvalue-PoW", nRewardPoW));
-    obj.push_back(json_spirit::Pair("netmhashps",  GetPoWMHashPS()));
-    obj.push_back(json_spirit::Pair("netstakeweight", GetPoSKernelPS()));
-    obj.push_back(json_spirit::Pair("errors", GetWarnings("statusbar")));
-    obj.push_back(json_spirit::Pair("pooledtx", (uint64_t)mempool.size()));
+	obj.push_back(json_spirit::Pair("blockvalue-PoS", (uint64_t)getstakesubsidy));
+	obj.push_back(json_spirit::Pair("blockvalue-PoW", nRewardPoW));
+	obj.push_back(json_spirit::Pair("netmhashps",  GetPoWMHashPS()));
+	obj.push_back(json_spirit::Pair("netstakeweight", GetPoSKernelPS()));
+	obj.push_back(json_spirit::Pair("errors", GetWarnings("statusbar")));
+	obj.push_back(json_spirit::Pair("pooledtx", (uint64_t)mempool.size()));
 
-    weight.push_back(json_spirit::Pair("minimum", (uint64_t)nWeight));
-    weight.push_back(json_spirit::Pair("maximum", (uint64_t)0));
-    weight.push_back(json_spirit::Pair("combined", (uint64_t)nWeight));
-	
-    obj.push_back(json_spirit::Pair("stakeweight", weight));
-    obj.push_back(json_spirit::Pair("stakeinterest", (uint64_t)getstakesubsidy));
-    obj.push_back(json_spirit::Pair("testnet", TestNet()));
-	
-    return obj;
+	weight.push_back(json_spirit::Pair("minimum", (uint64_t)nWeight));
+	weight.push_back(json_spirit::Pair("maximum", (uint64_t)0));
+	weight.push_back(json_spirit::Pair("combined", (uint64_t)nWeight));
+
+	obj.push_back(json_spirit::Pair("stakeweight", weight));
+	obj.push_back(json_spirit::Pair("stakeinterest", (uint64_t)getstakesubsidy));
+	obj.push_back(json_spirit::Pair("testnet", TestNet()));
+
+	return obj;
 }
 
 json_spirit::Value getstakinginfo(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+	if (fHelp || params.size() != 0)
 	{
-        throw std::runtime_error(
-            "getstakinginfo\n"
-            "Returns an object containing staking-related information."
+		throw std::runtime_error(
+			"getstakinginfo\n"
+			"Returns an object containing staking-related information."
 		);
 	}
 
-    uint64_t nWeight = 0;
-    uint64_t nExpectedTime = 0;
+	uint64_t nWeight = 0;
+	uint64_t nExpectedTime = 0;
 
-    if (pwalletMain)
+	if (pwalletMain)
 	{
-        nWeight = pwalletMain->GetStakeWeight();
+		nWeight = pwalletMain->GetStakeWeight();
 	}
-	
-    uint64_t nNetworkWeight = GetPoSKernelPS();
-    bool staking = nLastCoinStakeSearchInterval && nWeight;
-    nExpectedTime = staking ? (GetTargetSpacing * nNetworkWeight / nWeight) : 0;
 
-    json_spirit::Object obj;
+	uint64_t nNetworkWeight = GetPoSKernelPS();
+	bool staking = nLastCoinStakeSearchInterval && nWeight;
+	nExpectedTime = staking ? (GetTargetSpacing * nNetworkWeight / nWeight) : 0;
 
-    obj.push_back(json_spirit::Pair("enabled", GetBoolArg("-staking", true)));
-    obj.push_back(json_spirit::Pair("staking", staking));
-    obj.push_back(json_spirit::Pair("errors", GetWarnings("statusbar")));
-    obj.push_back(json_spirit::Pair("currentblocksize", (uint64_t)nLastBlockSize));
-    obj.push_back(json_spirit::Pair("currentblocktx", (uint64_t)nLastBlockTx));
-    obj.push_back(json_spirit::Pair("pooledtx", (uint64_t)mempool.size()));
-    obj.push_back(json_spirit::Pair("difficulty", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
-    obj.push_back(json_spirit::Pair("search-interval", (int)nLastCoinStakeSearchInterval));
-    obj.push_back(json_spirit::Pair("weight", (uint64_t)nWeight));
-    obj.push_back(json_spirit::Pair("netstakeweight", (uint64_t)nNetworkWeight));
-    obj.push_back(json_spirit::Pair("expectedtime", nExpectedTime));
-    obj.push_back(json_spirit::Pair("stakethreshold", GetStakeCombineThreshold() / COIN));
+	json_spirit::Object obj;
 
-    return obj;
+	obj.push_back(json_spirit::Pair("enabled", GetBoolArg("-staking", true)));
+	obj.push_back(json_spirit::Pair("staking", staking));
+	obj.push_back(json_spirit::Pair("errors", GetWarnings("statusbar")));
+	obj.push_back(json_spirit::Pair("currentblocksize", (uint64_t)nLastBlockSize));
+	obj.push_back(json_spirit::Pair("currentblocktx", (uint64_t)nLastBlockTx));
+	obj.push_back(json_spirit::Pair("pooledtx", (uint64_t)mempool.size()));
+	obj.push_back(json_spirit::Pair("difficulty", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
+	obj.push_back(json_spirit::Pair("search-interval", (int)nLastCoinStakeSearchInterval));
+	obj.push_back(json_spirit::Pair("weight", (uint64_t)nWeight));
+	obj.push_back(json_spirit::Pair("netstakeweight", (uint64_t)nNetworkWeight));
+	obj.push_back(json_spirit::Pair("expectedtime", nExpectedTime));
+	obj.push_back(json_spirit::Pair("stakethreshold", GetStakeCombineThreshold() / COIN));
+
+	return obj;
 }
 
 json_spirit::Value checkkernel(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "checkkernel [{\"txid\":txid,\"vout\":n},...] [createblocktemplate=false]\n"
-            "Check if one of given inputs is a kernel input at the moment.\n"
-        );
-    }
-
-    RPCTypeCheck(params, boost::assign::list_of(json_spirit::array_type)(json_spirit::bool_type));
-
-    json_spirit::Array inputs = params[0].get_array();
-    bool fCreateBlockTemplate = params.size() > 1 ? params[1].get_bool() : false;
-
-    if (vNodes.empty())
-	{
-        throw JSONRPCError(-9, "DigitalNote is not connected!");
+		throw std::runtime_error(
+			"checkkernel [{\"txid\":txid,\"vout\":n},...] [createblocktemplate=false]\n"
+			"Check if one of given inputs is a kernel input at the moment.\n"
+		);
 	}
-	
-    if (IsInitialBlockDownload())
+
+	RPCTypeCheck(params, boost::assign::list_of(json_spirit::array_type)(json_spirit::bool_type));
+
+	json_spirit::Array inputs = params[0].get_array();
+	bool fCreateBlockTemplate = params.size() > 1 ? params[1].get_bool() : false;
+
+	if (vNodes.empty())
 	{
-        throw JSONRPCError(-10, "DigitalNote is downloading blocks...");
+		throw JSONRPCError(-9, "DigitalNote is not connected!");
 	}
-	
-    COutPoint kernel;
-    CBlockIndex* pindexPrev = pindexBest;
-    unsigned int nBits = GetNextTargetRequired(pindexPrev, true);
-    int64_t nTime = GetAdjustedTime();
-    nTime &= ~STAKE_TIMESTAMP_MASK;
 
-    for(json_spirit::Value& input : inputs)
-    {
-        const json_spirit::Object& o = input.get_obj();
+	if (IsInitialBlockDownload())
+	{
+		throw JSONRPCError(-10, "DigitalNote is downloading blocks...");
+	}
 
-        const json_spirit::Value& txid_v = find_value(o, "txid");
-        if (txid_v.type() != json_spirit::str_type)
+	COutPoint kernel;
+	CBlockIndex* pindexPrev = pindexBest;
+	unsigned int nBits = GetNextTargetRequired(pindexPrev, true);
+	int64_t nTime = GetAdjustedTime();
+	nTime &= ~STAKE_TIMESTAMP_MASK;
+
+	for(json_spirit::Value& input : inputs)
+	{
+		const json_spirit::Object& o = input.get_obj();
+
+		const json_spirit::Value& txid_v = find_value(o, "txid");
+		if (txid_v.type() != json_spirit::str_type)
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing txid key");
-        }
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing txid key");
+		}
 		
 		std::string txid = txid_v.get_str();
-        if (!IsHex(txid))
+		if (!IsHex(txid))
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected hex txid");
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected hex txid");
 		}
 		
-        const json_spirit::Value& vout_v = find_value(o, "vout");
-        if (vout_v.type() != json_spirit::int_type)
+		const json_spirit::Value& vout_v = find_value(o, "vout");
+		if (vout_v.type() != json_spirit::int_type)
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
-        }
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+		}
 		
 		int nOutput = vout_v.get_int();
-        if (nOutput < 0)
+		if (nOutput < 0)
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
 		}
 		
-        COutPoint cInput(uint256(txid), nOutput);
-        if (CheckKernel(pindexPrev, nBits, nTime, cInput))
-        {
-            kernel = cInput;
+		COutPoint cInput(uint256(txid), nOutput);
+		if (CheckKernel(pindexPrev, nBits, nTime, cInput))
+		{
+			kernel = cInput;
 			
-            break;
-        }
-    }
-
-    json_spirit::Object result;
-    result.push_back(json_spirit::Pair("found", !kernel.IsNull()));
-
-    if (kernel.IsNull())
-	{
-        return result;
+			break;
+		}
 	}
-	
-    json_spirit::Object oKernel;
-    oKernel.push_back(json_spirit::Pair("txid", kernel.hash.GetHex()));
-    oKernel.push_back(json_spirit::Pair("vout", (int64_t)kernel.n));
-    oKernel.push_back(json_spirit::Pair("time", nTime));
-    result.push_back(json_spirit::Pair("kernel", oKernel));
 
-    if (!fCreateBlockTemplate)
+	json_spirit::Object result;
+	result.push_back(json_spirit::Pair("found", !kernel.IsNull()));
+
+	if (kernel.IsNull())
 	{
-        return result;
+		return result;
 	}
-	
-    int64_t nFees;
 
-    CBlockPtr pblock(CreateNewBlock(*pMiningKey, true, &nFees));
-	
-    pblock->nTime = pblock->vtx[0].nTime = nTime;
+	json_spirit::Object oKernel;
+	oKernel.push_back(json_spirit::Pair("txid", kernel.hash.GetHex()));
+	oKernel.push_back(json_spirit::Pair("vout", (int64_t)kernel.n));
+	oKernel.push_back(json_spirit::Pair("time", nTime));
+	result.push_back(json_spirit::Pair("kernel", oKernel));
 
-    CDataStream ss(SER_DISK, PROTOCOL_VERSION);
-    ss << *pblock;
-
-    result.push_back(json_spirit::Pair("blocktemplate", HexStr(ss.begin(), ss.end())));
-    result.push_back(json_spirit::Pair("blocktemplatefees", nFees));
-
-    CPubKey pubkey;
-    if (!pMiningKey->GetReservedKey(pubkey))
+	if (!fCreateBlockTemplate)
 	{
-        throw JSONRPCError(RPC_MISC_ERROR, "GetReservedKey failed");
+		return result;
 	}
-	
-    result.push_back(json_spirit::Pair("blocktemplatesignkey", HexStr(pubkey)));
 
-    return result;
+	int64_t nFees;
+
+	CBlockPtr pblock(CreateNewBlock(*pMiningKey, true, &nFees));
+
+	pblock->nTime = pblock->vtx[0].nTime = nTime;
+
+	CDataStream ss(SER_DISK, PROTOCOL_VERSION);
+	ss << *pblock;
+
+	result.push_back(json_spirit::Pair("blocktemplate", HexStr(ss.begin(), ss.end())));
+	result.push_back(json_spirit::Pair("blocktemplatefees", nFees));
+
+	CPubKey pubkey;
+	if (!pMiningKey->GetReservedKey(pubkey))
+	{
+		throw JSONRPCError(RPC_MISC_ERROR, "GetReservedKey failed");
+	}
+
+	result.push_back(json_spirit::Pair("blocktemplatesignkey", HexStr(pubkey)));
+
+	return result;
 }
 
 json_spirit::Value getworkex(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 2)
+	if (fHelp || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "getworkex [data, coinbase]\n"
-            "If [data, coinbase] is not specified, returns extended work data.\n"
-        );
+		throw std::runtime_error(
+			"getworkex [data, coinbase]\n"
+			"If [data, coinbase] is not specified, returns extended work data.\n"
+		);
 	}
 
-    if (vNodes.empty())
+	if (vNodes.empty())
 	{
-        throw JSONRPCError(-9, "DigitalNote is not connected!");
+		throw JSONRPCError(-9, "DigitalNote is not connected!");
 	}
-	
-    //if (IsInitialBlockDownload())
-    //{
+
+	//if (IsInitialBlockDownload())
+	//{
 	//    throw JSONRPCError(-10, "DigitalNote is downloading blocks...");
 	//}
-	
-    if (pindexBest->nHeight >= Params().EndPoWBlock())
+
+	if (pindexBest->nHeight >= Params().EndPoWBlock())
 	{
-        throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
+		throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
 	}
 	
-    typedef std::map<uint256, std::pair<CBlock*, CScript> > mapNewBlock_t;
-    static mapNewBlock_t mapNewBlock;
-    static std::vector<CBlock*> vNewBlock;
+	static mapNewBlock_t mapNewBlock;
+	static std::vector<CBlock*> vNewBlock;
 
-    if (params.size() == 0)
-    {
-        // Update block
-        static unsigned int nTransactionsUpdatedLast;
-        static CBlockIndex* pindexPrev;
-        static int64_t nStart;
-        static CBlock* pblock;
-        
+	if (params.size() == 0)
+	{
+		// Update block
+		static unsigned int nTransactionsUpdatedLast;
+		static CBlockIndex* pindexPrev;
+		static int64_t nStart;
+		static CBlock* pblock;
+		
 		if (
 			pindexPrev != pindexBest ||
-            (
+			(
 				mempool.GetTransactionsUpdated() != nTransactionsUpdatedLast &&
 				GetTime() - nStart > 60
 			)
 		)
-        {
-            if (pindexPrev != pindexBest)
-            {
-                // Deallocate old blocks since they're obsolete now
-                mapNewBlock.clear();
+		{
+			if (pindexPrev != pindexBest)
+			{
+				// Deallocate old blocks since they're obsolete now
+				mapNewBlock.clear();
 				
-                for(CBlock* pblock : vNewBlock)
+				for(CBlock* pblock : vNewBlock)
 				{
-                    delete pblock;
+					delete pblock;
 				}
 				
-                vNewBlock.clear();
-            }
+				vNewBlock.clear();
+			}
 			
-            nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-            pindexPrev = pindexBest;
-            nStart = GetTime();
+			nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
+			pindexPrev = pindexBest;
+			nStart = GetTime();
 
-            // Create new block
-            pblock = CreateNewBlock(*pMiningKey);
-            if (!pblock)
+			// Create new block
+			pblock = CreateNewBlock(*pMiningKey);
+			if (!pblock)
 			{
-                throw JSONRPCError(-7, "Out of memory");
-            }
+				throw JSONRPCError(-7, "Out of memory");
+			}
 			
 			vNewBlock.push_back(pblock);
-        }
+		}
 
-        // Update nTime
-        pblock->nTime = std::max(pindexPrev->GetPastTimeLimit()+1, GetAdjustedTime());
-        pblock->nNonce = 0;
+		// Update nTime
+		pblock->nTime = std::max(pindexPrev->GetPastTimeLimit()+1, GetAdjustedTime());
+		pblock->nNonce = 0;
 
-        // Update nExtraNonce
-        static unsigned int nExtraNonce = 0;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+		// Update nExtraNonce
+		static unsigned int nExtraNonce = 0;
+		IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        // Save
-        mapNewBlock[pblock->hashMerkleRoot] = std::make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
+		// Save
+		mapNewBlock[pblock->hashMerkleRoot] = std::make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
 
-        // Prebuild hash buffers
-        char pmidstate[32];
-        char pdata[128];
-        char phash1[64];
-        
+		// Prebuild hash buffers
+		char pmidstate[32];
+		char pdata[128];
+		char phash1[64];
+		
 		FormatHashBuffers(pblock, pmidstate, pdata, phash1);
 
-        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+		uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
-        CTransaction coinbaseTx = pblock->vtx[0];
-        std::vector<uint256> merkle = pblock->GetMerkleBranch(0);
+		CTransaction coinbaseTx = pblock->vtx[0];
+		std::vector<uint256> merkle = pblock->GetMerkleBranch(0);
 
-        json_spirit::Object result;
-        result.push_back(json_spirit::Pair("data",   HexStr(BEGIN(pdata), END(pdata))));
-        result.push_back(json_spirit::Pair("target", HexStr(BEGIN(hashTarget), END(hashTarget))));
+		json_spirit::Object result;
+		result.push_back(json_spirit::Pair("data",   HexStr(BEGIN(pdata), END(pdata))));
+		result.push_back(json_spirit::Pair("target", HexStr(BEGIN(hashTarget), END(hashTarget))));
 
-        CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-        
+		CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+		
 		ssTx << coinbaseTx;
-        
+		
 		result.push_back(json_spirit::Pair("coinbase", HexStr(ssTx.begin(), ssTx.end())));
 
-        json_spirit::Array merkle_arr;
+		json_spirit::Array merkle_arr;
 
-        for(uint256 merkleh : merkle)
+		for(uint256 merkleh : merkle)
 		{
-            merkle_arr.push_back(HexStr(BEGIN(merkleh), END(merkleh)));
-        }
+			merkle_arr.push_back(HexStr(BEGIN(merkleh), END(merkleh)));
+		}
 
-        result.push_back(json_spirit::Pair("merkle", merkle_arr));
+		result.push_back(json_spirit::Pair("merkle", merkle_arr));
 		
-        return result;
-    }
-    else
-    {
-        // Parse parameters
-        std::vector<unsigned char> vchData = ParseHex(params[0].get_str());
-        std::vector<unsigned char> coinbase;
+		return result;
+	}
+	else
+	{
+		// Parse parameters
+		std::vector<unsigned char> vchData = ParseHex(params[0].get_str());
+		std::vector<unsigned char> coinbase;
 
-        if(params.size() == 2)
+		if(params.size() == 2)
 		{
-            coinbase = ParseHex(params[1].get_str());
+			coinbase = ParseHex(params[1].get_str());
 		}
 		
-        if (vchData.size() != 128)
+		if (vchData.size() != 128)
 		{
-            throw JSONRPCError(-8, "Invalid parameter");
+			throw JSONRPCError(-8, "Invalid parameter");
 		}
 		
-        CBlock* pdata = (CBlock*)&vchData[0];
+		CBlock* pdata = (CBlock*)&vchData[0];
 
-        // Byte reverse
-        for (int i = 0; i < 128/4; i++)
+		// Byte reverse
+		for (int i = 0; i < 128/4; i++)
 		{
-            ((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+			((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
 		}
 		
-        // Get saved block
-        if (!mapNewBlock.count(pdata->hashMerkleRoot))
+		// Get saved block
+		if (!mapNewBlock.count(pdata->hashMerkleRoot))
 		{
-            return false;
+			return false;
 		}
 		
-        CBlock* pblock = mapNewBlock[pdata->hashMerkleRoot].first;
+		CBlock* pblock = mapNewBlock[pdata->hashMerkleRoot].first;
 
-        pblock->nTime = pdata->nTime;
-        pblock->nNonce = pdata->nNonce;
+		pblock->nTime = pdata->nTime;
+		pblock->nNonce = pdata->nNonce;
 
-        if(coinbase.size() == 0)
+		if(coinbase.size() == 0)
 		{
-            pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
+			pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
 		}
-        else
+		else
 		{
-            CDataStream(coinbase, SER_NETWORK, PROTOCOL_VERSION) >> pblock->vtx[0]; // FIXME - HACK!
+			CDataStream(coinbase, SER_NETWORK, PROTOCOL_VERSION) >> pblock->vtx[0]; // FIXME - HACK!
 		}
 		
-        pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+		pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
-        assert(pwalletMain != NULL);
-        
+		assert(pwalletMain != NULL);
+		
 		return CheckWork(pblock, *pwalletMain, *pMiningKey);
-    }
+	}
 }
 
 json_spirit::Value getwork(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+	if (fHelp || params.size() > 1)
 	{
-        throw std::runtime_error(
-            "getwork [data]\n"
-            "If [data] is not specified, returns formatted hash data to work on:\n"
-            "  \"midstate\" : precomputed hash state after hashing the first half of the data (DEPRECATED)\n" // deprecated
-            "  \"data\" : block data\n"
-            "  \"hash1\" : formatted hash buffer for second hash (DEPRECATED)\n" // deprecated
-            "  \"target\" : little endian hash target\n"
-            "If [data] is specified, tries to solve the block and returns true if it was successful."
+		throw std::runtime_error(
+			"getwork [data]\n"
+			"If [data] is not specified, returns formatted hash data to work on:\n"
+			"  \"midstate\" : precomputed hash state after hashing the first half of the data (DEPRECATED)\n" // deprecated
+			"  \"data\" : block data\n"
+			"  \"hash1\" : formatted hash buffer for second hash (DEPRECATED)\n" // deprecated
+			"  \"target\" : little endian hash target\n"
+			"If [data] is specified, tries to solve the block and returns true if it was successful."
 		);
 	}
-	
-    if (vNodes.empty())
-	{
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "DigitalNote is not connected!");
-	}
-	
-    //if (IsInitialBlockDownload())
-	//{
-    //    throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "DigitalNote is downloading blocks...");
-	//}
-	
-    if (pindexBest->nHeight >= Params().EndPoWBlock())
-	{
-        throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
-	}
-	
-    typedef std::map<uint256, std::pair<CBlock*, CScript> > mapNewBlock_t;
-    static mapNewBlock_t mapNewBlock;    // FIXME: thread safety
-    static std::vector<CBlock*> vNewBlock;
 
-    if (params.size() == 0)
-    {
-        // Update block
-        static unsigned int nTransactionsUpdatedLast;
-        static CBlockIndex* pindexPrev;
-        static int64_t nStart;
-        static CBlock* pblock;
-        
+	if (vNodes.empty())
+	{
+		throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "DigitalNote is not connected!");
+	}
+
+	//if (IsInitialBlockDownload())
+	//{
+	//    throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "DigitalNote is downloading blocks...");
+	//}
+
+	if (pindexBest->nHeight >= Params().EndPoWBlock())
+	{
+		throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
+	}
+	
+	static mapNewBlock_t mapNewBlock;    // FIXME: thread safety
+	static std::vector<CBlock*> vNewBlock;
+
+	if (params.size() == 0)
+	{
+		// Update block
+		static unsigned int nTransactionsUpdatedLast;
+		static CBlockIndex* pindexPrev;
+		static int64_t nStart;
+		static CBlock* pblock;
+		
 		if (
 			pindexPrev != pindexBest ||
-            (
+			(
 				mempool.GetTransactionsUpdated() != nTransactionsUpdatedLast &&
 				GetTime() - nStart > 60
 			)
 		)
-        {
-            if (pindexPrev != pindexBest)
-            {
-                // Deallocate old blocks since they're obsolete now
-                mapNewBlock.clear();
+		{
+			if (pindexPrev != pindexBest)
+			{
+				// Deallocate old blocks since they're obsolete now
+				mapNewBlock.clear();
 				
-                for(CBlock* pblock : vNewBlock)
+				for(CBlock* pblock : vNewBlock)
 				{
-                    delete pblock;
-                }
+					delete pblock;
+				}
 				
 				vNewBlock.clear();
-            }
+			}
 
-            // Clear pindexPrev so future getworks make a new block, despite any failures from here on
-            pindexPrev = NULL;
+			// Clear pindexPrev so future getworks make a new block, despite any failures from here on
+			pindexPrev = NULL;
 
-            // Store the pindexBest used before CreateNewBlock, to avoid races
-            nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-            CBlockIndex* pindexPrevNew = pindexBest;
-            nStart = GetTime();
+			// Store the pindexBest used before CreateNewBlock, to avoid races
+			nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
+			CBlockIndex* pindexPrevNew = pindexBest;
+			nStart = GetTime();
 
-            // Create new block
-            pblock = CreateNewBlock(*pMiningKey);
-            
+			// Create new block
+			pblock = CreateNewBlock(*pMiningKey);
+			
 			if (!pblock)
 			{
-                throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
-            }
+				throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
+			}
 			
 			vNewBlock.push_back(pblock);
 
-            // Need to update only after we know CreateNewBlock succeeded
-            pindexPrev = pindexPrevNew;
-        }
+			// Need to update only after we know CreateNewBlock succeeded
+			pindexPrev = pindexPrevNew;
+		}
 
-        // Update nTime
-        pblock->UpdateTime(pindexPrev);
-        pblock->nNonce = 0;
+		// Update nTime
+		pblock->UpdateTime(pindexPrev);
+		pblock->nNonce = 0;
 
-        // Update nExtraNonce
-        static unsigned int nExtraNonce = 0;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+		// Update nExtraNonce
+		static unsigned int nExtraNonce = 0;
+		IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        // Save
-        mapNewBlock[pblock->hashMerkleRoot] = std::make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
+		// Save
+		mapNewBlock[pblock->hashMerkleRoot] = std::make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
 
-        // Pre-build hash buffers
-        char pmidstate[32];
-        char pdata[128];
-        char phash1[64];
-        
+		// Pre-build hash buffers
+		char pmidstate[32];
+		char pdata[128];
+		char phash1[64];
+		
 		FormatHashBuffers(pblock, pmidstate, pdata, phash1);
 
-        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-        json_spirit::Object result;
-        
+		uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+		json_spirit::Object result;
+		
 		result.push_back(json_spirit::Pair("midstate", HexStr(BEGIN(pmidstate), END(pmidstate)))); // deprecated
-        result.push_back(json_spirit::Pair("data", HexStr(BEGIN(pdata), END(pdata))));
-        result.push_back(json_spirit::Pair("hash1", HexStr(BEGIN(phash1), END(phash1)))); // deprecated
-        result.push_back(json_spirit::Pair("target", HexStr(BEGIN(hashTarget), END(hashTarget))));
-        
+		result.push_back(json_spirit::Pair("data", HexStr(BEGIN(pdata), END(pdata))));
+		result.push_back(json_spirit::Pair("hash1", HexStr(BEGIN(phash1), END(phash1)))); // deprecated
+		result.push_back(json_spirit::Pair("target", HexStr(BEGIN(hashTarget), END(hashTarget))));
+		
 		return result;
-    }
-    else
-    {
-        // Parse parameters
-        std::vector<unsigned char> vchData = ParseHex(params[0].get_str());
-        if (vchData.size() != 128)
+	}
+	else
+	{
+		// Parse parameters
+		std::vector<unsigned char> vchData = ParseHex(params[0].get_str());
+		if (vchData.size() != 128)
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter");
-        }
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter");
+		}
 		
 		CBlock* pdata = (CBlock*)&vchData[0];
 
-        // Byte reverse
-        for (int i = 0; i < 128/4; i++)
+		// Byte reverse
+		for (int i = 0; i < 128/4; i++)
 		{
-            ((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+			((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
 		}
 		
-        // Get saved block
-        if (!mapNewBlock.count(pdata->hashMerkleRoot))
+		// Get saved block
+		if (!mapNewBlock.count(pdata->hashMerkleRoot))
 		{
-            return false;
-        }
+			return false;
+		}
 		
 		CBlock* pblock = mapNewBlock[pdata->hashMerkleRoot].first;
 
-        pblock->nTime = pdata->nTime;
-        pblock->nNonce = pdata->nNonce;
-        pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
-        pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+		pblock->nTime = pdata->nTime;
+		pblock->nNonce = pdata->nNonce;
+		pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
+		pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
-        assert(pwalletMain != NULL);
-        
+		assert(pwalletMain != NULL);
+		
 		return CheckWork(pblock, *pwalletMain, *pMiningKey);
-    }
+	}
 }
 
 json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp)

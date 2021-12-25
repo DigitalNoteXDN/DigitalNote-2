@@ -1,10 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
-#ifndef H_BITCOIN_SCRIPT
-#define H_BITCOIN_SCRIPT
+#ifndef SCRIPT_H
+#define SCRIPT_H
 
 #include <string>
 #include <vector>
@@ -71,4 +66,4 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
                   CScript& scriptSigRet, txnouttype& whichTypeRet);
 uint256 SignatureHash(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
 
-#endif
+#endif // SCRIPT_H

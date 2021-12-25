@@ -1,10 +1,3 @@
-// Copyright (c) 2016-2020 The CryptoCoderz Team / Espers
-// Copyright (c) 2018-2020 The CryptoCoderz Team / INSaNe project
-// Copyright (c) 2018-2020 The Rubix project
-// Copyright (c) 2018-2020 The DigitalNote project
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <boost/random/mersenne_twister.hpp>

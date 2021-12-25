@@ -1,29 +1,30 @@
-// Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 
-#include "util.h"
-#include "enums/httpstatuscode.h"
+#include "json/json_spirit_reader_template.h"
+#include "json/json_spirit_utils.h"
+#include "json/json_spirit_writer_template.h"
+
+#include "types/iocontext.h"
+#include "crpctable.h"
+#include "tinyformat.h"
+#include "rpcprotocol.h"
 #include "enums/rpcerrorcode.h"
 #include "main_const.h"
+#include "util.h"
 #include "uint/uint256.h"
 #include "init.h"
+#include "enums/httpstatuscode.h"
 #include "ssliostreamdevice.h"
-#include "rpcvelocity.h"
 #include "cchainparams.h"
 #include "chainparams.h"
-#include "base58.h"
-#include "main_extern.h"
-#include "thread.h"
-#include "ui_interface.h"
 #include "ui_translate.h"
-#include "types/iocontext.h"
-#include "boost_ioservicess.h"
+#include "ui_interface.h"
+#include "base58.h"
+#include "boost_ioservices.h"
 
 #ifdef ENABLE_WALLET
 #include "cwallet.h"
@@ -31,15 +32,20 @@
 
 #include "rpcserver.h"
 
+typedef boost::shared_ptr<boost::asio::deadline_timer> share_ptr_deadline_timer_t;
+typedef std::map<std::string, share_ptr_deadline_timer_t> map_deadline_timer_t;
+ 
 // RETROCOMPATIBILITY SHOULD NOT BE AN OPTION
 
 static std::string strRPCUserColonPass;
 
 // These are created by StartRPCThreads, destroyed in StopRPCThreads
 static ioContext* rpc_io_service = NULL;
-static std::map<std::string, boost::shared_ptr<boost::asio::deadline_timer> > deadlineTimers;
+static map_deadline_timer_t deadlineTimers;
 static boost::asio::ssl::context* rpc_ssl_context = NULL;
 static boost::thread_group* rpc_worker_group = NULL;
+
+const CRPCTable tableRPC;
 
 void RPCTypeCheck(const json_spirit::Array& params, const std::list<json_spirit::Value_type>& typesExpected, bool fAllowNull)
 {
@@ -162,74 +168,6 @@ std::vector<unsigned char> ParseHexO(const json_spirit::Object& o, const std::st
     return ParseHexV(find_value(o, strKey), strKey);
 }
 
-///
-/// Note: This interface may still be subject to change.
-///
-
-std::string CRPCTable::help(const std::string &strCommand) const
-{
-    std::string strRet;
-    std::set<rpcfn_type> setDone;
-    
-	for (std::map<std::string, const CRPCCommand*>::const_iterator mi = mapCommands.begin(); mi != mapCommands.end(); ++mi)
-    {
-        const CRPCCommand *pcmd = mi->second;
-        std::string strMethod = mi->first;
-        
-		// We already filter duplicates, but these deprecated screw up the sort order
-        if (strMethod.find("label") != std::string::npos)
-		{
-            continue;
-        }
-		
-		if (strCommand != "" && strMethod != strCommand)
-		{
-            continue;
-		}
-		
-#ifdef ENABLE_WALLET
-        if (pcmd->reqWallet && !pwalletMain)
-		{
-            continue;
-		}
-#endif
-
-        try
-        {
-            json_spirit::Array params;
-            rpcfn_type pfn = pcmd->actor;
-            
-			if (setDone.insert(pfn).second)
-			{
-                (*pfn)(params, true);
-			}
-        }
-        catch (std::exception& e)
-        {
-            // Help text is returned in an exception
-            std::string strHelp = std::string(e.what());
-            if (strCommand == "")
-			{
-                if (strHelp.find('\n') != std::string::npos)
-				{
-                    strHelp = strHelp.substr(0, strHelp.find('\n'));
-				}
-            }
-			
-			strRet += strHelp + "\n";
-        }
-    }
-    
-	if (strRet == "")
-	{
-        strRet = strprintf("help: unknown command: %s\n", strCommand);
-    }
-	
-	strRet = strRet.substr(0,strRet.size()-1);
-    
-	return strRet;
-}
-
 json_spirit::Value help(const json_spirit::Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
@@ -264,152 +202,6 @@ json_spirit::Value stop(const json_spirit::Array& params, bool fHelp)
     StartShutdown();
     
 	return "DigitalNote server stopping";
-}
-
-//
-// Call Table
-//
-static const CRPCCommand vRPCCommands[] =
-{ //  name                      actor (function)         okSafeMode threadSafe reqWallet
-  //  ------------------------  -----------------------  ---------- ---------- ---------
-    { "help",                   &help,                   true,      true,      false },
-    { "stop",                   &stop,                   true,      true,      false },
-    { "getbestblockhash",       &getbestblockhash,       true,      false,     false },
-    { "getblockcount",          &getblockcount,          true,      false,     false },
-    { "getconnectioncount",     &getconnectioncount,     true,      false,     false },
-    { "getpeerinfo",            &getpeerinfo,            true,      false,     false },
-    { "addnode",                &addnode,                true,      true,      false },
-    { "getaddednodeinfo",       &getaddednodeinfo,       true,      true,      false },
-    { "ping",                   &ping,                   true,      false,     false },
-    { "setban",                 &setban,                 true,      false,     false },
-    { "listbanned",             &listbanned,             true,      false,     false },
-    { "clearbanned",            &clearbanned,            true,      false,     false },
-    { "getnettotals",           &getnettotals,           true,      true,      false },
-    { "getdifficulty",          &getdifficulty,          true,      false,     false },
-    { "getinfo",                &getinfo,                true,      false,     false },
-    { "getvelocityinfo",        &getvelocityinfo,        true,      false,     false },
-    { "getrawmempool",          &getrawmempool,          true,      false,     false },
-    { "getblock",               &getblock,               false,     false,     false },
-    { "getblockbynumber",       &getblockbynumber,       false,     false,     false },
-    { "getblockhash",           &getblockhash,           false,     false,     false },
-    { "getrawtransaction",      &getrawtransaction,      false,     false,     false },
-    { "createrawtransaction",   &createrawtransaction,   false,     false,     false },
-    { "decoderawtransaction",   &decoderawtransaction,   false,     false,     false },
-    { "decodescript",           &decodescript,           false,     false,     false },
-    { "signrawtransaction",     &signrawtransaction,     false,     false,     false },
-    { "sendrawtransaction",     &sendrawtransaction,     false,     false,     false },
-    { "getcheckpoint",          &getcheckpoint,          true,      false,     false },
-    { "sendalert",              &sendalert,              false,     false,     false },
-    { "validateaddress",        &validateaddress,        true,      false,     false },
-    { "validatepubkey",         &validatepubkey,         true,      false,     false },
-    { "verifymessage",          &verifymessage,          false,     false,     false },
-    { "searchrawtransactions",  &searchrawtransactions,  false,     false,     false },
-
-/* Masternode features */
-    { "spork",                  &spork,                  true,      false,      false },
-    { "masternode",             &masternode,             true,      false,      true },
-    { "masternodelist",         &masternodelist,         true,      false,      false },
-
-#ifdef ENABLE_WALLET
-    { "getmininginfo",          &getmininginfo,          true,      false,     false },
-    { "getstakinginfo",         &getstakinginfo,         true,      false,     false },
-    { "getnewaddress",          &getnewaddress,          true,      false,     true },
-    { "getnewpubkey",           &getnewpubkey,           true,      false,     true },
-    { "getaccountaddress",      &getaccountaddress,      true,      false,     true },
-    { "setaccount",             &setaccount,             true,      false,     true },
-    { "getaccount",             &getaccount,             false,     false,     true },
-    { "getaddressesbyaccount",  &getaddressesbyaccount,  true,      false,     true },
-    { "sendtoaddress",          &sendtoaddress,          false,     false,     true },
-    { "getreceivedbyaddress",   &getreceivedbyaddress,   false,     false,     true },
-    { "getreceivedbyaccount",   &getreceivedbyaccount,   false,     false,     true },
-    { "listreceivedbyaddress",  &listreceivedbyaddress,  false,     false,     true },
-    { "listreceivedbyaccount",  &listreceivedbyaccount,  false,     false,     true },
-    { "backupwallet",           &backupwallet,           true,      false,     true },
-    { "keypoolrefill",          &keypoolrefill,          true,      false,     true },
-    { "walletpassphrase",       &walletpassphrase,       true,      false,     true },
-    { "walletpassphrasechange", &walletpassphrasechange, false,     false,     true },
-    { "walletlock",             &walletlock,             true,      false,     true },
-    { "encryptwallet",          &encryptwallet,          false,     false,     true },
-    { "getbalance",             &getbalance,             false,     false,     true },
-    { "move",                   &movecmd,                false,     false,     true },
-    { "sendfrom",               &sendfrom,               false,     false,     true },
-    { "sendmany",               &sendmany,               false,     false,     true },
-    { "addmultisigaddress",     &addmultisigaddress,     false,     false,     true },
-    { "addredeemscript",        &addredeemscript,        false,     false,     true },
-    { "gettransaction",         &gettransaction,         false,     false,     true },
-    { "listtransactions",       &listtransactions,       false,     false,     true },
-    { "listaddressgroupings",   &listaddressgroupings,   false,     false,     true },
-    { "signmessage",            &signmessage,            false,     false,     true },
-    { "getwork",                &getwork,                true,      false,     true },
-    { "getworkex",              &getworkex,              true,      false,     true },
-    { "listaccounts",           &listaccounts,           false,     false,     true },
-    { "getblocktemplate",       &getblocktemplate,       true,      false,     false },
-    { "submitblock",            &submitblock,            false,     false,     false },
-    { "listsinceblock",         &listsinceblock,         false,     false,     true },
-    { "dumpprivkey",            &dumpprivkey,            false,     false,     true },
-    { "dumpwallet",             &dumpwallet,             true,      false,     true },
-    { "importprivkey",          &importprivkey,          false,     false,     true },
-    { "importwallet",           &importwallet,           false,     false,     true },
-    { "importaddress",          &importaddress,          false,     false,     true },
-    { "listunspent",            &listunspent,            false,     false,     true },
-    { "cclistcoins",            &cclistcoins,            false,     false,     true },
-    { "settxfee",               &settxfee,               false,     false,     true },
-    { "getsubsidy",             &getsubsidy,             true,      true,      false },
-    { "getstakesubsidy",        &getstakesubsidy,        true,      true,      false },
-    { "reservebalance",         &reservebalance,         false,     true,      true },
-    { "createmultisig",         &createmultisig,         true,      true,      false },
-    { "checkwallet",            &checkwallet,            false,     true,      true },
-    { "repairwallet",           &repairwallet,           false,     true,      true },
-    { "resendtx",               &resendtx,               false,     true,      true },
-    { "makekeypair",            &makekeypair,            false,     true,      false },
-    { "checkkernel",            &checkkernel,            true,      false,     true },
-    { "getnewstealthaddress",   &getnewstealthaddress,   false,     false,     true },
-    { "liststealthaddresses",   &liststealthaddresses,   false,     false,     true },
-    { "scanforalltxns",         &scanforalltxns,         false,     false,     false },
-    { "scanforstealthtxns",     &scanforstealthtxns,     false,     false,     false },
-    { "importstealthaddress",   &importstealthaddress,   false,     false,     true },
-    { "sendtostealthaddress",   &sendtostealthaddress,   false,     false,     true },
-    { "smsgenable",             &smsgenable,             false,     false,     false },
-    { "smsgdisable",            &smsgdisable,            false,     false,     false },
-    { "smsglocalkeys",          &smsglocalkeys,          false,     false,     false },
-    { "smsgoptions",            &smsgoptions,            false,     false,     false },
-    { "smsgscanchain",          &smsgscanchain,          false,     false,     false },
-    { "smsgscanbuckets",        &smsgscanbuckets,        false,     false,     false },
-    { "smsgaddkey",             &smsgaddkey,             false,     false,     false },
-    { "smsggetpubkey",          &smsggetpubkey,          false,     false,     false },
-    { "smsgsend",               &smsgsend,               false,     false,     false },
-    { "smsgsendanon",           &smsgsendanon,           false,     false,     false },
-    { "smsginbox",              &smsginbox,              false,     false,     false },
-    { "smsgoutbox",             &smsgoutbox,             false,     false,     false },
-    { "smsgbuckets",            &smsgbuckets,            false,     false,     false },
-    { "smsggetmessagesforaccount", &smsggetmessagesforaccount,            false,     false,     false },
-#endif // ENABLE_WALLET
-	{ "mintblock",              &mintblock,              false,     false,     false }
-};
-
-CRPCTable::CRPCTable()
-{
-    unsigned int vcidx;
-    
-	for (vcidx = 0; vcidx < (sizeof(vRPCCommands) / sizeof(vRPCCommands[0])); vcidx++)
-    {
-        const CRPCCommand *pcmd;
-
-        pcmd = &vRPCCommands[vcidx];
-        mapCommands[pcmd->name] = pcmd;
-    }
-}
-
-const CRPCCommand *CRPCTable::operator[](std::string name) const
-{
-    std::map<std::string, const CRPCCommand*>::const_iterator it = mapCommands.find(name);
-    
-	if (it == mapCommands.end())
-	{
-        return NULL;
-	}
-	
-    return (*it).second;
 }
 
 bool HTTPAuthorized(std::map<std::string, std::string>& mapHeaders)
@@ -449,8 +241,8 @@ void ErrorReply(std::ostream& stream, const json_spirit::Object& objError, const
 
 bool ClientAllowed(const boost::asio::ip::address& address)
 {
-    // Make sure that IPv4-compatible and IPv4-mapped IPv6 addresses are treated as IPv4 addresses
-    if (address.is_v6() &&
+	// Make sure that IPv4-compatible and IPv4-mapped IPv6 addresses are treated as IPv4 addresses
+	if (address.is_v6() &&
 		(
 			address.to_v6().is_v4_compatible() ||
 			address.to_v6().is_v4_mapped()
@@ -459,8 +251,8 @@ bool ClientAllowed(const boost::asio::ip::address& address)
 	{
 		return ClientAllowed(address.to_v6().to_v4());
 	}
-	
-    if (address == boost::asio::ip::address_v4::loopback() ||
+
+	if (address == boost::asio::ip::address_v4::loopback() ||
 		address == boost::asio::ip::address_v6::loopback() ||
 		(
 			address.is_v4() &&
@@ -471,18 +263,18 @@ bool ClientAllowed(const boost::asio::ip::address& address)
 	{
 		return true;
 	}
-	
-    const std::string strAddress = address.to_string();
-    const std::vector<std::string>& vAllow = mapMultiArgs["-rpcallowip"];
-    
+
+	const std::string strAddress = address.to_string();
+	const std::vector<std::string>& vAllow = mapMultiArgs["-rpcallowip"];
+
 	for(std::string strAllow : vAllow)
 	{
-        if (WildcardMatch(strAddress, strAllow))
+		if (WildcardMatch(strAddress, strAllow))
 		{
-            return true;
+			return true;
 		}
-    }
-	
+	}
+
 	return false;
 }
 
@@ -533,14 +325,15 @@ void ServiceConnection(AcceptedConnection *conn);
 
 // Forward declaration required for RPCListen
 template <typename Protocol>
-static void RPCAcceptHandler(boost::shared_ptr< boost::asio::basic_socket_acceptor<Protocol> > acceptor, boost::asio::ssl::context& context,
-		bool fUseSSL, AcceptedConnection* conn, const boost::system::error_code& error);
+static void RPCAcceptHandler(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor,
+		boost::asio::ssl::context& context, bool fUseSSL, AcceptedConnection* conn, const boost::system::error_code& error);
 
 /**
  * Sets up I/O resources to accept and handle a new connection.
  */
 template <typename Protocol>
-static void RPCListen(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor, boost::asio::ssl::context& context, const bool fUseSSL)
+static void RPCListen(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor,
+		boost::asio::ssl::context& context, const bool fUseSSL)
 {
     AcceptedConnectionImpl<Protocol>* conn = new AcceptedConnectionImpl<Protocol>(GetIOServiceFromPtr(acceptor), context, fUseSSL);
     
@@ -555,8 +348,8 @@ static void RPCListen(boost::shared_ptr<boost::asio::basic_socket_acceptor<Proto
  * Accept and handle incoming connection.
  */
 template <typename Protocol>
-static void RPCAcceptHandler(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor, boost::asio::ssl::context& context,
-		const bool fUseSSL, AcceptedConnection* conn, const boost::system::error_code& error)
+static void RPCAcceptHandler(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor,
+		boost::asio::ssl::context& context, const bool fUseSSL, AcceptedConnection* conn, const boost::system::error_code& error)
 {
     // Immediately start accepting new connections, except when we're cancelled or our socket is closed.
     if (error != boost::asio::error::operation_aborted && acceptor->is_open())
@@ -806,7 +599,7 @@ void RPCRunLater(const std::string& name, boost::function<void(void)> func, int6
         deadlineTimers.insert(
 			std::make_pair(
 				name,
-				boost::shared_ptr<boost::asio::deadline_timer>(new boost::asio::deadline_timer(*rpc_io_service))
+				share_ptr_deadline_timer_t(new boost::asio::deadline_timer(*rpc_io_service))
 			)
 		);
     }
@@ -1024,89 +817,6 @@ void ServiceConnection(AcceptedConnection *conn)
     }
 }
 
-json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_spirit::Array &params) const
-{
-    // Find method
-    const CRPCCommand *pcmd = tableRPC[strMethod];
-    if (!pcmd)
-	{
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
-	}
-	
-#ifdef ENABLE_WALLET
-    if (pcmd->reqWallet && !pwalletMain)
-	{
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found (disabled)");
-	}
-#endif // ENABLE_WALLET
-
-    // Observe safe mode
-    std::string strWarning = GetWarnings("rpc");
-    
-	if (strWarning != "" &&
-		!GetBoolArg("-disablesafemode", false) &&
-        !pcmd->okSafeMode
-	)
-	{
-        throw JSONRPCError(RPC_FORBIDDEN_BY_SAFE_MODE, std::string("Safe mode: ") + strWarning);
-	}
-	
-    try
-    {
-        // Execute
-        json_spirit::Value result;
-		
-        {
-            if (pcmd->threadSafe)
-			{
-                result = pcmd->actor(params, false);
-			}
-#ifdef ENABLE_WALLET
-            else if (!pwalletMain)
-			{
-                LOCK(cs_main);
-                
-				result = pcmd->actor(params, false);
-            }
-			else
-			{
-                LOCK2(cs_main, pwalletMain->cs_wallet);
-                
-				result = pcmd->actor(params, false);
-            }
-#else // ENABLE_WALLET
-            else
-			{
-                LOCK(cs_main);
-                
-				result = pcmd->actor(params, false);
-            }
-#endif // !ENABLE_WALLET
-        }
-		
-        return result;
-    }
-    catch (std::exception& e)
-    {
-        throw JSONRPCError(RPC_MISC_ERROR, e.what());
-    }
-}
-
-std::vector<std::string> CRPCTable::listCommands() const
-{
-    std::vector<std::string> commandList;
-    typedef std::map<std::string, const CRPCCommand*> commandMap;
-
-    std::transform(
-		mapCommands.begin(),
-		mapCommands.end(),
-		std::back_inserter(commandList),
-		boost::bind(&commandMap::value_type::first, _1)
-	);
-    
-	return commandList;
-}
-
 std::string HelpExampleCli(const std::string &methodname, const std::string &args)
 {
     return "> DigitalNoted " + methodname + " " + args + "\n";
@@ -1118,4 +828,3 @@ std::string HelpExampleRpc(const std::string &methodname, const std::string &arg
 	"\"method\": \"" + methodname + "\", \"params\": [" + args + "] }' -H 'content-type: text/plain;' http://127.0.0.1:9998/\n";
 }
 
-const CRPCTable tableRPC;

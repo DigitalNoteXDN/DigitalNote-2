@@ -1,10 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
-#ifndef BITCOIN_SERIALIZE_H
-#define BITCOIN_SERIALIZE_H
+#ifndef SERIALIZE_H
+#define SERIALIZE_H
 
 #include <ios>
 #include <set>
@@ -776,4 +771,4 @@ struct ser_streamplaceholder
 };
 
 
-#endif // BITCOIN_SERIALIZE_H
+#endif // SERIALIZE_H

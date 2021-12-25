@@ -1,7 +1,3 @@
-// Copyright (c) 2012 Pieter Wuille
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef ADDRMAN_H
 #define ADDRMAN_H
 

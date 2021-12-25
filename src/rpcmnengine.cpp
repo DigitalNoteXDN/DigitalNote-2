@@ -1,11 +1,7 @@
-// Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Darkcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <fstream>
+#include <iomanip>
 #include <boost/lexical_cast.hpp>
 
 #include "enums/rpcerrorcode.h"
@@ -41,56 +37,57 @@
 #include "cscriptid.h"
 #include "cstealthaddress.h"
 #include "thread.h"
+#include "rpcprotocol.h"
 
 void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew, AvailableCoinsType coin_type=ALL_COINS)
 {
-    // Check amount
-    if (nValue <= 0)
+	// Check amount
+	if (nValue <= 0)
 	{
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 	}
-	
-    if (nValue > pwalletMain->GetBalance())
+
+	if (nValue > pwalletMain->GetBalance())
 	{
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+		throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 	}
-	
-    std::string strError;
-    if (pwalletMain->IsLocked())
-    {
-        strError = "Error: Wallet locked, unable to create transaction!";
-        
+
+	std::string strError;
+	if (pwalletMain->IsLocked())
+	{
+		strError = "Error: Wallet locked, unable to create transaction!";
+		
 		LogPrintf("SendMoney() : %s", strError);
-        
+		
 		throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }
+	}
 
-    // Parse DigitalNote address
-    CScript scriptPubKey = GetScriptForDestination(address);
+	// Parse DigitalNote address
+	CScript scriptPubKey = GetScriptForDestination(address);
 
-    // Create and send the transaction
-    CReserveKey reservekey(pwalletMain);
-    int64_t nFeeRequired;
-    std::string sNarr;
-	
-    if (!pwalletMain->CreateTransaction(scriptPubKey, nValue, sNarr, wtxNew, reservekey, nFeeRequired, NULL))
-    {
-        if (nValue + nFeeRequired > pwalletMain->GetBalance())
+	// Create and send the transaction
+	CReserveKey reservekey(pwalletMain);
+	int64_t nFeeRequired;
+	std::string sNarr;
+
+	if (!pwalletMain->CreateTransaction(scriptPubKey, nValue, sNarr, wtxNew, reservekey, nFeeRequired, NULL))
+	{
+		if (nValue + nFeeRequired > pwalletMain->GetBalance())
 		{
-            strError = strprintf(
+			strError = strprintf(
 				"Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!",
 				FormatMoney(nFeeRequired)
 			);
-        }
+		}
 		
 		LogPrintf("SendMoney() : %s\n", strError);
-        
+		
 		throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }
-	
-    if (!pwalletMain->CommitTransaction(wtxNew, reservekey))
+	}
+
+	if (!pwalletMain->CommitTransaction(wtxNew, reservekey))
 	{
-        throw JSONRPCError(
+		throw JSONRPCError(
 			RPC_WALLET_ERROR,
 			"Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here."
 		);
@@ -99,13 +96,14 @@ void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew,
 
 json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 {
-    std::string strCommand;
-    if (params.size() >= 1)
+	std::string strCommand;
+
+	if (params.size() >= 1)
 	{
-        strCommand = params[0].get_str();
+		strCommand = params[0].get_str();
 	}
-	
-    if( fHelp ||
+
+	if( fHelp ||
 		(
 			strCommand != "count" &&
 			strCommand != "current" &&
@@ -128,7 +126,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			strCommand != "vote"
 		)
 	)
-    {    
+	{    
 		throw std::runtime_error(
 			"masternode \"command\"... ( \"passphrase\" )\n"
 			"Set of commands to execute masternode related actions\n"
@@ -156,38 +154,41 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			"  vote         - Vote on a DigitalNote initiative\n"
 		);
 	}
-	
-    if (strCommand == "stop")
-    {
-        if(!fMasterNode) return "you must set masternode=1 in the configuration";
 
-        if(pwalletMain->IsLocked())
+	if (strCommand == "stop")
+	{
+		if(!fMasterNode)
 		{
-            SecureString strWalletPass;
-            strWalletPass.reserve(100);
+			return "you must set masternode=1 in the configuration";
+		}
+		
+		if(pwalletMain->IsLocked())
+		{
+			SecureString strWalletPass;
+			strWalletPass.reserve(100);
 
-            if (params.size() == 2)
+			if (params.size() == 2)
 			{
-                strWalletPass = params[1].get_str().c_str();
-            }
+				strWalletPass = params[1].get_str().c_str();
+			}
 			else
 			{
-                throw std::runtime_error("Your wallet is locked, passphrase is required\n");
-            }
+				throw std::runtime_error("Your wallet is locked, passphrase is required\n");
+			}
 
-            if(!pwalletMain->Unlock(strWalletPass))
+			if(!pwalletMain->Unlock(strWalletPass))
 			{
-                return "incorrect passphrase";
-            }
-        }
+				return "incorrect passphrase";
+			}
+		}
 
-        std::string errorMessage;
-        if(!activeMasternode.StopMasterNode(errorMessage))
+		std::string errorMessage;
+		if(!activeMasternode.StopMasterNode(errorMessage))
 		{
-        	return "stop failed: " + errorMessage;
-        }
+			return "stop failed: " + errorMessage;
+		}
 		
-        pwalletMain->Lock();
+		pwalletMain->Lock();
 		
 		switch(activeMasternode.status)
 		{
@@ -198,22 +199,22 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 				return "not capable masternode";
 		}
 		
-        return "unknown";
-    }
+		return "unknown";
+	}
 
-    if (strCommand == "stop-alias")
-    {
-	    if (params.size() < 2)
+	if (strCommand == "stop-alias")
+	{
+		if (params.size() < 2)
 		{
 			throw std::runtime_error("command needs at least 2 parameters\n");
-	    }
+		}
 
-	    std::string alias = params[1].get_str().c_str();
+		std::string alias = params[1].get_str().c_str();
 
-    	if(pwalletMain->IsLocked())
+		if(pwalletMain->IsLocked())
 		{
-    		SecureString strWalletPass;
-    	    strWalletPass.reserve(100);
+			SecureString strWalletPass;
+			strWalletPass.reserve(100);
 
 			if (params.size() == 3)
 			{
@@ -228,46 +229,46 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			{
 				return "incorrect passphrase";
 			}
-        }
+		}
 
-    	bool found = false;
+		bool found = false;
 
 		json_spirit::Object statusObj;
 		statusObj.push_back(json_spirit::Pair("alias", alias));
 
-    	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
-    		if(mne.getAlias() == alias)
+			if(mne.getAlias() == alias)
 			{
-    			found = true;
-    			std::string errorMessage;
-    			bool result = activeMasternode.StopMasterNode(mne.getIp(), mne.getPrivKey(), errorMessage);
+				found = true;
+				std::string errorMessage;
+				bool result = activeMasternode.StopMasterNode(mne.getIp(), mne.getPrivKey(), errorMessage);
 
 				statusObj.push_back(json_spirit::Pair("result", result ? "successful" : "failed"));
-    			
+				
 				if(!result)
 				{
-   					statusObj.push_back(json_spirit::Pair("errorMessage", errorMessage));
-   				}
-    			
+					statusObj.push_back(json_spirit::Pair("errorMessage", errorMessage));
+				}
+				
 				break;
-    		}
-    	}
+			}
+		}
 
-    	if(!found)
+		if(!found)
 		{
-    		statusObj.push_back(json_spirit::Pair("result", "failed"));
-    		statusObj.push_back(json_spirit::Pair("errorMessage", "could not find alias in config. Verify with list-conf."));
-    	}
+			statusObj.push_back(json_spirit::Pair("result", "failed"));
+			statusObj.push_back(json_spirit::Pair("errorMessage", "could not find alias in config. Verify with list-conf."));
+		}
 
-    	pwalletMain->Lock();
+		pwalletMain->Lock();
 		
-    	return statusObj;
-    }
+		return statusObj;
+	}
 
-    if (strCommand == "stop-many")
-    {
-    	if(pwalletMain->IsLocked())
+	if (strCommand == "stop-many")
+	{
+		if(pwalletMain->IsLocked())
 		{
 			SecureString strWalletPass;
 			strWalletPass.reserve(100);
@@ -321,6 +322,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		pwalletMain->Lock();
 
 		json_spirit::Object returnObj;
+		
 		returnObj.push_back(
 			json_spirit::Pair(
 				"overall", "Successfully stopped " + boost::lexical_cast<std::string>(successful) + 
@@ -331,75 +333,76 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		returnObj.push_back(json_spirit::Pair("detail", resultsObj));
 
 		return returnObj;
-    }
+	}
 
-    if (strCommand == "list")
-    {
-        json_spirit::Array newParams(params.size() - 1);
+	if (strCommand == "list")
+	{
+		json_spirit::Array newParams(params.size() - 1);
 		
-        std::copy(params.begin() + 1, params.end(), newParams.begin());
-        
+		std::copy(params.begin() + 1, params.end(), newParams.begin());
+		
 		return masternodelist(newParams, fHelp);
-    }
+	}
 
-    if (strCommand == "count")
-    {
-        if (params.size() > 2)
+	if (strCommand == "count")
+	{
+		if (params.size() > 2)
 		{
-            throw std::runtime_error("too many parameters\n");
-        }
+			throw std::runtime_error("too many parameters\n");
+		}
 
-        if (params.size() == 2)
-        {
-            if(params[1] == "enabled")
+		if (params.size() == 2)
+		{
+			if(params[1] == "enabled")
 			{
 				return mnodeman.CountEnabled();
 			}
 			
-            if(params[1] == "both")
+			if(params[1] == "both")
 			{
-				return boost::lexical_cast<std::string>(mnodeman.CountEnabled()) + " / " + boost::lexical_cast<std::string>(mnodeman.size());
+				return boost::lexical_cast<std::string>(mnodeman.CountEnabled()) + " / " +
+						boost::lexical_cast<std::string>(mnodeman.size());
 			}
-        }
+		}
 		
-        return mnodeman.size();
-    }
+		return mnodeman.size();
+	}
 
-    if (strCommand == "start")
-    {
-        if(!fMasterNode)
+	if (strCommand == "start")
+	{
+		if(!fMasterNode)
 		{
 			return "you must set masternode=1 in the configuration";
 		}
 		
-        if(pwalletMain->IsLocked())
+		if(pwalletMain->IsLocked())
 		{
-            SecureString strWalletPass;
-            strWalletPass.reserve(100);
+			SecureString strWalletPass;
+			strWalletPass.reserve(100);
 
-            if (params.size() == 2)
+			if (params.size() == 2)
 			{
-                strWalletPass = params[1].get_str().c_str();
-            }
+				strWalletPass = params[1].get_str().c_str();
+			}
 			else
 			{
-                throw std::runtime_error("Your wallet is locked, passphrase is required\n");
-            }
+				throw std::runtime_error("Your wallet is locked, passphrase is required\n");
+			}
 
-            if(!pwalletMain->Unlock(strWalletPass))
+			if(!pwalletMain->Unlock(strWalletPass))
 			{
-                return "incorrect passphrase";
-            }
-        }
+				return "incorrect passphrase";
+			}
+		}
 
-        if(activeMasternode.status != MASTERNODE_REMOTELY_ENABLED && activeMasternode.status != MASTERNODE_IS_CAPABLE)
+		if(activeMasternode.status != MASTERNODE_REMOTELY_ENABLED && activeMasternode.status != MASTERNODE_IS_CAPABLE)
 		{
-            activeMasternode.status = MASTERNODE_NOT_PROCESSED; // TODO: consider better way
-            std::string errorMessage;
-            
+			activeMasternode.status = MASTERNODE_NOT_PROCESSED; // TODO: consider better way
+			std::string errorMessage;
+			
 			activeMasternode.ManageStatus();
-            pwalletMain->Lock();
-        }
+			pwalletMain->Lock();
+		}
 
 		switch(activeMasternode.status)
 		{
@@ -422,22 +425,22 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 				return "sync in process. Must wait until client is synced to start.";
 		}
 		
-        return "unknown";
-    }
+		return "unknown";
+	}
 
-    if (strCommand == "start-alias")
-    {
-	    if (params.size() < 2)
+	if (strCommand == "start-alias")
+	{
+		if (params.size() < 2)
 		{
 			throw std::runtime_error("command needs at least 2 parameters\n");
-	    }
+		}
 
-	    std::string alias = params[1].get_str().c_str();
+		std::string alias = params[1].get_str().c_str();
 
-    	if(pwalletMain->IsLocked())
+		if(pwalletMain->IsLocked())
 		{
-    		SecureString strWalletPass;
-    	    strWalletPass.reserve(100);
+			SecureString strWalletPass;
+			strWalletPass.reserve(100);
 
 			if (params.size() == 3)
 			{
@@ -452,50 +455,50 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			{
 				return "incorrect passphrase";
 			}
-        }
+		}
 
-    	bool found = false;
+		bool found = false;
 
 		json_spirit::Object statusObj;
 		statusObj.push_back(json_spirit::Pair("alias", alias));
 
-    	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
-    		if(mne.getAlias() == alias)
+			if(mne.getAlias() == alias)
 			{
-    			found = true;
-    			std::string errorMessage;
-                std::string strDonateAddress = "";
-                std::string strDonationPercentage = "";
+				found = true;
+				std::string errorMessage;
+				std::string strDonateAddress = "";
+				std::string strDonationPercentage = "";
 
-                bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
-  
-                statusObj.push_back(json_spirit::Pair("result", result ? "successful" : "failed"));
-    			
+				bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
+
+				statusObj.push_back(json_spirit::Pair("result", result ? "successful" : "failed"));
+				
 				if(!result)
 				{
 					statusObj.push_back(json_spirit::Pair("errorMessage", errorMessage));
 				}
-    			
+				
 				break;
-    		}
-    	}
+			}
+		}
 
-    	if(!found)
+		if(!found)
 		{
-    		statusObj.push_back(json_spirit::Pair("result", "failed"));
-    		statusObj.push_back(json_spirit::Pair("errorMessage", "could not find alias in config. Verify with list-conf."));
-    	}
+			statusObj.push_back(json_spirit::Pair("result", "failed"));
+			statusObj.push_back(json_spirit::Pair("errorMessage", "could not find alias in config. Verify with list-conf."));
+		}
 
-    	pwalletMain->Lock();
+		pwalletMain->Lock();
 		
-    	return statusObj;
+		return statusObj;
 
-    }
+	}
 
-    if (strCommand == "start-many")
-    {
-    	if(pwalletMain->IsLocked())
+	if (strCommand == "start-many")
+	{
+		if(pwalletMain->IsLocked())
 		{
 			SecureString strWalletPass;
 			strWalletPass.reserve(100);
@@ -531,10 +534,10 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			total++;
 
 			std::string errorMessage;
-            std::string strDonateAddress = "";
-            std::string strDonationPercentage = "";
+			std::string strDonateAddress = "";
+			std::string strDonationPercentage = "";
 
-            bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
+			bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
 
 			json_spirit::Object statusObj;
 			statusObj.push_back(json_spirit::Pair("alias", mne.getAlias()));
@@ -567,10 +570,10 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		returnObj.push_back(json_spirit::Pair("detail", resultsObj));
 
 		return returnObj;
-    }
+	}
 
-    if (strCommand == "debug")
-    {
+	if (strCommand == "debug")
+	{
 		switch(activeMasternode.status)
 		{
 			case MASTERNODE_REMOTELY_ENABLED:
@@ -591,377 +594,378 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			case MASTERNODE_SYNC_IN_PROCESS:
 				return "sync in process. Must wait until client is synced to start.";
 		}
-        
-        CTxIn vin = CTxIn();
-        CPubKey pubkey = CScript();
-        CKey key;
-        bool found = activeMasternode.GetMasterNodeVin(vin, pubkey, key);
-        
+		
+		CTxIn vin = CTxIn();
+		CPubKey pubkey = CScript();
+		CKey key;
+		bool found = activeMasternode.GetMasterNodeVin(vin, pubkey, key);
+		
 		if(!found)
 		{
-            return "Missing masternode input, please look at the documentation for instructions on masternode creation";
-        }
+			return "Missing masternode input, please look at the documentation for instructions on masternode creation";
+		}
 		else
 		{
-            return "No problems were found";
-        }
-    }
+			return "No problems were found";
+		}
+	}
 
-    if (strCommand == "create")
-    {
-        return "Not implemented yet, please look at the documentation for instructions on masternode creation";
-    }
+	if (strCommand == "create")
+	{
+		return "Not implemented yet, please look at the documentation for instructions on masternode creation";
+	}
 
-    if (strCommand == "current")
-    {
-        CMasternode* winner = mnodeman.GetCurrentMasterNode(1);
-        
+	if (strCommand == "current")
+	{
+		CMasternode* winner = mnodeman.GetCurrentMasterNode(1);
+		
 		if(winner)
 		{
-            json_spirit::Object obj;
-            CScript pubkey;
-            pubkey.SetDestination(winner->pubkey.GetID());
-            CTxDestination address1;
-            ExtractDestination(pubkey, address1);
-            CDigitalNoteAddress address2(address1);
+			json_spirit::Object obj;
+			CScript pubkey;
+			pubkey.SetDestination(winner->pubkey.GetID());
+			CTxDestination address1;
+			ExtractDestination(pubkey, address1);
+			CDigitalNoteAddress address2(address1);
 
-            obj.push_back(json_spirit::Pair("IP:port",       winner->addr.ToString().c_str()));
-            obj.push_back(json_spirit::Pair("protocol",      (int64_t)winner->protocolVersion));
-            obj.push_back(json_spirit::Pair("vin",           winner->vin.prevout.hash.ToString().c_str()));
-            obj.push_back(json_spirit::Pair("pubkey",        address2.ToString().c_str()));
-            obj.push_back(json_spirit::Pair("lastseen",      (int64_t)winner->lastTimeSeen));
-            obj.push_back(json_spirit::Pair("activeseconds", (int64_t)(winner->lastTimeSeen - winner->sigTime)));
+			obj.push_back(json_spirit::Pair("IP:port",       winner->addr.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("protocol",      (int64_t)winner->protocolVersion));
+			obj.push_back(json_spirit::Pair("vin",           winner->vin.prevout.hash.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("pubkey",        address2.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("lastseen",      (int64_t)winner->lastTimeSeen));
+			obj.push_back(json_spirit::Pair("activeseconds", (int64_t)(winner->lastTimeSeen - winner->sigTime)));
 			
-            return obj;
-        }
+			return obj;
+		}
 
-        return "unknown";
-    }
+		return "unknown";
+	}
 
-    if (strCommand == "genkey")
-    {
-        CKey secret;
-        secret.MakeNewKey(false);
+	if (strCommand == "genkey")
+	{
+		CKey secret;
+		
+		secret.MakeNewKey(false);
 
-        return CDigitalNoteSecret(secret).ToString();
-    }
+		return CDigitalNoteSecret(secret).ToString();
+	}
 
-    if (strCommand == "winners")
-    {
-        json_spirit::Object obj;
-        std::string strMode = "addr";
-    
-        if (params.size() >= 1)
+	if (strCommand == "winners")
+	{
+		json_spirit::Object obj;
+		std::string strMode = "addr";
+
+		if (params.size() >= 1)
 		{
 			strMode = params[0].get_str();
 		}
 		
-        for(int nHeight = pindexBest->nHeight-10; nHeight < pindexBest->nHeight+20; nHeight++)
-        {
-            CScript payee;
-            CTxIn vin;
-            
+		for(int nHeight = pindexBest->nHeight-10; nHeight < pindexBest->nHeight+20; nHeight++)
+		{
+			CScript payee;
+			CTxIn vin;
+			
 			if(masternodePayments.GetBlockPayee(nHeight, payee, vin))
 			{
-                CTxDestination address1;
-                ExtractDestination(payee, address1);
-                CDigitalNoteAddress address2(address1);
+				CTxDestination address1;
+				ExtractDestination(payee, address1);
+				CDigitalNoteAddress address2(address1);
 
-                if(strMode == "addr")
+				if(strMode == "addr")
 				{
-                    obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), address2.ToString().c_str()));
+					obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), address2.ToString().c_str()));
 				}
 				
-                if(strMode == "vin")
+				if(strMode == "vin")
 				{
-                    obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), vin.ToString().c_str()));
+					obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), vin.ToString().c_str()));
 				}
-            }
+			}
 			else
 			{
-                obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), ""));
-            }
-        }
+				obj.push_back(json_spirit::Pair(boost::lexical_cast<std::string>(nHeight), ""));
+			}
+		}
 
-        return obj;
-    }
+		return obj;
+	}
 
-    if(strCommand == "enforce")
-    {
-        return (uint64_t)enforceMasternodePaymentsTime;
-    }
+	if(strCommand == "enforce")
+	{
+		return (uint64_t)enforceMasternodePaymentsTime;
+	}
 
-    if(strCommand == "connect")
-    {
-        std::string strAddress = "";
-        
+	if(strCommand == "connect")
+	{
+		std::string strAddress = "";
+		
 		if (params.size() == 2)
 		{
-            strAddress = params[1].get_str().c_str();
-        }
+			strAddress = params[1].get_str().c_str();
+		}
 		else
 		{
-            throw std::runtime_error("Masternode address required\n");
-        }
+			throw std::runtime_error("Masternode address required\n");
+		}
 
-        CService addr = CService(strAddress);
+		CService addr = CService(strAddress);
 
-        if(ConnectNode((CAddress)addr, NULL, true))
+		if(ConnectNode((CAddress)addr, NULL, true))
 		{
-            return "successfully connected";
-        }
+			return "successfully connected";
+		}
 		else
 		{
-            return "error connecting";
-        }
-    }
+			return "error connecting";
+		}
+	}
 
-    if(strCommand == "list-conf")
-    {
-    	std::vector<CMasternodeConfigEntry> mnEntries;
-    	mnEntries = masternodeConfig.getEntries();
-
-        json_spirit::Object resultObj;
-
-        for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
-		{
-    		json_spirit::Object mnObj;
-    		
-			mnObj.push_back(json_spirit::Pair("alias", mne.getAlias()));
-    		mnObj.push_back(json_spirit::Pair("address", mne.getIp()));
-    		mnObj.push_back(json_spirit::Pair("privateKey", mne.getPrivKey()));
-    		mnObj.push_back(json_spirit::Pair("txHash", mne.getTxHash()));
-    		mnObj.push_back(json_spirit::Pair("outputIndex", mne.getOutputIndex()));
-			
-    		resultObj.push_back(json_spirit::Pair("masternode", mnObj));
-    	}
-
-    	return resultObj;
-    }
-
-    if (strCommand == "outputs")
+	if(strCommand == "list-conf")
 	{
-        // Find possible candidates
-        std::vector<COutput> possibleCoins = activeMasternode.SelectCoinsMasternode();
+		std::vector<CMasternodeConfigEntry> mnEntries;
+		mnEntries = masternodeConfig.getEntries();
 
-        json_spirit::Object obj;
-        for(COutput& out : possibleCoins)
+		json_spirit::Object resultObj;
+
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
-            obj.push_back(json_spirit::Pair(out.tx->GetHash().ToString().c_str(), boost::lexical_cast<std::string>(out.i)));
-        }
+			json_spirit::Object mnObj;
+			
+			mnObj.push_back(json_spirit::Pair("alias", mne.getAlias()));
+			mnObj.push_back(json_spirit::Pair("address", mne.getIp()));
+			mnObj.push_back(json_spirit::Pair("privateKey", mne.getPrivKey()));
+			mnObj.push_back(json_spirit::Pair("txHash", mne.getTxHash()));
+			mnObj.push_back(json_spirit::Pair("outputIndex", mne.getOutputIndex()));
+			
+			resultObj.push_back(json_spirit::Pair("masternode", mnObj));
+		}
 
-        return obj;
+		return resultObj;
+	}
 
-    }
+	if (strCommand == "outputs")
+	{
+		// Find possible candidates
+		std::vector<COutput> possibleCoins = activeMasternode.SelectCoinsMasternode();
 
-    if(strCommand == "vote-many")
-    {
-        std::vector<CMasternodeConfigEntry> mnEntries;
-        mnEntries = masternodeConfig.getEntries();
-
-        if (params.size() != 2)
+		json_spirit::Object obj;
+		for(COutput& out : possibleCoins)
 		{
-            throw std::runtime_error("You can only vote 'yay' or 'nay'");
+			obj.push_back(json_spirit::Pair(out.tx->GetHash().ToString().c_str(), boost::lexical_cast<std::string>(out.i)));
+		}
+
+		return obj;
+
+	}
+
+	if(strCommand == "vote-many")
+	{
+		std::vector<CMasternodeConfigEntry> mnEntries;
+		mnEntries = masternodeConfig.getEntries();
+
+		if (params.size() != 2)
+		{
+			throw std::runtime_error("You can only vote 'yay' or 'nay'");
 		}
 		
-        std::string vote = params[1].get_str().c_str();
-        if(vote != "yay" && vote != "nay")
+		std::string vote = params[1].get_str().c_str();
+		if(vote != "yay" && vote != "nay")
 		{
 			return "You can only vote 'yay' or 'nay'";
-        }
+		}
 		
 		int nVote = 0;
-        
+		
 		if(vote == "yay")
 		{
 			nVote = 1;
 		}
 		
-        if(vote == "nay")
+		if(vote == "nay")
 		{
 			nVote = -1;
 		}
 
-        int success = 0;
-        int failed = 0;
+		int success = 0;
+		int failed = 0;
 
-        json_spirit::Object resultObj;
+		json_spirit::Object resultObj;
 
-        for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
+		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 		{
-            std::string errorMessage;
-            std::vector<unsigned char> vchMasterNodeSignature;
-            std::string strMasterNodeSignMessage;
+			std::string errorMessage;
+			std::vector<unsigned char> vchMasterNodeSignature;
+			std::string strMasterNodeSignMessage;
 
-            CPubKey pubKeyCollateralAddress;
-            CKey keyCollateralAddress;
-            CPubKey pubKeyMasternode;
-            CKey keyMasternode;
+			CPubKey pubKeyCollateralAddress;
+			CKey keyCollateralAddress;
+			CPubKey pubKeyMasternode;
+			CKey keyMasternode;
 
-            if(!mnEngineSigner.SetKey(mne.getPrivKey(), errorMessage, keyMasternode, pubKeyMasternode))
+			if(!mnEngineSigner.SetKey(mne.getPrivKey(), errorMessage, keyMasternode, pubKeyMasternode))
 			{
-                printf(" Error upon calling SetKey for %s\n", mne.getAlias().c_str());
-                
+				printf(" Error upon calling SetKey for %s\n", mne.getAlias().c_str());
+				
 				failed++;
-                
+				
 				continue;
-            }
-
-            CMasternode* pmn = mnodeman.Find(pubKeyMasternode);
-            if(pmn == NULL)
-            {
-                printf("Can't find masternode by pubkey for %s\n", mne.getAlias().c_str());
-                
-				failed++;
-                
-				continue;
-            }
-
-            std::string strMessage = pmn->vin.ToString() + boost::lexical_cast<std::string>(nVote);
-
-            if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, keyMasternode))
-			{
-                printf(" Error upon calling SignMessage for %s\n", mne.getAlias().c_str());
-                
-				failed++;
-                
-				continue;
-            }
-
-            if(!mnEngineSigner.VerifyMessage(pubKeyMasternode, vchMasterNodeSignature, strMessage, errorMessage))
-			{
-                printf(" Error upon calling VerifyMessage for %s\n", mne.getAlias().c_str());
-                
-				failed++;
-                
-				continue;
-            }
-
-            success++;
-
-            //send to all peers
-            LOCK(cs_vNodes);
-			
-            for(CNode* pnode : vNodes)
-			{
-                pnode->PushMessage("mvote", pmn->vin, vchMasterNodeSignature, nVote);
 			}
-        }
 
-        return("Voted successfully " + boost::lexical_cast<std::string>(success) + " time(s) and failed " + boost::lexical_cast<std::string>(failed) + " time(s).");
-    }
+			CMasternode* pmn = mnodeman.Find(pubKeyMasternode);
+			if(pmn == NULL)
+			{
+				printf("Can't find masternode by pubkey for %s\n", mne.getAlias().c_str());
+				
+				failed++;
+				
+				continue;
+			}
 
-    if(strCommand == "vote")
-    {
-        std::vector<CMasternodeConfigEntry> mnEntries;
-        mnEntries = masternodeConfig.getEntries();
+			std::string strMessage = pmn->vin.ToString() + boost::lexical_cast<std::string>(nVote);
 
-        if (params.size() != 2)
+			if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, keyMasternode))
+			{
+				printf(" Error upon calling SignMessage for %s\n", mne.getAlias().c_str());
+				
+				failed++;
+				
+				continue;
+			}
+
+			if(!mnEngineSigner.VerifyMessage(pubKeyMasternode, vchMasterNodeSignature, strMessage, errorMessage))
+			{
+				printf(" Error upon calling VerifyMessage for %s\n", mne.getAlias().c_str());
+				
+				failed++;
+				
+				continue;
+			}
+
+			success++;
+
+			//send to all peers
+			LOCK(cs_vNodes);
+			
+			for(CNode* pnode : vNodes)
+			{
+				pnode->PushMessage("mvote", pmn->vin, vchMasterNodeSignature, nVote);
+			}
+		}
+
+		return("Voted successfully " + boost::lexical_cast<std::string>(success) + " time(s) and failed " + boost::lexical_cast<std::string>(failed) + " time(s).");
+	}
+
+	if(strCommand == "vote")
+	{
+		std::vector<CMasternodeConfigEntry> mnEntries;
+		mnEntries = masternodeConfig.getEntries();
+
+		if (params.size() != 2)
 		{
-            throw std::runtime_error("You can only vote 'yay' or 'nay'");
+			throw std::runtime_error("You can only vote 'yay' or 'nay'");
 		}
 		
-        std::string vote = params[1].get_str().c_str();
-        if(vote != "yay" && vote != "nay")
+		std::string vote = params[1].get_str().c_str();
+		if(vote != "yay" && vote != "nay")
 		{
 			return "You can only vote 'yay' or 'nay'";
-        }
+		}
 		
 		int nVote = 0;
-        
+		
 		if(vote == "yay")
 		{
 			nVote = 1;
-        }
+		}
 		
 		if(vote == "nay")
 		{
 			nVote = -1;
 		}
 		
-        // Choose coins to use
-        CPubKey pubKeyCollateralAddress;
-        CKey keyCollateralAddress;
-        CPubKey pubKeyMasternode;
-        CKey keyMasternode;
+		// Choose coins to use
+		CPubKey pubKeyCollateralAddress;
+		CKey keyCollateralAddress;
+		CPubKey pubKeyMasternode;
+		CKey keyMasternode;
 
-        std::string errorMessage;
-        std::vector<unsigned char> vchMasterNodeSignature;
-        std::string strMessage = activeMasternode.vin.ToString() + boost::lexical_cast<std::string>(nVote);
+		std::string errorMessage;
+		std::vector<unsigned char> vchMasterNodeSignature;
+		std::string strMessage = activeMasternode.vin.ToString() + boost::lexical_cast<std::string>(nVote);
 
-        if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, keyMasternode, pubKeyMasternode))
+		if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, keyMasternode, pubKeyMasternode))
 		{
-            return(" Error upon calling SetKey");
+			return(" Error upon calling SetKey");
 		}
 		
-        if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, keyMasternode))
+		if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, keyMasternode))
 		{
-            return(" Error upon calling SignMessage");
+			return(" Error upon calling SignMessage");
 		}
-	
-        if(!mnEngineSigner.VerifyMessage(pubKeyMasternode, vchMasterNodeSignature, strMessage, errorMessage))
+
+		if(!mnEngineSigner.VerifyMessage(pubKeyMasternode, vchMasterNodeSignature, strMessage, errorMessage))
 		{
-            return(" Error upon calling VerifyMessage");
+			return(" Error upon calling VerifyMessage");
 		}
 		
-        //send to all peers
-        LOCK(cs_vNodes);
+		//send to all peers
+		LOCK(cs_vNodes);
 		
-        for(CNode* pnode : vNodes)
+		for(CNode* pnode : vNodes)
 		{
-            pnode->PushMessage("mvote", activeMasternode.vin, vchMasterNodeSignature, nVote);
+			pnode->PushMessage("mvote", activeMasternode.vin, vchMasterNodeSignature, nVote);
 		}
-    }
+	}
 
-    if(strCommand == "status")
-    {
-        std::vector<CMasternodeConfigEntry> mnEntries;
-        mnEntries = masternodeConfig.getEntries();
+	if(strCommand == "status")
+	{
+		std::vector<CMasternodeConfigEntry> mnEntries;
+		mnEntries = masternodeConfig.getEntries();
 
-        CScript pubkey;
-        pubkey = GetScriptForDestination(activeMasternode.pubKeyMasternode.GetID());
-        
+		CScript pubkey;
+		pubkey = GetScriptForDestination(activeMasternode.pubKeyMasternode.GetID());
+		
 		CTxDestination address1;
-        ExtractDestination(pubkey, address1);
-        CDigitalNoteAddress address2(address1);
+		ExtractDestination(pubkey, address1);
+		CDigitalNoteAddress address2(address1);
 
-        json_spirit::Object mnObj;
-        CMasternode *pmn = mnodeman.Find(activeMasternode.vin);
+		json_spirit::Object mnObj;
+		CMasternode *pmn = mnodeman.Find(activeMasternode.vin);
 
-        mnObj.push_back(json_spirit::Pair("vin", activeMasternode.vin.ToString().c_str()));
-        mnObj.push_back(json_spirit::Pair("service", activeMasternode.service.ToString().c_str()));
-        mnObj.push_back(json_spirit::Pair("status", activeMasternode.status));
-        //mnObj.push_back(json_spirit::Pair("pubKeyMasternode", address2.ToString().c_str()));
-        
+		mnObj.push_back(json_spirit::Pair("vin", activeMasternode.vin.ToString().c_str()));
+		mnObj.push_back(json_spirit::Pair("service", activeMasternode.service.ToString().c_str()));
+		mnObj.push_back(json_spirit::Pair("status", activeMasternode.status));
+		//mnObj.push_back(json_spirit::Pair("pubKeyMasternode", address2.ToString().c_str()));
+		
 		if (pmn)
 		{
 			mnObj.push_back(json_spirit::Pair("pubkey", CDigitalNoteAddress(pmn->pubkey.GetID()).ToString()));
 		}
 		
-        mnObj.push_back(json_spirit::Pair("notCapableReason", activeMasternode.notCapableReason.c_str()));
+		mnObj.push_back(json_spirit::Pair("notCapableReason", activeMasternode.notCapableReason.c_str()));
 
-        return mnObj;
-    }
+		return mnObj;
+	}
 
-    return json_spirit::Value::null;
+	return json_spirit::Value::null;
 }
 
 json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 {
-    std::string strMode = "status";
-    std::string strFilter = "";
+	std::string strMode = "status";
+	std::string strFilter = "";
 
-    if (params.size() >= 1)
+	if (params.size() >= 1)
 	{
 		strMode = params[0].get_str();
 	}
-	
-    if (params.size() == 2)
+
+	if (params.size() == 2)
 	{
 		strFilter = params[1].get_str();
 	}
-	
-    if (fHelp ||
+
+	if (fHelp ||
 		(
 			strMode != "activeseconds" &&
 			strMode != "donation" &&
@@ -976,8 +980,8 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 			strMode != "lastpaid"
 		)
 	)
-    {
-        throw std::runtime_error(
+	{
+		throw std::runtime_error(
 			"masternodelist ( \"mode\" \"filter\" )\n"
 			"Get a list of masternodes in different modes\n"
 			"\nArguments:\n"
@@ -996,184 +1000,187 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 			"  votes          - Print all masternode votes for a DigitalNote initiative (can be additionally filtered, partial match)\n"
 			"  lastpaid       - The last time a node was paid on the network\n"
 		);
-    }
+	}
 
-    json_spirit::Object obj;
-    if (strMode == "rank")
+	json_spirit::Object obj;
+
+	if (strMode == "rank")
 	{
-        std::vector<std::pair<int, CMasternode> > vMasternodeRanks = mnodeman.GetMasternodeRanks(pindexBest->nHeight);
-        
+		std::vector<std::pair<int, CMasternode> > vMasternodeRanks = mnodeman.GetMasternodeRanks(pindexBest->nHeight);
+		
 		for(std::pair<int, CMasternode>& s : vMasternodeRanks)
 		{
-            std::string strVin = s.second.vin.prevout.ToStringShort();
-            
+			std::string strVin = s.second.vin.prevout.ToStringShort();
+			
 			if(strFilter !="" && strVin.find(strFilter) == std::string::npos)
 			{
 				continue;
 			}
 			
-            obj.push_back(json_spirit::Pair(strVin,       s.first));
-        }
-    }
+			obj.push_back(json_spirit::Pair(strVin,       s.first));
+		}
+	}
 	else
 	{
-        std::vector<CMasternode> vMasternodes = mnodeman.GetFullMasternodeVector();
+		std::vector<CMasternode> vMasternodes = mnodeman.GetFullMasternodeVector();
 		
-        for(CMasternode& mn : vMasternodes)
+		for(CMasternode& mn : vMasternodes)
 		{
-            std::string strVin = mn.vin.prevout.ToStringShort();
+			std::string strVin = mn.vin.prevout.ToStringShort();
 			
-            if (strMode == "activeseconds")
+			if (strMode == "activeseconds")
 			{
-                if(strFilter !="" && strVin.find(strFilter) == std::string::npos)
+				if(strFilter !="" && strVin.find(strFilter) == std::string::npos)
 				{
 					continue;
 				}
 				
-                obj.push_back(json_spirit::Pair(strVin,(int64_t)(mn.lastTimeSeen - mn.sigTime)));
-            }
+				obj.push_back(json_spirit::Pair(strVin,(int64_t)(mn.lastTimeSeen - mn.sigTime)));
+			}
 			else if (strMode == "donation")
 			{
-                CTxDestination address1;
-                ExtractDestination(mn.donationAddress, address1);
-                CDigitalNoteAddress address2(address1);
+				CTxDestination address1;
+				ExtractDestination(mn.donationAddress, address1);
+				CDigitalNoteAddress address2(address1);
 
-                if(strFilter !="" &&
+				if(strFilter !="" &&
 					address2.ToString().find(strFilter) == std::string::npos &&
-                    strVin.find(strFilter) == std::string::npos
+					strVin.find(strFilter) == std::string::npos
 				)
 				{
 					continue;
 				}
 
-                std::string strOut = "";
+				std::string strOut = "";
 
-                if(mn.donationPercentage != 0)
+				if(mn.donationPercentage != 0)
 				{
-                    strOut = address2.ToString().c_str();
-                    strOut += ":";
-                    strOut += boost::lexical_cast<std::string>(mn.donationPercentage);
-                }
+					strOut = address2.ToString().c_str();
+					strOut += ":";
+					strOut += boost::lexical_cast<std::string>(mn.donationPercentage);
+				}
 				
-                obj.push_back(json_spirit::Pair(strVin,       strOut.c_str()));
-            }
+				obj.push_back(json_spirit::Pair(strVin,       strOut.c_str()));
+			}
 			else if (strMode == "full")
 			{
-                CScript pubkey;
-                pubkey.SetDestination(mn.pubkey.GetID());
-                CTxDestination address1;
-                ExtractDestination(pubkey, address1);
-                CDigitalNoteAddress address2(address1);
+				CScript pubkey;
+				pubkey.SetDestination(mn.pubkey.GetID());
+				CTxDestination address1;
+				ExtractDestination(pubkey, address1);
+				CDigitalNoteAddress address2(address1);
 
-                std::ostringstream addrStream;
-                addrStream << std::setw(21) << strVin;
+				std::ostringstream addrStream;
+				std::ostringstream stringStream;
+				
+				addrStream << std::setw(21) << strVin;
 
-                std::ostringstream stringStream;
-                stringStream << std::setw(10) <<
-                               mn.Status() << " " <<
-                               mn.protocolVersion << " " <<
-                               address2.ToString() << " " <<
-                               mn.addr.ToString() << " " <<
-                               mn.lastTimeSeen << " " << std::setw(8) <<
-                               (mn.lastTimeSeen - mn.sigTime) << " " <<
-                               mn.nLastPaid;
-                
+				stringStream << std::setw(10) <<
+							   mn.Status() << " " <<
+							   mn.protocolVersion << " " <<
+							   address2.ToString() << " " <<
+							   mn.addr.ToString() << " " <<
+							   mn.lastTimeSeen << " " << std::setw(8) <<
+							   (mn.lastTimeSeen - mn.sigTime) << " " <<
+							   mn.nLastPaid;
+				
 				std::string output = stringStream.str();
-                stringStream << " " << strVin;
-                
+				
+				stringStream << " " << strVin;
+				
 				if(strFilter !="" &&
 					stringStream.str().find(strFilter) == std::string::npos &&
-                    strVin.find(strFilter) == std::string::npos)
-				{
-					continue;
-                }
-				
-				obj.push_back(json_spirit::Pair(addrStream.str(), output));
-            }
-			else if (strMode == "lastseen")
-			{
-                if(strFilter !="" &&
 					strVin.find(strFilter) == std::string::npos)
 				{
 					continue;
-                }
+				}
 				
-				obj.push_back(json_spirit::Pair(strVin, (int64_t)mn.lastTimeSeen));
-            }
-			else if (strMode == "protocol")
+				obj.push_back(json_spirit::Pair(addrStream.str(), output));
+			}
+			else if (strMode == "lastseen")
 			{
-                if(strFilter !="" &&
-					strFilter != boost::lexical_cast<std::string>(mn.protocolVersion) &&
-                    strVin.find(strFilter) == std::string::npos)
+				if(strFilter !="" &&
+					strVin.find(strFilter) == std::string::npos)
 				{
 					continue;
-                }
+				}
+				
+				obj.push_back(json_spirit::Pair(strVin, (int64_t)mn.lastTimeSeen));
+			}
+			else if (strMode == "protocol")
+			{
+				if(strFilter !="" &&
+					strFilter != boost::lexical_cast<std::string>(mn.protocolVersion) &&
+					strVin.find(strFilter) == std::string::npos)
+				{
+					continue;
+				}
 				
 				obj.push_back(json_spirit::Pair(strVin, (int64_t)mn.protocolVersion));
-            }
+			}
 			else if (strMode == "pubkey")
 			{
-                CScript pubkey;
-                pubkey.SetDestination(mn.pubkey.GetID());
-                CTxDestination address1;
-                ExtractDestination(pubkey, address1);
-                CDigitalNoteAddress address2(address1);
+				CScript pubkey;
+				pubkey.SetDestination(mn.pubkey.GetID());
+				CTxDestination address1;
+				ExtractDestination(pubkey, address1);
+				CDigitalNoteAddress address2(address1);
 
-                if(strFilter !="" &&
+				if(strFilter !="" &&
 					address2.ToString().find(strFilter) == std::string::npos &&
-                    strVin.find(strFilter) == std::string::npos
+					strVin.find(strFilter) == std::string::npos
 				)
 				{
 					continue;
-                }
+				}
 				
 				obj.push_back(json_spirit::Pair(strVin,       address2.ToString().c_str()));
-            }
+			}
 			else if(strMode == "status")
 			{
-                std::string strStatus = mn.Status();
-                
+				std::string strStatus = mn.Status();
+				
 				if(strFilter != "" &&
 					strVin.find(strFilter) == std::string::npos &&
 					strStatus.find(strFilter) == std::string::npos
 				)
 				{
 					continue;
-                }
+				}
 				
 				obj.push_back(json_spirit::Pair(strVin,       strStatus.c_str()));
-            }
+			}
 			else if (strMode == "addr")
 			{
-                if(strFilter !="" &&
+				if(strFilter !="" &&
 					mn.vin.prevout.hash.ToString().find(strFilter) == std::string::npos &&
-                    strVin.find(strFilter) == std::string::npos
+					strVin.find(strFilter) == std::string::npos
 				)
 				{
 					continue;
-                }
+				}
 				
 				obj.push_back(json_spirit::Pair(strVin, mn.addr.ToString().c_str()));
-            }
+			}
 			else if(strMode == "votes")
 			{
-                std::string strStatus = "ABSTAIN";
+				std::string strStatus = "ABSTAIN";
 
-                //voting lasts 30 days, ignore the last vote if it was older than that
-                if((GetAdjustedTime() - mn.lastVote) < (60*60*30*24))
-                {
-                    if(mn.nVote == -1)
+				//voting lasts 30 days, ignore the last vote if it was older than that
+				if((GetAdjustedTime() - mn.lastVote) < (60*60*30*24))
+				{
+					if(mn.nVote == -1)
 					{
 						strStatus = "NAY";
 					}
 					
-                    if(mn.nVote == 1)
+					if(mn.nVote == 1)
 					{
 						strStatus = "YAY";
 					}
-                }
+				}
 
-                if(
+				if(
 					strFilter != "" &&
 					(
 						strVin.find(strFilter) == std::string::npos &&
@@ -1182,25 +1189,25 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 				)
 				{
 					continue;
-                }
+				}
 				
 				obj.push_back(json_spirit::Pair(strVin,       strStatus.c_str()));
-            }
+			}
 			else if(strMode == "lastpaid")
 			{    
 				if(strFilter !="" &&
 					mn.vin.prevout.hash.ToString().find(strFilter) == std::string::npos &&
-                    strVin.find(strFilter) == std::string::npos
+					strVin.find(strFilter) == std::string::npos
 				)
 				{
 					continue;
 				}
 				
-                obj.push_back(json_spirit::Pair(strVin,      (int64_t)mn.nLastPaid));
-            }
-        }
-    }
-	
-    return obj;
+				obj.push_back(json_spirit::Pair(strVin,      (int64_t)mn.nLastPaid));
+			}
+		}
+	}
 
+	return obj;
 }
+

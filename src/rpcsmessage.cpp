@@ -1,7 +1,3 @@
-// Copyright (c) 2014 The ShadowCoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>

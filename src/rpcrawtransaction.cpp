@@ -1,11 +1,8 @@
-// Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <boost/assign/list_of.hpp>
+
+#include "json/json_spirit_utils.h"
 
 #include "enums/rpcerrorcode.h"
 #include "rpcserver.h"
@@ -29,6 +26,7 @@
 #include "enums/serialize_type.h"
 #include "ctxindex.h"
 #include "version.h"
+#include "rpcprotocol.h"
 
 #ifdef ENABLE_WALLET
 #include "coutput.h"

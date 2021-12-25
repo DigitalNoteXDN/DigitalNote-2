@@ -1,7 +1,3 @@
-// Copyright (c) 2015 The DigitalNote developers
-// Copyright (c) 2009-2012 The Darkcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef SPORK_H
 #define SPORK_H
 

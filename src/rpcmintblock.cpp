@@ -23,9 +23,9 @@ json_spirit::Value mintblock(const json_spirit::Array& params, bool fHelp)
 {
 	CBlock* block;
 	CReserveKey* pMiningKey = NULL;
-	
+
 	pMiningKey = new CReserveKey(pwalletMain);
-	
+
 	block = CreateNewBlock(*pMiningKey);
 
 	bool fAccepted = ProcessBlock(NULL, block);
