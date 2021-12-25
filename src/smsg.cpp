@@ -936,8 +936,21 @@ bool Start(bool fDontStart, bool fScanChain)
 		return false;
 	}
 
-	DigitalNote::SMSG::ext_thread_group.create_thread(boost::bind(&TraceThread<void (*)()>, "smsg", &DigitalNote::SMSG::Thread));
-	DigitalNote::SMSG::ext_thread_group.create_thread(boost::bind(&TraceThread<void (*)()>, "smsg-pow", &DigitalNote::SMSG::Thread_Pow));
+	DigitalNote::SMSG::ext_thread_group.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"smsg",
+			&DigitalNote::SMSG::Thread
+		)
+	);
+	
+	DigitalNote::SMSG::ext_thread_group.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"smsg-pow",
+			&DigitalNote::SMSG::Thread_Pow
+		)
+	);
 
 	return true;
 }
@@ -1012,8 +1025,21 @@ bool Enable()
 	}
 
 	// -- start threads
-	DigitalNote::SMSG::ext_thread_group.create_thread(boost::bind(&TraceThread<void (*)()>, "smsg", &DigitalNote::SMSG::Thread));
-	DigitalNote::SMSG::ext_thread_group.create_thread(boost::bind(&TraceThread<void (*)()>, "smsg-pow", &DigitalNote::SMSG::Thread_Pow));
+	DigitalNote::SMSG::ext_thread_group.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"smsg",
+			&DigitalNote::SMSG::Thread
+		)
+	);
+	
+	DigitalNote::SMSG::ext_thread_group.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"smsg-pow",
+			&DigitalNote::SMSG::Thread_Pow
+		)
+	);
 
 	/*
 	if (!NewThread(DigitalNote::SMSG::Thread, NULL) || !NewThread(DigitalNote::SMSG::Thread_Pow, NULL))

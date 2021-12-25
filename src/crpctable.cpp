@@ -304,7 +304,10 @@ std::vector<std::string> CRPCTable::listCommands() const
 		mapCommands.begin(),
 		mapCommands.end(),
 		std::back_inserter(commandList),
-		boost::bind(&mapCommands_t::value_type::first, _1)
+		boost::bind(
+			&mapCommands_t::value_type::first,
+			boost::placeholders::_1
+		)
 	);
     
 	return commandList;

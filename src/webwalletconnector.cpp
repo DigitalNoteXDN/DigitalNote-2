@@ -20,21 +20,10 @@
 
 #include "webwalletconnector.h"
 
-using websocketpp::connection_hdl;
-using websocketpp::lib::placeholders::_1;
-using websocketpp::lib::placeholders::_2;
-using websocketpp::lib::bind;
-
-using websocketpp::lib::thread;
-using websocketpp::lib::mutex;
-using websocketpp::lib::lock_guard;
-using websocketpp::lib::unique_lock;
-using websocketpp::lib::condition_variable;
-
 boost::thread_group threadGroupWebWalletConnector;
 
-/* on_open insert connection_hdl into channel
- * on_close remove connection_hdl from channel
+/* on_open insert websocketpp::connection_hdl into channel
+ * on_close remove websocketpp::connection_hdl from channel
  * on_message queue send to all channels
  */
 
@@ -46,8 +35,8 @@ enum action_type {
 };
 
 struct action {
-    action(action_type t, connection_hdl h) : type(t), hdl(h) {}
-    action(action_type t, connection_hdl h, const std::string &m): type(t), hdl(h), msg(m) {}
+    action(action_type t, websocketpp::connection_hdl h) : type(t), hdl(h) {}
+    action(action_type t, websocketpp::connection_hdl h, const std::string &m): type(t), hdl(h), msg(m) {}
     action(action_type t, const std::string &m): type(t), msg(m) {}
     action(action_type t): type(t) {}
 
@@ -57,7 +46,7 @@ struct action {
 };
 
 typedef websocketpp::server<websocketpp::config::asio> server;
-typedef std::set<connection_hdl,std::owner_less<connection_hdl> > con_list;
+typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > con_list;
 
 bool fWebWalletConnectorEnabled = false;
 bool fWebWalletMode = false;
@@ -79,8 +68,21 @@ public:
         m_server.init_asio();
 
         // Register handler callbacks
-        m_server.set_open_handler(bind(&broadcast_server::on_open,this,::_1));
-        m_server.set_close_handler(bind(&broadcast_server::on_close,this,::_1));
+        m_server.set_open_handler(
+			websocketpp::lib::bind(
+				&broadcast_server::on_open,
+				this,
+				websocketpp::lib::placeholders::_1
+			)
+		);
+		
+        m_server.set_close_handler(
+			websocketpp::lib::bind(
+				&broadcast_server::on_close,
+				this,
+				websocketpp::lib::placeholders::_1
+			)
+		);
     }
 
     void run(uint16_t port)
@@ -125,7 +127,7 @@ public:
         m_action_cond.notify_all();
     }
 
-    void on_open(connection_hdl hdl)
+    void on_open(websocketpp::connection_hdl hdl)
 	{
         {
             std::lock_guard<std::mutex> guard(m_action_lock);
@@ -136,7 +138,7 @@ public:
         m_action_cond.notify_all();
     }
 
-    void on_close(connection_hdl hdl)
+    void on_close(websocketpp::connection_hdl hdl)
 	{
         {
             std::lock_guard<std::mutex> guard(m_action_lock);
@@ -237,7 +239,7 @@ public:
                     
 					for (it = m_connections.begin(); it != m_connections.end(); ++it)
 					{
-                        connection_hdl hdl = *it;
+                        websocketpp::connection_hdl hdl = *it;
                         m_server.pause_reading(hdl);
                         m_server.close(hdl, websocketpp::close::status::going_away, "");
                     }
@@ -287,7 +289,13 @@ bool WebWalletConnectorStart(bool fDontStart)
     fWebWalletMode = true;
     fWebWalletConnectorEnabled = true;
 
-    threadGroupWebWalletConnector.create_thread(boost::bind(&TraceThread<void (*)()>, "webwallet", &ThreadWebsocketServer));
+    threadGroupWebWalletConnector.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"webwallet",
+			&ThreadWebsocketServer
+		)
+	);
 
     subscribeToCoreSignals();
 

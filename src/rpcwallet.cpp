@@ -2505,7 +2505,8 @@ json_spirit::Value walletpassphrase(const json_spirit::Array& params, bool fHelp
     LOCK(cs_nWalletUnlockTime);
     
 	nWalletUnlockTime = GetTime() + nSleepTime;
-    RPCRunLater("lockwallet", boost::bind(LockWallet, pwalletMain), nSleepTime);
+    
+	RPCRunLater("lockwallet", boost::bind(&LockWallet, pwalletMain), nSleepTime);
 
     // ppcoin: if user OS account compromised prevent trivial sendmoney commands
     if (params.size() > 2)

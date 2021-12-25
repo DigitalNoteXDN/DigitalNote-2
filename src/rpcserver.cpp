@@ -340,7 +340,14 @@ static void RPCListen(boost::shared_ptr<boost::asio::basic_socket_acceptor<Proto
 	acceptor->async_accept(
 		conn->sslStream.lowest_layer(),
 		conn->peer,
-		boost::bind(&RPCAcceptHandler<Protocol>, acceptor, boost::ref(context), fUseSSL, conn, boost::asio::placeholders::error)
+		boost::bind(
+			&RPCAcceptHandler<Protocol>,
+			acceptor,
+			boost::ref(context),
+			fUseSSL,
+			conn,
+			boost::asio::placeholders::error
+		)
 	);
 }
 
@@ -605,7 +612,13 @@ void RPCRunLater(const std::string& name, boost::function<void(void)> func, int6
     }
 	
     deadlineTimers[name]->expires_from_now(boost::posix_time::seconds(nSeconds));
-    deadlineTimers[name]->async_wait(boost::bind(RPCRunHandler, _1, func));
+    deadlineTimers[name]->async_wait(
+		boost::bind(
+			&RPCRunHandler,
+			boost::placeholders::_1,
+			func
+		)
+	);
 }
 
 class JSONRequest

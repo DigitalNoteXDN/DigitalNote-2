@@ -1435,7 +1435,13 @@ void MapPort(bool fUseUPnP)
 		if (!upnp_thread)
 		{
 			// Start the UPnP thread if not running
-			upnp_thread = new boost::thread(boost::bind(&TraceThread<void (*)()>, "upnp", &ThreadMapPort));
+			upnp_thread = new boost::thread(
+				boost::bind(
+					&TraceThread<void (*)()>,
+					"upnp",
+					&ThreadMapPort
+				)
+			);
 		}
 	}
 	else if (upnp_thread)
@@ -2243,7 +2249,13 @@ void StartNode(boost::thread_group& threadGroup)
 	}
 	else
 	{
-		threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "dnsseed", &ThreadDNSAddressSeed));
+		threadGroup.create_thread(
+			boost::bind(
+				&TraceThread<void (*)()>,
+				"dnsseed",
+				&ThreadDNSAddressSeed
+			)
+		);
 	}
 
 #ifdef USE_UPNP
@@ -2252,19 +2264,50 @@ void StartNode(boost::thread_group& threadGroup)
 #endif
 
 	// Send and receive from sockets, accept connections
-	threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "net", &ThreadSocketHandler));
+	threadGroup.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"net",
+			&ThreadSocketHandler
+		)
+	);
 
 	// Initiate outbound connections from -addnode
-	threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "addcon", &ThreadOpenAddedConnections));
+	threadGroup.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"addcon",
+			&ThreadOpenAddedConnections
+		)
+	);
 
 	// Initiate outbound connections
-	threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "opencon", &ThreadOpenConnections));
+	threadGroup.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"opencon",
+			&ThreadOpenConnections
+		)
+	);
 
 	// Process messages
-	threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));
+	threadGroup.create_thread(
+		boost::bind(
+			&TraceThread<void (*)()>,
+			"msghand",
+			&ThreadMessageHandler
+		)
+	);
 
 	// Dump network addresses
-	threadGroup.create_thread(boost::bind(&LoopForever<void (*)()>, "dumpaddr", &DumpData, DUMP_ADDRESSES_INTERVAL * 1000));
+	threadGroup.create_thread(
+		boost::bind(
+			&LoopForever<void (*)()>,
+			"dumpaddr",
+			&DumpData,
+			DUMP_ADDRESSES_INTERVAL * 1000
+		)
+	);
 }
 
 bool StopNode()

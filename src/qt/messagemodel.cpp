@@ -620,9 +620,28 @@ void MessageModel::subscribeToCoreSignals()
     qRegisterMetaType<DigitalNote::SMSG::Stored>("DigitalNote::SMSG::Stored");
 
     // Connect signals
-    DigitalNote::SMSG::ext_signal_NotifyInboxChanged.connect(boost::bind(NotifySecMsgInbox, this, _1));
-    DigitalNote::SMSG::ext_signal_NotifyOutboxChanged.connect(boost::bind(NotifySecMsgOutbox, this, _1));
-    DigitalNote::SMSG::ext_signal_NotifyWalletUnlocked.connect(boost::bind(NotifySecMsgWallet, this));
+    DigitalNote::SMSG::ext_signal_NotifyInboxChanged.connect(
+		boost::bind(
+			&NotifySecMsgInbox,
+			this,
+			boost::placeholders::_1
+		)
+	);
+	
+    DigitalNote::SMSG::ext_signal_NotifyOutboxChanged.connect(
+		boost::bind(
+			&NotifySecMsgOutbox,
+			this,
+			boost::placeholders::_1
+		)
+	);
+	
+    DigitalNote::SMSG::ext_signal_NotifyWalletUnlocked.connect(
+		boost::bind(
+			&NotifySecMsgWallet,
+			this
+		)
+	);
     
     connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
 }
@@ -630,9 +649,28 @@ void MessageModel::subscribeToCoreSignals()
 void MessageModel::unsubscribeFromCoreSignals()
 {
     // Disconnect signals
-    DigitalNote::SMSG::ext_signal_NotifyInboxChanged.disconnect(boost::bind(NotifySecMsgInbox, this, _1));
-    DigitalNote::SMSG::ext_signal_NotifyOutboxChanged.disconnect(boost::bind(NotifySecMsgOutbox, this, _1));
-    DigitalNote::SMSG::ext_signal_NotifyWalletUnlocked.disconnect(boost::bind(NotifySecMsgWallet, this));
+    DigitalNote::SMSG::ext_signal_NotifyInboxChanged.disconnect(
+		boost::bind(
+			&NotifySecMsgInbox,
+			this,
+			boost::placeholders::_1
+		)
+	);
+    
+	DigitalNote::SMSG::ext_signal_NotifyOutboxChanged.disconnect(
+		boost::bind(
+			&NotifySecMsgOutbox,
+			this,
+			boost::placeholders::_1
+		)
+	);
+	
+    DigitalNote::SMSG::ext_signal_NotifyWalletUnlocked.disconnect(
+		boost::bind(
+			&NotifySecMsgWallet,
+			this
+		)
+	);
     
     disconnect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
 }
