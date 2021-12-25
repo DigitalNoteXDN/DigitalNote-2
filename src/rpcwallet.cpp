@@ -35,11 +35,10 @@
 #include "cstealthaddress.h"
 #include "enums/serialize_type.h"
 #include "rpcprotocol.h"
+#include "rpcrawtransaction.h"
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
-
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
 
 static void accountingDeprecationCheck()
 {

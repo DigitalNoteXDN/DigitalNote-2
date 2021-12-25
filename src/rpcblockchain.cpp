@@ -14,8 +14,7 @@
 #include "ctransaction.h"
 #include "enums/serialize_type.h"
 #include "rpcprotocol.h"
-
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
+#include "rpcrawtransaction.h"
 
 double GetDifficulty(const CBlockIndex* blockindex)
 {

@@ -24,8 +24,6 @@
 #include "cscriptid.h"
 #include "cstealthaddress.h"
 
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
-
 json_spirit::Value smsgenable(const json_spirit::Array& params, bool fHelp)
 {
 	if (fHelp || params.size() != 0)
@@ -477,41 +475,55 @@ json_spirit::Value smsgscanbuckets(const json_spirit::Array& params, bool fHelp)
 
 json_spirit::Value smsgaddkey(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+	if (fHelp || params.size() != 2)
 	{
-        throw std::runtime_error("smsgaddkey <address> <pubkey>\nAdd address, pubkey pair to database.");
-    }
-	
-    if (!DigitalNote::SMSG::ext_enabled)
+		throw std::runtime_error("smsgaddkey <address> <pubkey>\nAdd address, pubkey pair to database.");
+	}
+
+	if (!DigitalNote::SMSG::ext_enabled)
 	{
-        throw std::runtime_error("Secure messaging is disabled.");
-    }
-	
-    std::string addr = params[0].get_str();
-    std::string pubk = params[1].get_str();
-    
-    json_spirit::Object result;
-    int rv = DigitalNote::SMSG::AddAddress(addr, pubk);
-    
+		throw std::runtime_error("Secure messaging is disabled.");
+	}
+
+	std::string addr = params[0].get_str();
+	std::string pubk = params[1].get_str();
+
+	json_spirit::Object result;
+	int rv = DigitalNote::SMSG::AddAddress(addr, pubk);
+
 	if (rv != 0)
-    {
-        result.push_back(json_spirit::Pair("result", "Public key not added to db."));
-        
+	{
+		result.push_back(json_spirit::Pair("result", "Public key not added to db."));
+		
 		switch (rv)
-        {
-            case 2:     result.push_back(json_spirit::Pair("reason", "publicKey is invalid."));                  break;
-            case 3:     result.push_back(json_spirit::Pair("reason", "publicKey does not match address."));      break;
-            case 4:     result.push_back(json_spirit::Pair("reason", "address is already in db."));              break;
-            case 5:     result.push_back(json_spirit::Pair("reason", "address is invalid."));                    break;
-            default:    result.push_back(json_spirit::Pair("reason", "error."));                                 break;
-        }
-    }
+		{
+			case 2:
+				result.push_back(json_spirit::Pair("reason", "publicKey is invalid."));
+				break;
+			
+			case 3:
+				result.push_back(json_spirit::Pair("reason", "publicKey does not match address."));
+				break;
+			
+			case 4:
+				result.push_back(json_spirit::Pair("reason", "address is already in db."));
+				break;
+			
+			case 5:
+				result.push_back(json_spirit::Pair("reason", "address is invalid."));
+				break;
+			
+			default:
+				result.push_back(json_spirit::Pair("reason", "error."));
+				break;
+		}
+	}
 	else
-    {
-        result.push_back(json_spirit::Pair("result", "Added public key to db."));
-    }
-    
-    return result;
+	{
+		result.push_back(json_spirit::Pair("result", "Added public key to db."));
+	}
+
+	return result;
 }
 
 json_spirit::Value smsggetpubkey(const json_spirit::Array& params, bool fHelp)
@@ -1257,7 +1269,7 @@ json_spirit::Value smsggetmessagesforaccount(const json_spirit::Array& params, b
 
 	result.push_back(json_spirit::Pair("messagesIn", resMessagesIn));
 	result.push_back(json_spirit::Pair("messagesOut", resMessagesOut));
-	
+
 	snprintf(cbuf, sizeof(cbuf), "%u messages shown.", nMessages);
 	result.push_back(json_spirit::Pair("result", std::string(cbuf)));
 

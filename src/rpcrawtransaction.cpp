@@ -34,6 +34,8 @@
 #include "cwallettx.h"
 #endif // ENABLE_WALLET
 
+#include "rpcrawtransaction.h"
+
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, json_spirit::Object& out, bool fIncludeHex)
 {
 	txnouttype type;
