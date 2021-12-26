@@ -811,7 +811,7 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 // 2. P2SH scripts with a crazy number of expensive
 //    CHECKSIG/CHECKMULTISIG operations
 //
-bool AreInputsStandard(const CTransaction& tx, const MapPrevTx& mapInputs)
+bool AreInputsStandard(const CTransaction& tx, const mapPrevTx_t& mapInputs)
 {
 	if (tx.IsCoinBase())
 	{
@@ -913,7 +913,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx)
 	return nSigOps;
 }
 
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const MapPrevTx& inputs)
+unsigned int GetP2SHSigOpCount(const CTransaction& tx, const mapPrevTx_t& inputs)
 {
 	if (tx.IsCoinBase())
 	{
@@ -1072,7 +1072,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 			}
 		}
 		
-		MapPrevTx mapInputs;
+		mapPrevTx_t mapInputs;
 		std::map<uint256, CTxIndex> mapUnused;
 		bool fInvalid = false;
 		
@@ -1270,7 +1270,7 @@ bool AcceptableInputs(CTxMemPool& pool, const CTransaction &txo, bool fLimitFree
 			return false;
 		}
 		
-		MapPrevTx mapInputs;
+		mapPrevTx_t mapInputs;
 		std::map<uint256, CTxIndex> mapUnused;
 		bool fInvalid = false;
 		

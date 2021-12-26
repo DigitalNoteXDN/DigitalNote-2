@@ -392,7 +392,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 			// Connecting shouldn't fail due to dependency on other memory pool transactions
 			// because we're already processing them in order of dependency
 			std::map<uint256, CTxIndex> mapTestPoolTmp(mapTestPool);
-			MapPrevTx mapInputs;
+			mapPrevTx_t mapInputs;
 			bool fInvalid;
 			
 			if (!tx.FetchInputs(txdb, mapTestPoolTmp, false, true, mapInputs, fInvalid))

@@ -184,7 +184,7 @@ int64_t CTransaction::GetValueOut() const
 	return nValueOut;
 }
 
-int64_t CTransaction::GetValueMapIn(const MapPrevTx& inputs) const
+int64_t CTransaction::GetValueMapIn(const mapPrevTx_t& inputs) const
 {
 	if (IsCoinBase())
 	{
@@ -372,7 +372,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 }
 
 bool CTransaction::FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
-                               bool fBlock, bool fMiner, MapPrevTx& inputsRet, bool& fInvalid) const
+                               bool fBlock, bool fMiner, mapPrevTx_t& inputsRet, bool& fInvalid) const
 {
 	// FetchInputs can return false either because we just haven't seen some inputs
 	// (in which case the transaction should be stored as an orphan)
@@ -460,7 +460,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& m
 	return true;
 }
 
-bool CTransaction::ConnectInputs(CTxDB& txdb, MapPrevTx inputs, std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
+bool CTransaction::ConnectInputs(CTxDB& txdb, mapPrevTx_t inputs, std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
     const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags, bool fValidateSig)
 {
 	// Take over previous transactions' spent pointers
@@ -757,9 +757,9 @@ bool CTransaction::GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64
 	return true;
 }
 
-const CTxOut& CTransaction::GetOutputFor(const CTxIn& input, const MapPrevTx& inputs) const
+const CTxOut& CTransaction::GetOutputFor(const CTxIn& input, const mapPrevTx_t& inputs) const
 {
-	MapPrevTx::const_iterator mi = inputs.find(input.prevout.hash);
+	mapPrevTx_t::const_iterator mi = inputs.find(input.prevout.hash);
 
 	if (mi == inputs.end())
 	{
@@ -779,7 +779,7 @@ const CTxOut& CTransaction::GetOutputFor(const CTxIn& input, const MapPrevTx& in
 	return txPrev.vout[input.prevout.n];
 }
 
-bool CTransaction::GetMapTxInputs(MapPrevTx& mapInputs, bool fBlock, bool fMiner) const
+bool CTransaction::GetMapTxInputs(mapPrevTx_t& mapInputs, bool fBlock, bool fMiner) const
 {
 	CTxDB txdb("r");
 	std::map<uint256, CTxIndex> mapUnused;

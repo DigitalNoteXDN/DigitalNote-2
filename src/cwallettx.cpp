@@ -779,7 +779,7 @@ void CWalletTx::GetAccountAmounts(const std::string& strAccount, CAmount& nRecei
 		{
 			if (pwallet->mapAddressBook.count(r.first))
 			{
-				std::map<CTxDestination, std::string>::const_iterator mi = pwallet->mapAddressBook.find(r.first);
+				mapAddressBook_t::const_iterator mi = pwallet->mapAddressBook.find(r.first);
 				
 				if (mi != pwallet->mapAddressBook.end() && (*mi).second == strAccount)
 				{
@@ -869,7 +869,7 @@ int CWalletTx::GetRequestCount() const
 			// Generated block
 			if (hashBlock != 0)
 			{
-				std::map<uint256, int>::const_iterator mi = pwallet->mapRequestCount.find(hashBlock);
+				mapRequestCount_t::const_iterator mi = pwallet->mapRequestCount.find(hashBlock);
 				
 				if (mi != pwallet->mapRequestCount.end())
 				{
@@ -880,7 +880,7 @@ int CWalletTx::GetRequestCount() const
 		else
 		{
 			// Did anyone request this transaction?
-			std::map<uint256, int>::const_iterator mi = pwallet->mapRequestCount.find(GetHash());
+			mapRequestCount_t::const_iterator mi = pwallet->mapRequestCount.find(GetHash());
 			
 			if (mi != pwallet->mapRequestCount.end())
 			{
@@ -889,7 +889,7 @@ int CWalletTx::GetRequestCount() const
 				// How about the block it's in?
 				if (nRequests == 0 && hashBlock != 0)
 				{
-					std::map<uint256, int>::const_iterator mi = pwallet->mapRequestCount.find(hashBlock);
+					mapRequestCount_t::const_iterator mi = pwallet->mapRequestCount.find(hashBlock);
 					
 					if (mi != pwallet->mapRequestCount.end())
 					{
@@ -941,7 +941,7 @@ void CWalletTx::AddSupportingTransactions(CTxDB& txdb)
 				setAlreadyDone.insert(hash);
 
 				CMerkleTx tx;
-				std::map<uint256, CWalletTx>::const_iterator mi = pwallet->mapWallet.find(hash);
+				mapWallet_t::const_iterator mi = pwallet->mapWallet.find(hash);
 				
 				if (mi != pwallet->mapWallet.end())
 				{

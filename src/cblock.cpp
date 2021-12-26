@@ -524,7 +524,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 			nTxPos += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 		}
 		
-		MapPrevTx mapInputs;
+		mapPrevTx_t mapInputs;
 		if (tx.IsCoinBase())
 		{
 			nValueOut += tx.GetValueOut();
@@ -645,7 +645,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 			// inputs
 			if(!tx.IsCoinBase())
 			{
-				MapPrevTx mapInputs;
+				mapPrevTx_t mapInputs;
 				std::map<uint256, CTxIndex> mapQueuedChangesT;
 				bool fInvalid;
 				
@@ -1696,7 +1696,7 @@ bool CBlock::AcceptBlock()
 			// Check that all transactions are finalized
 			for(const CTransaction& tx : vtx)
 			{
-				MapPrevTx mapInputs;
+				mapPrevTx_t mapInputs;
 				CAmount tx_MapIn_values, tx_MapOut_values;
 				
 				// Translate input hashes to transactions
@@ -1939,7 +1939,7 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
 		// inputs
 		if(!tx.IsCoinBase())
 		{
-			MapPrevTx mapInputs;
+			mapPrevTx_t mapInputs;
 			std::map<uint256, CTxIndex> mapQueuedChangesT;
 			bool fInvalid;
 			
@@ -1948,9 +1948,7 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
 				return;
 			}
 			
-			MapPrevTx::const_iterator mi;
-			
-			for(MapPrevTx::const_iterator mi = mapInputs.begin(); mi != mapInputs.end(); ++mi)
+			for(mapPrevTx_t::const_iterator mi = mapInputs.begin(); mi != mapInputs.end(); ++mi)
 			{
 				for(const CTxOut &atxout : (*mi).second.second.vout)
 				{

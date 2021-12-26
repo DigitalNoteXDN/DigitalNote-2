@@ -6,6 +6,7 @@
 #include <map>
 
 #include "script_const.h"
+#include "types/mapprevtx_t.h"
 
 class CDiskTxPos;
 class uint256;
@@ -16,8 +17,6 @@ class CTxIndex;
 class COutPoint;
 class CBlockIndex;
 class CTransaction;
-
-typedef std::map<uint256, std::pair<CTxIndex, CTransaction>> MapPrevTx;
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -67,7 +66,7 @@ public:
         @return Sum of value of all inputs (scriptSigs)
         @see CTransaction::FetchInputs
      */
-    int64_t GetValueMapIn(const MapPrevTx& mapInputs) const;
+    int64_t GetValueMapIn(const mapPrevTx_t& mapInputs) const;
 
     friend bool operator==(const CTransaction& a, const CTransaction& b);
     friend bool operator!=(const CTransaction& a, const CTransaction& b);
@@ -91,7 +90,7 @@ public:
      @return    Returns true if all inputs are in txdb or mapTestPool
      */
     bool FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
-                     bool fBlock, bool fMiner, MapPrevTx& inputsRet, bool& fInvalid) const;
+                     bool fBlock, bool fMiner, mapPrevTx_t& inputsRet, bool& fInvalid) const;
 
     /** Sanity check previous transactions, then, if all checks succeed,
         mark them as spent by this transaction.
@@ -104,14 +103,14 @@ public:
         @param[in] fMiner   true if called from CreateNewBlock
         @return Returns true if all checks succeed
      */
-    bool ConnectInputs(CTxDB& txdb, MapPrevTx inputs,
+    bool ConnectInputs(CTxDB& txdb, mapPrevTx_t inputs,
                        std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS, bool fValidateSig = true);
     bool CheckTransaction() const;
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 
-    const CTxOut& GetOutputFor(const CTxIn& input, const MapPrevTx& inputs) const;
-	bool GetMapTxInputs(MapPrevTx& mapInputs, bool fBlock = false, bool fMiner = false) const;
+    const CTxOut& GetOutputFor(const CTxIn& input, const mapPrevTx_t& inputs) const;
+	bool GetMapTxInputs(mapPrevTx_t& mapInputs, bool fBlock = false, bool fMiner = false) const;
 };
 
 #endif // CTRANSACTION_H

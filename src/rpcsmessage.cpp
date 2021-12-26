@@ -363,7 +363,7 @@ json_spirit::Value smsglocalkeys(const json_spirit::Array& params, bool fHelp)
 	{
 		uint32_t nKeys = 0;
 		
-		for(const std::pair<CTxDestination, std::string>& entry : pwalletMain->mapAddressBook)
+		for(const pairAddressBook_t& entry : pwalletMain->mapAddressBook)
 		{
 			if (!IsMine(*pwalletMain, entry.first))
 			{

@@ -48,17 +48,27 @@ enum AvailableCoinsType
     ONLY_NONDENOMINATED_NOT10000IFMN = 4
 };
 
+/**
+	Typedef
+*/
+typedef std::set<std::pair<const CWalletTx*, unsigned int>> setCoins_t;
+typedef std::pair<const CWalletTx*, unsigned int> pairCoin_t;
+typedef std::multimap<COutPoint, uint256> mmTxSpends_t;
+typedef std::pair<mmTxSpends_t::const_iterator, mmTxSpends_t::const_iterator> mmTxSpendsRange_t;
+typedef std::map<unsigned int, CMasterKey> mapMasterKeys_t;
+typedef std::map<uint256, CWalletTx> mapWallet_t;
+typedef std::map<CKeyID, CKeyMetadata> mapKeyMetadata_t;
+typedef std::set<CStealthAddress> setStealthAddresses_t;
+typedef std::map<uint256, int> mapRequestCount_t;
+typedef std::map<CTxDestination, std::string> mapAddressBook_t;
+typedef std::pair<CTxDestination, std::string> pairAddressBook_t;
+
 /** A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
  */
 class CWallet : public CCryptoKeyStore, public CWalletInterface
 {
 private:
-	/**
-		Typedef
-	*/
-	typedef std::multimap<COutPoint, uint256> TxSpends;
-	
 	/**
 		Variables
 	*/
@@ -73,32 +83,24 @@ private:
     // Used to keep track of spent outpoints, and
     // detect and report conflicts (double-spends or
     // mutated transactions where the mutant gets mined).
-    TxSpends mapTxSpends;
+    mmTxSpends_t mmTxSpends;
 	
 	/**
 		Functions
 	*/
-	bool SelectCoinsForStaking(int64_t nTargetValue, unsigned int nSpendTime,
-			std::set<std::pair<const CWalletTx*, unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
+	bool SelectCoinsForStaking(int64_t nTargetValue, unsigned int nSpendTime, setCoins_t& setCoinsRet, int64_t& nValueRet) const;
     
-	//bool SelectCoins(int64_t nTargetValue, unsigned int nSpendTime,
-	//		std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet,
+	//bool SelectCoins(int64_t nTargetValue, unsigned int nSpendTime, setCoins_t& setCoinsRet, int64_t& nValueRet,
 	//		const CCoinControl *coinControl=NULL) const;
 	
-	bool SelectCoins(CAmount nTargetValue, unsigned int nSpendTime,
-			std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet,
+	bool SelectCoins(CAmount nTargetValue, unsigned int nSpendTime, setCoins_t& setCoinsRet, int64_t& nValueRet,
 			const CCoinControl *coinControl = NULL, AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
     
 	void AddToSpends(const COutPoint& outpoint, const uint256& wtxid);
     void AddToSpends(const uint256& wtxid);
-    void SyncMetaData(std::pair<TxSpends::iterator, TxSpends::iterator>);
+    void SyncMetaData(std::pair<mmTxSpends_t::iterator, mmTxSpends_t::iterator>);
 
 public:
-	/**
-		Typedef
-	*/
-	typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
-	
 	/**
 		Variables
 	*/
@@ -113,19 +115,19 @@ public:
     bool fWalletUnlockAnonymizeOnly;
     std::string strWalletFile;
     std::set<int64_t> setKeyPool;
-    std::map<CKeyID, CKeyMetadata> mapKeyMetadata;
-    std::set<CStealthAddress> stealthAddresses;
+    mapKeyMetadata_t mapKeyMetadata;
+    setStealthAddresses_t stealthAddresses;
     StealthKeyMetaMap mapStealthKeyMeta;
     int nLastFilteredHeight;
     uint32_t nStealth, nFoundStealth; // for reporting, zero before use
-    MasterKeyMap mapMasterKeys;
+    mapMasterKeys_t mapMasterKeys;
     unsigned int nMasterKeyMaxID;
-	std::map<uint256, CWalletTx> mapWallet;
+	mapWallet_t mapWallet;
     std::list<CAccountingEntry> laccentries;
     TxItems wtxOrdered;
     int64_t nOrderPosNext;
-    std::map<uint256, int> mapRequestCount;
-    std::map<CTxDestination, std::string> mapAddressBook;
+    mapRequestCount_t mapRequestCount;
+    mapAddressBook_t mapAddressBook;
     CPubKey vchDefaultKey;
     std::set<COutPoint> setLockedCoins;
     int64_t nTimeFirstKey;
@@ -173,7 +175,7 @@ public:
 			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
 	
     bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs,
-			std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet,
+			std::vector<COutput> vCoins, setCoins_t& setCoinsRet,
 			int64_t& nValueRet) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;

@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "types/mapprevtx.h"
+#include "types/mapprevtx_t.h"
 #include "types/ctxdestination.h"
 #include "types/nodeid.h"
 
@@ -117,7 +117,7 @@ int64_t GetMinFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree, 
     @return True if all inputs (scriptSigs) use only standard transaction forms
     @see CTransaction::FetchInputs
 */
-bool AreInputsStandard(const CTransaction& tx, const MapPrevTx& mapInputs);
+bool AreInputsStandard(const CTransaction& tx, const mapPrevTx_t& mapInputs);
 
 /** Count ECDSA signature operations the old-fashioned (pre-0.6) way
     @return number of sigops this transaction's outputs will produce when spent
@@ -131,7 +131,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx);
     @return maximum number of sigops required to validate this transaction's inputs
     @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const MapPrevTx& mapInputs);
+unsigned int GetP2SHSigOpCount(const CTransaction& tx, const mapPrevTx_t& mapInputs);
 
 bool AllowFree(double dPriority);
 

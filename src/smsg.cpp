@@ -675,7 +675,7 @@ int AddWalletAddresses()
 	std::string sAnonPrefix("ao ");
 	uint32_t nAdded = 0;
 
-	for(const std::pair<CTxDestination, std::string>& entry : pwalletMain->mapAddressBook)
+	for(const pairAddressBook_t& entry : pwalletMain->mapAddressBook)
 	{
 		if (!IsMine(*pwalletMain, entry.first))
 		{
@@ -3830,7 +3830,7 @@ int Send(std::string &addressFrom, std::string &addressTo, std::string &message,
 	std::string addressOutbox = "None";
 	CDigitalNoteAddress coinAddrOutbox;
 
-	for(const std::pair<CTxDestination, std::string>& entry : pwalletMain->mapAddressBook)
+	for(const pairAddressBook_t& entry : pwalletMain->mapAddressBook)
 	{
 		// -- get first owned address
 		if (!IsMine(*pwalletMain, entry.first))

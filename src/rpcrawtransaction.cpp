@@ -530,7 +530,7 @@ json_spirit::Value signrawtransaction(const json_spirit::Array& params, bool fHe
 	for(unsigned int i = 0; i < mergedTx.vin.size(); i++)
 	{
 		CTransaction tempTx;
-		MapPrevTx mapPrevTx;
+		mapPrevTx_t mapPrevTx;
 		CTxDB txdb("r");
 		std::map<uint256, CTxIndex> unused;
 		bool fInvalid;

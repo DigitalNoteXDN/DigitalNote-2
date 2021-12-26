@@ -451,7 +451,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
                 wallet->UpdateStealthAddress(strAddress, strLabel, true);
             } else
             {
-                std::map<CTxDestination, std::string>::iterator mi = wallet->mapAddressBook.find(dest);
+                mapAddressBook_t::iterator mi = wallet->mapAddressBook.find(dest);
 
                 // Check if we have a new address or an updated label
                 if (mi == wallet->mapAddressBook.end() || mi->second != strLabel)

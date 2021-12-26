@@ -768,7 +768,7 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 		entry.push_back(json_spirit::Pair("data", HexStr(ssTx.begin(), ssTx.end())));
 		entry.push_back(json_spirit::Pair("hash", txHash.GetHex()));
 
-		MapPrevTx mapInputs;
+		mapPrevTx_t mapInputs;
 		std::map<uint256, CTxIndex> mapUnused;
 		bool fInvalid = false;
 		
@@ -777,7 +777,7 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 			entry.push_back(json_spirit::Pair("fee", (int64_t)(tx.GetValueMapIn(mapInputs) - tx.GetValueOut())));
 
 			json_spirit::Array deps;
-			for(MapPrevTx::value_type& inp : mapInputs)
+			for(mapPrevTx_t::value_type& inp : mapInputs)
 			{
 				if (setTxIndex.count(inp.first))
 				{

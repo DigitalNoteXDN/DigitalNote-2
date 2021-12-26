@@ -3,11 +3,7 @@
 
 #include <boost/filesystem.hpp>
 
-
-class CSubNet;
-class CBanEntry;
-
-typedef std::map<CSubNet, CBanEntry> banmap_t;
+#include "types/banmap_t.h"
 
 /** Access to the banlist database (banlist.dat) */
 class CBanDB

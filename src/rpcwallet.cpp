@@ -36,96 +36,98 @@
 #include "enums/serialize_type.h"
 #include "rpcprotocol.h"
 #include "rpcrawtransaction.h"
+#include "tallyitem.h"
+
+typedef std::map<std::string, tallyitem> mapAccountTally_t;
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
 static void accountingDeprecationCheck()
 {
-    if (!GetBoolArg("-enableaccounts", false))
+	if (!GetBoolArg("-enableaccounts", false))
 	{
-        throw std::runtime_error(
-            "Accounting API is deprecated and will be removed in future.\n"
-            "It can easily result in negative or odd balances if misused or misunderstood, which has happened in the field.\n"
-            "If you still want to enable it, add to your config file enableaccounts=1\n"
+		throw std::runtime_error(
+			"Accounting API is deprecated and will be removed in future.\n"
+			"It can easily result in negative or odd balances if misused or misunderstood, which has happened in the field.\n"
+			"If you still want to enable it, add to your config file enableaccounts=1\n"
 		);
 	}
-	
-    if (GetBoolArg("-staking", true))
+
+	if (GetBoolArg("-staking", true))
 	{
-        throw std::runtime_error("If you want to use accounting API, staking must be disabled, add to your config file staking=0\n");
+		throw std::runtime_error("If you want to use accounting API, staking must be disabled, add to your config file staking=0\n");
 	}
 }
 
 std::string HelpRequiringPassphrase()
 {
-    return pwalletMain && pwalletMain->IsCrypted()
-        ? "\nrequires wallet passphrase to be set with walletpassphrase first"
-        : "";
+	return pwalletMain && pwalletMain->IsCrypted()
+		? "\nrequires wallet passphrase to be set with walletpassphrase first" : "";
 }
 
 void EnsureWalletIsUnlocked()
 {
-    if (pwalletMain->IsLocked())
+	if (pwalletMain->IsLocked())
 	{
-        throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
-    }
-	
+		throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
+	}
+
 	if (fWalletUnlockStakingOnly)
 	{
-        throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Wallet is unlocked for staking only.");
+		throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Wallet is unlocked for staking only.");
 	}
 }
 
 void WalletTxToJSON(const CWalletTx& wtx, json_spirit::Object& entry)
 {
-    int confirms = wtx.GetDepthInMainChain(false);
-    int confirmsTotal = GetIXConfirmations(wtx.GetHash()) + confirms;
-    
+	int confirms = wtx.GetDepthInMainChain(false);
+	int confirmsTotal = GetIXConfirmations(wtx.GetHash()) + confirms;
+
 	entry.push_back(json_spirit::Pair("confirmations", confirmsTotal));
-    entry.push_back(json_spirit::Pair("bcconfirmations", confirms));
-    
+	entry.push_back(json_spirit::Pair("bcconfirmations", confirms));
+
 	if (wtx.IsCoinBase() || wtx.IsCoinStake())
 	{
-        entry.push_back(json_spirit::Pair("generated", true));
-    }
-	
+		entry.push_back(json_spirit::Pair("generated", true));
+	}
+
 	if (confirms > 0)
-    {
-        entry.push_back(json_spirit::Pair("blockhash", wtx.hashBlock.GetHex()));
-        entry.push_back(json_spirit::Pair("blockindex", wtx.nIndex));
-        entry.push_back(json_spirit::Pair("blocktime", (int64_t)(mapBlockIndex[wtx.hashBlock]->nTime)));
-    }
-    
-	uint256 hash = wtx.GetHash();
-    json_spirit::Array conflicts;
-	
-    entry.push_back(json_spirit::Pair("txid", hash.GetHex()));
-	
-    for(const uint256& conflict : wtx.GetConflicts())
 	{
-        conflicts.push_back(conflict.GetHex());
-    }
-	
+		entry.push_back(json_spirit::Pair("blockhash", wtx.hashBlock.GetHex()));
+		entry.push_back(json_spirit::Pair("blockindex", wtx.nIndex));
+		entry.push_back(json_spirit::Pair("blocktime", (int64_t)(mapBlockIndex[wtx.hashBlock]->nTime)));
+	}
+
+	uint256 hash = wtx.GetHash();
+	json_spirit::Array conflicts;
+
+	entry.push_back(json_spirit::Pair("txid", hash.GetHex()));
+
+	for(const uint256& conflict : wtx.GetConflicts())
+	{
+		conflicts.push_back(conflict.GetHex());
+	}
+
 	entry.push_back(json_spirit::Pair("walletconflicts", conflicts));
-    entry.push_back(json_spirit::Pair("time", wtx.GetTxTime()));
-    entry.push_back(json_spirit::Pair("timereceived", (int64_t)wtx.nTimeReceived));
-    
+	entry.push_back(json_spirit::Pair("time", wtx.GetTxTime()));
+	entry.push_back(json_spirit::Pair("timereceived", (int64_t)wtx.nTimeReceived));
+
 	for(const std::pair<std::string, std::string>& item : wtx.mapValue)
 	{
-        entry.push_back(json_spirit::Pair(item.first, item.second));
+		entry.push_back(json_spirit::Pair(item.first, item.second));
 	}
 }
 
 std::string AccountFromValue(const json_spirit::Value& value)
 {
-    std::string strAccount = value.get_str();
-    
+	std::string strAccount = value.get_str();
+
 	if (strAccount == "*")
 	{
-        throw JSONRPCError(RPC_WALLET_INVALID_ACCOUNT_NAME, "Invalid account name");
-    }
-	
+		throw JSONRPCError(RPC_WALLET_INVALID_ACCOUNT_NAME, "Invalid account name");
+	}
+
 	return strAccount;
 }
 
@@ -134,757 +136,753 @@ std::string AccountFromValue(const json_spirit::Value& value)
 //
 CScript _createmultisig(const json_spirit::Array& params)
 {
-    int nRequired = params[0].get_int();
-    const json_spirit::Array& keys = params[1].get_array();
+	int nRequired = params[0].get_int();
+	const json_spirit::Array& keys = params[1].get_array();
 
-    // Gather public keys
-    if (nRequired < 1)
+	// Gather public keys
+	if (nRequired < 1)
 	{
-        throw std::runtime_error("a multisignature address must require at least one key to redeem");
-    }
-	
+		throw std::runtime_error("a multisignature address must require at least one key to redeem");
+	}
+
 	if ((int)keys.size() < nRequired)
 	{
-        throw std::runtime_error(
-            strprintf(
+		throw std::runtime_error(
+			strprintf(
 				"not enough keys supplied (got %" PRIszu" keys, but need at least %d to redeem)",
 				keys.size(),
 				nRequired
 			)
 		);
-    }
-	
+	}
+
 	std::vector<CPubKey> pubkeys;
-    pubkeys.resize(keys.size());
-	
-    for (unsigned int i = 0; i < keys.size(); i++)
-    {
-        const std::string& ks = keys[i].get_str();
+	pubkeys.resize(keys.size());
+
+	for (unsigned int i = 0; i < keys.size(); i++)
+	{
+		const std::string& ks = keys[i].get_str();
 
 #ifdef ENABLE_WALLET
-
-        // Case 1: DigitalNote address and we have full public key:
-        CDigitalNoteAddress address(ks);
+		// Case 1: DigitalNote address and we have full public key:
+		CDigitalNoteAddress address(ks);
 		
-        if (pwalletMain && address.IsValid())
-        {
-            CKeyID keyID;
+		if (pwalletMain && address.IsValid())
+		{
+			CKeyID keyID;
 			
-            if (!address.GetKeyID(keyID))
+			if (!address.GetKeyID(keyID))
 			{
-                throw std::runtime_error(strprintf("%s does not refer to a key",ks));
+				throw std::runtime_error(strprintf("%s does not refer to a key",ks));
 			}
 			
-            CPubKey vchPubKey;
-            
+			CPubKey vchPubKey;
+			
 			if (!pwalletMain->GetPubKey(keyID, vchPubKey))
 			{
-                throw std::runtime_error(strprintf("no full public key for address %s",ks));
-			}
-            
-			if (!vchPubKey.IsFullyValid())
-			{
-                throw std::runtime_error(" Invalid public key: "+ks);
+				throw std::runtime_error(strprintf("no full public key for address %s",ks));
 			}
 			
-            pubkeys[i] = vchPubKey;
-        }
-
-        // Case 2: hex public key
-        else
-
-#endif // ENABLE_WALLET
-
-        if (IsHex(ks))
-        {
-            CPubKey vchPubKey(ParseHex(ks));
-            
 			if (!vchPubKey.IsFullyValid())
 			{
-                throw std::runtime_error(" Invalid public key: "+ks);
-            }
+				throw std::runtime_error(" Invalid public key: "+ks);
+			}
 			
 			pubkeys[i] = vchPubKey;
-        }
-        else
-        {
-            throw std::runtime_error(" Invalid public key: "+ks);
-        }
-    }
-    
+		}
+		else // Case 2: hex public key
+#endif // ENABLE_WALLET
+
+		if (IsHex(ks))
+		{
+			CPubKey vchPubKey(ParseHex(ks));
+			
+			if (!vchPubKey.IsFullyValid())
+			{
+				throw std::runtime_error(" Invalid public key: "+ks);
+			}
+			
+			pubkeys[i] = vchPubKey;
+		}
+		else
+		{
+			throw std::runtime_error(" Invalid public key: "+ks);
+		}
+	}
+
 	CScript result;
-    
+
 	result.SetMultisig(nRequired, pubkeys);
-    
+
 	return result;
 }
 
 json_spirit::Value createmultisig(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 2)
-    {
-        std::string msg = "createmultisig nrequired [\"key\",...]\n"
-            "\nCreates a multi-signature address with n signature of m keys required.\n"
-            "It returns a json object with the address and redeemScript.\n"
+	if (fHelp || params.size() < 2 || params.size() > 2)
+	{
+		std::string msg = "createmultisig nrequired [\"key\",...]\n"
+			"\nCreates a multi-signature address with n signature of m keys required.\n"
+			"It returns a json object with the address and redeemScript.\n"
 
-            "\nArguments:\n"
-            "1. nrequired (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keys\" (string, required) A json array of keys which are bitcoin addresses or hex-encoded public keys\n"
-            " [\n"
-            " \"key\" (string) bitcoin address or hex-encoded public key\n"
-            " ,...\n"
-            " ]\n"
+			"\nArguments:\n"
+			"1. nrequired (numeric, required) The number of required signatures out of the n keys or addresses.\n"
+			"2. \"keys\" (string, required) A json array of keys which are bitcoin addresses or hex-encoded public keys\n"
+			" [\n"
+			" \"key\" (string) bitcoin address or hex-encoded public key\n"
+			" ,...\n"
+			" ]\n"
 
-            "\nResult:\n"
-            "{\n"
-            " \"address\":\"multisigaddress\", (string) The value of the new multisig address.\n"
-            " \"redeemScript\":\"script\" (string) The string value of the hex-encoded redemption script.\n"
-            "}\n"
+			"\nResult:\n"
+			"{\n"
+			" \"address\":\"multisigaddress\", (string) The value of the new multisig address.\n"
+			" \"redeemScript\":\"script\" (string) The string value of the hex-encoded redemption script.\n"
+			"}\n"
 
-            "\nExamples:\n"
-            "\nCreate a multisig address from 2 addresses\n"
-            + HelpExampleCli("createmultisig", "2 \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("createmultisig", "2, \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
-        ;
-        throw std::runtime_error(msg);
-    }
+			"\nExamples:\n"
+			"\nCreate a multisig address from 2 addresses\n"
+			+ HelpExampleCli("createmultisig", "2 \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("createmultisig", "2, \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
+		;
+		throw std::runtime_error(msg);
+	}
 
-    // Construct using pay-to-script-hash:
-    CScript inner = _createmultisig(params);
-    CScriptID innerID = inner.GetID();
-    CDigitalNoteAddress address(innerID);
+	// Construct using pay-to-script-hash:
+	CScript inner = _createmultisig(params);
+	CScriptID innerID = inner.GetID();
+	CDigitalNoteAddress address(innerID);
 
-    json_spirit::Object result;
-    result.push_back(json_spirit::Pair("address", address.ToString()));
-    result.push_back(json_spirit::Pair("redeemScript", HexStr(inner.begin(), inner.end())));
+	json_spirit::Object result;
+	result.push_back(json_spirit::Pair("address", address.ToString()));
+	result.push_back(json_spirit::Pair("redeemScript", HexStr(inner.begin(), inner.end())));
 
-    return result;
+	return result;
 }
 
 json_spirit::Value getnewpubkey(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+	if (fHelp || params.size() > 1)
 	{
-        throw std::runtime_error(
-            "getnewpubkey [account]\n"
-            "Returns new public key for coinbase generation."
+		throw std::runtime_error(
+			"getnewpubkey [account]\n"
+			"Returns new public key for coinbase generation."
 		);
 	}
-	
-    // Parse the account first so we don't generate a key if there's an error
-    std::string strAccount;
-    if (params.size() > 0)
+
+	// Parse the account first so we don't generate a key if there's an error
+	std::string strAccount;
+	if (params.size() > 0)
 	{
-        strAccount = AccountFromValue(params[0]);
+		strAccount = AccountFromValue(params[0]);
 	}
-	
-    if (!pwalletMain->IsLocked())
+
+	if (!pwalletMain->IsLocked())
 	{
-        pwalletMain->TopUpKeyPool();
+		pwalletMain->TopUpKeyPool();
 	}
-	
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwalletMain->GetKeyFromPool(newKey))
+
+	// Generate a new key that is added to wallet
+	CPubKey newKey;
+	if (!pwalletMain->GetKeyFromPool(newKey))
 	{
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    }
-	
+		throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+	}
+
 	CKeyID keyID = newKey.GetID();
 
-    pwalletMain->SetAddressBookName(keyID, strAccount);
+	pwalletMain->SetAddressBookName(keyID, strAccount);
 
-    return HexStr(newKey.begin(), newKey.end());
+	return HexStr(newKey.begin(), newKey.end());
 }
 
 json_spirit::Value getnewaddress(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+	if (fHelp || params.size() > 1)
 	{
-        throw std::runtime_error(
-            "getnewaddress ( \"account\" )\n"
-            "\nReturns a new DigitalNote address for receiving payments.\n"
-            "If 'account' is specified (recommended), it is added to the address book \n"
-            "so payments received with the address will be credited to 'account'.\n"
-            "\nArguments:\n"
-            "1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created if there is no account by the given name.\n"
-            "\nResult:\n"
-            "\"DigitalNote\"    (string) The new DigitalNote address\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getnewaddress", "")
-            + HelpExampleCli("getnewaddress", "\"\"")
-            + HelpExampleCli("getnewaddress", "\"myaccount\"")
-            + HelpExampleRpc("getnewaddress", "\"myaccount\"")
-        );
+		throw std::runtime_error(
+			"getnewaddress ( \"account\" )\n"
+			"\nReturns a new DigitalNote address for receiving payments.\n"
+			"If 'account' is specified (recommended), it is added to the address book \n"
+			"so payments received with the address will be credited to 'account'.\n"
+			"\nArguments:\n"
+			"1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created if there is no account by the given name.\n"
+			"\nResult:\n"
+			"\"DigitalNote\"    (string) The new DigitalNote address\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("getnewaddress", "")
+			+ HelpExampleCli("getnewaddress", "\"\"")
+			+ HelpExampleCli("getnewaddress", "\"myaccount\"")
+			+ HelpExampleRpc("getnewaddress", "\"myaccount\"")
+		);
 	}
 
-    // Parse the account first so we don't generate a key if there's an error
-    std::string strAccount;
-    if (params.size() > 0)
+	// Parse the account first so we don't generate a key if there's an error
+	std::string strAccount;
+	if (params.size() > 0)
 	{
-        strAccount = AccountFromValue(params[0]);
+		strAccount = AccountFromValue(params[0]);
 	}
-	
-    if (!pwalletMain->IsLocked())
+
+	if (!pwalletMain->IsLocked())
 	{
-        pwalletMain->TopUpKeyPool();
+		pwalletMain->TopUpKeyPool();
 	}
-	
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    
+
+	// Generate a new key that is added to wallet
+	CPubKey newKey;
+
 	if (!pwalletMain->GetKeyFromPool(newKey))
 	{
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    }
-	
+		throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+	}
+
 	CKeyID keyID = newKey.GetID();
 
-    pwalletMain->SetAddressBookName(keyID, strAccount);
+	pwalletMain->SetAddressBookName(keyID, strAccount);
 
-    return CDigitalNoteAddress(keyID).ToString();
+	return CDigitalNoteAddress(keyID).ToString();
 }
 
 CDigitalNoteAddress GetAccountAddress(const std::string &strAccount, bool bForceNew=false)
 {
-    CWalletDB walletdb(pwalletMain->strWalletFile);
+	CWalletDB walletdb(pwalletMain->strWalletFile);
 
-    CAccount account;
-    walletdb.ReadAccount(strAccount, account);
+	CAccount account;
+	walletdb.ReadAccount(strAccount, account);
 
-    bool bKeyUsed = false;
+	bool bKeyUsed = false;
 
-    // Check if the current key has been used
-    if (account.vchPubKey.IsValid())
-    {
-        CScript scriptPubKey;
-        scriptPubKey.SetDestination(account.vchPubKey.GetID());
-        
-		for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
-             it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid(); ++it)
-        {
-            const CWalletTx& wtx = (*it).second;
+	// Check if the current key has been used
+	if (account.vchPubKey.IsValid())
+	{
+		CScript scriptPubKey;
+		scriptPubKey.SetDestination(account.vchPubKey.GetID());
+		
+		for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin();
+			 it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid(); ++it)
+		{
+			const CWalletTx& wtx = (*it).second;
 			
-            for(const CTxOut& txout : wtx.vout)
+			for(const CTxOut& txout : wtx.vout)
 			{
-                if (txout.scriptPubKey == scriptPubKey)
+				if (txout.scriptPubKey == scriptPubKey)
 				{
-                    bKeyUsed = true;
+					bKeyUsed = true;
 				}
 			}
-        }
-    }
+		}
+	}
 
-    // Generate a new key
-    if (!account.vchPubKey.IsValid() || bForceNew || bKeyUsed)
-    {
-        if (!pwalletMain->GetKeyFromPool(account.vchPubKey))
+	// Generate a new key
+	if (!account.vchPubKey.IsValid() || bForceNew || bKeyUsed)
+	{
+		if (!pwalletMain->GetKeyFromPool(account.vchPubKey))
 		{
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+			throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
 		}
 		
-        pwalletMain->SetAddressBookName(account.vchPubKey.GetID(), strAccount);
-        walletdb.WriteAccount(strAccount, account);
-    }
+		pwalletMain->SetAddressBookName(account.vchPubKey.GetID(), strAccount);
+		walletdb.WriteAccount(strAccount, account);
+	}
 
-    return CDigitalNoteAddress(account.vchPubKey.GetID());
+	return CDigitalNoteAddress(account.vchPubKey.GetID());
 }
 
 json_spirit::Value getaccountaddress(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+	if (fHelp || params.size() != 1)
 	{
-        throw std::runtime_error(
-            "getaccountaddress \"account\"\n"
-            "\nReturns the current DigitalNote address for receiving payments to this account.\n"
-            "\nArguments:\n"
-            "1. \"account\"       (string, required) The account name for the address. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created and a new address created  if there is no account by the given name.\n"
-            "\nResult:\n"
-            "\"DigitalNote\"   (string) The account DigitalNote address\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getaccountaddress", "")
-            + HelpExampleCli("getaccountaddress", "\"\"")
-            + HelpExampleCli("getaccountaddress", "\"myaccount\"")
-            + HelpExampleRpc("getaccountaddress", "\"myaccount\"")
-        );
+		throw std::runtime_error(
+			"getaccountaddress \"account\"\n"
+			"\nReturns the current DigitalNote address for receiving payments to this account.\n"
+			"\nArguments:\n"
+			"1. \"account\"       (string, required) The account name for the address. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created and a new address created  if there is no account by the given name.\n"
+			"\nResult:\n"
+			"\"DigitalNote\"   (string) The account DigitalNote address\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("getaccountaddress", "")
+			+ HelpExampleCli("getaccountaddress", "\"\"")
+			+ HelpExampleCli("getaccountaddress", "\"myaccount\"")
+			+ HelpExampleRpc("getaccountaddress", "\"myaccount\"")
+		);
 	}
 
-    // Parse the account first so we don't generate a key if there's an error
-    std::string strAccount = AccountFromValue(params[0]);
+	// Parse the account first so we don't generate a key if there's an error
+	std::string strAccount = AccountFromValue(params[0]);
 
-    json_spirit::Value ret;
+	json_spirit::Value ret;
 
-    ret = GetAccountAddress(strAccount).ToString();
+	ret = GetAccountAddress(strAccount).ToString();
 
-    return ret;
+	return ret;
 }
 
 json_spirit::Value setaccount(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "setaccount \"DigitalNote\" \"account\"\n"
-            "\nSets the account associated with the given address.\n"
-            "\nArguments:\n"
-            "1. \"DigitalNoteaddress\"  (string, required) The DigitalNote address to be associated with an account.\n"
-            "2. \"account\"         (string, required) The account to assign the address to.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("setaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"tabby\"")
-            + HelpExampleRpc("setaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", \"tabby\"")
-        );
+		throw std::runtime_error(
+			"setaccount \"DigitalNote\" \"account\"\n"
+			"\nSets the account associated with the given address.\n"
+			"\nArguments:\n"
+			"1. \"DigitalNoteaddress\"  (string, required) The DigitalNote address to be associated with an account.\n"
+			"2. \"account\"         (string, required) The account to assign the address to.\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("setaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"tabby\"")
+			+ HelpExampleRpc("setaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", \"tabby\"")
+		);
 	}
 
-    CDigitalNoteAddress address(params[0].get_str());
-    if (!address.IsValid())
+	CDigitalNoteAddress address(params[0].get_str());
+	if (!address.IsValid())
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
 	}
-	
-    std::string strAccount;
-    if (params.size() > 1)
+
+	std::string strAccount;
+	if (params.size() > 1)
 	{
-        strAccount = AccountFromValue(params[1]);
+		strAccount = AccountFromValue(params[1]);
 	}
-	
-    // Only add the account if the address is yours.
-    if (IsMine(*pwalletMain, address.Get()))
-    {
-        // Detect when changing the account of an address that is the 'unused current key' of another account:
-        if (pwalletMain->mapAddressBook.count(address.Get()))
-        {
-            std::string strOldAccount = pwalletMain->mapAddressBook[address.Get()];
-            
+
+	// Only add the account if the address is yours.
+	if (IsMine(*pwalletMain, address.Get()))
+	{
+		// Detect when changing the account of an address that is the 'unused current key' of another account:
+		if (pwalletMain->mapAddressBook.count(address.Get()))
+		{
+			std::string strOldAccount = pwalletMain->mapAddressBook[address.Get()];
+			
 			if (address == GetAccountAddress(strOldAccount))
 			{
-                GetAccountAddress(strOldAccount, true);
+				GetAccountAddress(strOldAccount, true);
 			}
-        }
-        
+		}
+		
 		if (fWebWalletMode)
 		{
-            pwalletMain->SetAddressAccountIdAssociation(address.Get(), strAccount);
-        }
-        else
+			pwalletMain->SetAddressAccountIdAssociation(address.Get(), strAccount);
+		}
+		else
 		{
-            pwalletMain->SetAddressBookName(address.Get(), strAccount);
-        }
-    }
-    else
-	{
-        throw JSONRPCError(RPC_MISC_ERROR, "setaccount can only be used with own address");
+			pwalletMain->SetAddressBookName(address.Get(), strAccount);
+		}
 	}
-	
-    return json_spirit::Value::null;
+	else
+	{
+		throw JSONRPCError(RPC_MISC_ERROR, "setaccount can only be used with own address");
+	}
+
+	return json_spirit::Value::null;
 }
 
 json_spirit::Value getaccount(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+	if (fHelp || params.size() != 1)
 	{
-        throw std::runtime_error(
-            "getaccount \"DigitalNote\"\n"
-            "\nReturns the account associated with the given address.\n"
-            "\nArguments:\n"
-            "1. \"DigitalNote\"  (string, required) The DigitalNote address for account lookup.\n"
-            "\nResult:\n"
-            "\"accountname\"        (string) the account address\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"")
-            + HelpExampleRpc("getaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"")
-        );
+		throw std::runtime_error(
+			"getaccount \"DigitalNote\"\n"
+			"\nReturns the account associated with the given address.\n"
+			"\nArguments:\n"
+			"1. \"DigitalNote\"  (string, required) The DigitalNote address for account lookup.\n"
+			"\nResult:\n"
+			"\"accountname\"        (string) the account address\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("getaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"")
+			+ HelpExampleRpc("getaccount", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"")
+		);
 	}
 
-    CDigitalNoteAddress address(params[0].get_str());
-    
+	CDigitalNoteAddress address(params[0].get_str());
+
 	if (!address.IsValid())
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
 	}
-	
-    std::string strAccount;
-    std::map<CTxDestination, std::string>::iterator mi = pwalletMain->mapAddressBook.find(address.Get());
-    
+
+	std::string strAccount;
+	mapAddressBook_t::iterator mi = pwalletMain->mapAddressBook.find(address.Get());
+
 	if (mi != pwalletMain->mapAddressBook.end() && !(*mi).second.empty())
 	{
-        strAccount = (*mi).second;
+		strAccount = (*mi).second;
 	}
-	
-    return strAccount;
+
+	return strAccount;
 }
 
 json_spirit::Value getaddressesbyaccount(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+	if (fHelp || params.size() != 1)
 	{
-        throw std::runtime_error(
-            "getaddressesbyaccount \"account\"\n"
-            "\nReturns the list of addresses for the given account.\n"
-            "\nArguments:\n"
-            "1. \"account\"  (string, required) The account name.\n"
-            "\nResult:\n"
-            "[                     (json array of string)\n"
-            "  \"DigitalNote\"  (string) a DigitalNote address associated with the given account\n"
-            "  ,...\n"
-            "]\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getaddressesbyaccount", "\"tabby\"")
-            + HelpExampleRpc("getaddressesbyaccount", "\"tabby\"")
-        );
+		throw std::runtime_error(
+			"getaddressesbyaccount \"account\"\n"
+			"\nReturns the list of addresses for the given account.\n"
+			"\nArguments:\n"
+			"1. \"account\"  (string, required) The account name.\n"
+			"\nResult:\n"
+			"[                     (json array of string)\n"
+			"  \"DigitalNote\"  (string) a DigitalNote address associated with the given account\n"
+			"  ,...\n"
+			"]\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("getaddressesbyaccount", "\"tabby\"")
+			+ HelpExampleRpc("getaddressesbyaccount", "\"tabby\"")
+		);
 	}
 
-    std::string strAccount = AccountFromValue(params[0]);
+	std::string strAccount = AccountFromValue(params[0]);
 
-    // Find all addresses that have the given account
-    json_spirit::Array ret;
-    
+	// Find all addresses that have the given account
+	json_spirit::Array ret;
+
 	for(const std::pair<CDigitalNoteAddress, std::string>& item : pwalletMain->mapAddressBook)
-    {
-        const CDigitalNoteAddress& address = item.first;
-        const std::string& strName = item.second;
-        
+	{
+		const CDigitalNoteAddress& address = item.first;
+		const std::string& strName = item.second;
+		
 		if (strName == strAccount)
 		{
-            ret.push_back(address.ToString());
+			ret.push_back(address.ToString());
 		}
-    }
-	
-    return ret;
+	}
+
+	return ret;
 }
 
 json_spirit::Value sendtoaddress(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 4)
+	if (fHelp || params.size() < 2 || params.size() > 4)
 	{
-        throw std::runtime_error(
-            "sendtoaddress \"DigitalNote\" amount ( \"comment\" \"comment-to\" )\n"
-            "\nSent an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
-            + HelpRequiringPassphrase() +
-            "\nArguments:\n"
-           "1. \"DigitalNote\"  (string, required) The DigitalNote address to send to.\n"
-            "2. \"amount\"      (numeric, required) The amount in XDN to send. eg 0.1\n"
-            "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
-            "                             This is not part of the transaction, just kept in your wallet.\n"
-            "4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
-            "                             to which you're sending the transaction. This is not part of the \n"
-            "                             transaction, just kept in your wallet.\n"
-            "\nResult:\n"
-            "\"transactionid\"  (string) The transaction id.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.1")
-            + HelpExampleCli("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.1 \"donation\" \"seans outpost\"")
-            + HelpExampleRpc("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 0.1, \"donation\", \"seans outpost\"")
-        );
+		throw std::runtime_error(
+			"sendtoaddress \"DigitalNote\" amount ( \"comment\" \"comment-to\" )\n"
+			"\nSent an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
+			+ HelpRequiringPassphrase() +
+			"\nArguments:\n"
+		   "1. \"DigitalNote\"  (string, required) The DigitalNote address to send to.\n"
+			"2. \"amount\"      (numeric, required) The amount in XDN to send. eg 0.1\n"
+			"3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
+			"                             This is not part of the transaction, just kept in your wallet.\n"
+			"4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
+			"                             to which you're sending the transaction. This is not part of the \n"
+			"                             transaction, just kept in your wallet.\n"
+			"\nResult:\n"
+			"\"transactionid\"  (string) The transaction id.\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.1")
+			+ HelpExampleCli("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.1 \"donation\" \"seans outpost\"")
+			+ HelpExampleRpc("sendtoaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 0.1, \"donation\", \"seans outpost\"")
+		);
 	}
 
-    EnsureWalletIsUnlocked();
+	EnsureWalletIsUnlocked();
 
-    if (params[0].get_str().length() > 75 && IsStealthAddress(params[0].get_str()))
+	if (params[0].get_str().length() > 75 && IsStealthAddress(params[0].get_str()))
 	{
-        return sendtostealthaddress(params, false);
+		return sendtostealthaddress(params, false);
 	}
-	
-    CDigitalNoteAddress address(params[0].get_str());
-    if (!address.IsValid())
+
+	CDigitalNoteAddress address(params[0].get_str());
+	if (!address.IsValid())
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
 	}
-	
-    // Amount
-    CAmount nAmount = AmountFromValue(params[1]);
 
-    CWalletTx wtx;
-    std::string sNarr;
+	// Amount
+	CAmount nAmount = AmountFromValue(params[1]);
 
-    // Wallet comments
-    if (params.size() > 2 && params[2].type() != json_spirit::null_type && !params[2].get_str().empty())
+	CWalletTx wtx;
+	std::string sNarr;
+
+	// Wallet comments
+	if (params.size() > 2 && params[2].type() != json_spirit::null_type && !params[2].get_str().empty())
 	{
-        wtx.mapValue["comment"] = params[2].get_str();
-    }
-	
+		wtx.mapValue["comment"] = params[2].get_str();
+	}
+
 	if (params.size() > 3 && params[3].type() != json_spirit::null_type && !params[3].get_str().empty())
 	{
-        wtx.mapValue["to"]      = params[3].get_str();
-    }
-	
+		wtx.mapValue["to"]      = params[3].get_str();
+	}
+
 	if (params.size() > 4 && params[4].type() != json_spirit::null_type && !params[4].get_str().empty())
 	{
-        sNarr = params[4].get_str();
-    }
-	
+		sNarr = params[4].get_str();
+	}
+
 	if (sNarr.length() > 24)
 	{
-        throw std::runtime_error("Narration must be 24 characters or less.");
+		throw std::runtime_error("Narration must be 24 characters or less.");
 	}
-	
-    std::string strError = pwalletMain->SendMoneyToDestination(address.Get(), nAmount, sNarr, wtx);
 
-    if (strError != "")
+	std::string strError = pwalletMain->SendMoneyToDestination(address.Get(), nAmount, sNarr, wtx);
+
+	if (strError != "")
 	{
-        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+		throw JSONRPCError(RPC_WALLET_ERROR, strError);
 	}
-	
-    return wtx.GetHash().GetHex();
+
+	return wtx.GetHash().GetHex();
 }
 
 json_spirit::Value listaddressgroupings(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp)
+	if (fHelp)
 	{
-        throw std::runtime_error(
-            "listaddressgroupings\n"
-            "\nLists groups of addresses which have had their common ownership\n"
-            "made public by common use as inputs or as the resulting change\n"
-            "in past transactions\n"
-            "\nResult:\n"
-            "[\n"
-            "  [\n"
-            "    [\n"
-            "      \"DigitalNote\",     (string) The DigitalNote address\n"
-            "      amount,                 (numeric) The amount in XDN\n"
-            "      \"account\"             (string, optional) The account\n"
-            "    ]\n"
-            "    ,...\n"
-            "  ]\n"
-            "  ,...\n"
-            "]\n"
-            "\nExamples:\n"
-            + HelpExampleCli("listaddressgroupings", "")
-            + HelpExampleRpc("listaddressgroupings", "")
-        );
+		throw std::runtime_error(
+			"listaddressgroupings\n"
+			"\nLists groups of addresses which have had their common ownership\n"
+			"made public by common use as inputs or as the resulting change\n"
+			"in past transactions\n"
+			"\nResult:\n"
+			"[\n"
+			"  [\n"
+			"    [\n"
+			"      \"DigitalNote\",     (string) The DigitalNote address\n"
+			"      amount,                 (numeric) The amount in XDN\n"
+			"      \"account\"             (string, optional) The account\n"
+			"    ]\n"
+			"    ,...\n"
+			"  ]\n"
+			"  ,...\n"
+			"]\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("listaddressgroupings", "")
+			+ HelpExampleRpc("listaddressgroupings", "")
+		);
 	}
 
-    json_spirit::Array jsonGroupings;
-    std::map<CTxDestination, int64_t> balances = pwalletMain->GetAddressBalances();
-    
+	json_spirit::Array jsonGroupings;
+	std::map<CTxDestination, int64_t> balances = pwalletMain->GetAddressBalances();
+
 	for(std::set<CTxDestination> grouping : pwalletMain->GetAddressGroupings())
-    {
-        json_spirit::Array jsonGrouping;
+	{
+		json_spirit::Array jsonGrouping;
 		
-        for(CTxDestination address : grouping)
-        {
-            json_spirit::Array addressInfo;
-            
+		for(CTxDestination address : grouping)
+		{
+			json_spirit::Array addressInfo;
+			
 			addressInfo.push_back(CDigitalNoteAddress(address).ToString());
-            addressInfo.push_back(ValueFromAmount(balances[address]));
-            
+			addressInfo.push_back(ValueFromAmount(balances[address]));
+			
 			{
-                LOCK(pwalletMain->cs_wallet);
-                
+				LOCK(pwalletMain->cs_wallet);
+				
 				if (pwalletMain->mapAddressBook.find(CDigitalNoteAddress(address).Get()) != pwalletMain->mapAddressBook.end())
 				{
-                    addressInfo.push_back(pwalletMain->mapAddressBook.find(CDigitalNoteAddress(address).Get())->second);
+					addressInfo.push_back(pwalletMain->mapAddressBook.find(CDigitalNoteAddress(address).Get())->second);
 				}
-            }
+			}
 			
-            jsonGrouping.push_back(addressInfo);
-        }
+			jsonGrouping.push_back(addressInfo);
+		}
 		
-        jsonGroupings.push_back(jsonGrouping);
-    }
-	
-    return jsonGroupings;
+		jsonGroupings.push_back(jsonGrouping);
+	}
+
+	return jsonGroupings;
 }
 
 json_spirit::Value signmessage(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+	if (fHelp || params.size() != 2)
 	{
-        throw std::runtime_error(
-            "signmessage \"DigitalNote\" \"message\"\n"
-            "\nSign a message with the private key of an address"
-            + HelpRequiringPassphrase() + "\n"
-            "\nArguments:\n"
-            "1. \"DigitalNote\"  (string, required) The DigitalNote address to use for the private key.\n"
-            "2. \"message\"         (string, required) The message to create a signature of.\n"
-            "\nResult:\n"
-            "\"signature\"          (string) The signature of the message encoded in base 64\n"
-            "\nExamples:\n"
-            "\nUnlock the wallet for 30 seconds\n"
-            + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
-            "\nCreate the signature\n"
-            + HelpExampleCli("signmessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"my message\"") +
-            "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"signature\" \"my message\"") +
-            "\nAs json rpc\n"
-            + HelpExampleRpc("signmessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", \"my message\"")
-        );
+		throw std::runtime_error(
+			"signmessage \"DigitalNote\" \"message\"\n"
+			"\nSign a message with the private key of an address"
+			+ HelpRequiringPassphrase() + "\n"
+			"\nArguments:\n"
+			"1. \"DigitalNote\"  (string, required) The DigitalNote address to use for the private key.\n"
+			"2. \"message\"         (string, required) The message to create a signature of.\n"
+			"\nResult:\n"
+			"\"signature\"          (string) The signature of the message encoded in base 64\n"
+			"\nExamples:\n"
+			"\nUnlock the wallet for 30 seconds\n"
+			+ HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
+			"\nCreate the signature\n"
+			+ HelpExampleCli("signmessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"my message\"") +
+			"\nVerify the signature\n"
+			+ HelpExampleCli("verifymessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" \"signature\" \"my message\"") +
+			"\nAs json rpc\n"
+			+ HelpExampleRpc("signmessage", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", \"my message\"")
+		);
 	}
-	
-    EnsureWalletIsUnlocked();
 
-    std::string strAddress = params[0].get_str();
-    std::string strMessage = params[1].get_str();
+	EnsureWalletIsUnlocked();
 
-    CDigitalNoteAddress addr(strAddress);
-    if (!addr.IsValid())
+	std::string strAddress = params[0].get_str();
+	std::string strMessage = params[1].get_str();
+
+	CDigitalNoteAddress addr(strAddress);
+	if (!addr.IsValid())
 	{
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+		throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
 	}
-	
-    CKeyID keyID;
-    if (!addr.GetKeyID(keyID))
+
+	CKeyID keyID;
+	if (!addr.GetKeyID(keyID))
 	{
-        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
+		throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
 	}
-	
-    CKey key;
-    if (!pwalletMain->GetKey(keyID, key))
+
+	CKey key;
+	if (!pwalletMain->GetKey(keyID, key))
 	{
-        throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
+		throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
 	}
-	
-    CHashWriter ss(SER_GETHASH, 0);
-    
+
+	CHashWriter ss(SER_GETHASH, 0);
+
 	ss << strMessageMagic;
-    ss << strMessage;
+	ss << strMessage;
 
-    std::vector<unsigned char> vchSig;
-    if (!key.SignCompact(ss.GetHash(), vchSig))
+	std::vector<unsigned char> vchSig;
+	if (!key.SignCompact(ss.GetHash(), vchSig))
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Sign failed");
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Sign failed");
 	}
-	
-    return EncodeBase64(&vchSig[0], vchSig.size());
+
+	return EncodeBase64(&vchSig[0], vchSig.size());
 }
 
 json_spirit::Value getreceivedbyaddress(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "getreceivedbyaddress \"DigitalNote\" ( minconf )\n"
-            "\nReturns the total amount received by the given DigitalNote in transactions with at least minconf confirmations.\n"
-            "\nArguments:\n"
-            "1. \"DigitalNote\"  (string, required) The DigitalNote address for transactions.\n"
-            "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
-            "\nResult:\n"
-            "amount   (numeric) The total amount in XDN received at this address.\n"
-            "\nExamples:\n"
-            "\nThe amount from transactions with at least 1 confirmation\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"") +
-            "\nThe amount including unconfirmed transactions, zero confirmations\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0") +
-            "\nThe amount with at least 10 confirmation, very safe\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 10") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 10")
-       );
+		throw std::runtime_error(
+			"getreceivedbyaddress \"DigitalNote\" ( minconf )\n"
+			"\nReturns the total amount received by the given DigitalNote in transactions with at least minconf confirmations.\n"
+			"\nArguments:\n"
+			"1. \"DigitalNote\"  (string, required) The DigitalNote address for transactions.\n"
+			"2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+			"\nResult:\n"
+			"amount   (numeric) The total amount in XDN received at this address.\n"
+			"\nExamples:\n"
+			"\nThe amount from transactions with at least 1 confirmation\n"
+			+ HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\"") +
+			"\nThe amount including unconfirmed transactions, zero confirmations\n"
+			+ HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0") +
+			"\nThe amount with at least 10 confirmation, very safe\n"
+			+ HelpExampleCli("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 10") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("getreceivedbyaddress", "\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 10")
+	   );
 	}
 
-    // DigitalNote address
-    CDigitalNoteAddress address = CDigitalNoteAddress(params[0].get_str());
-    CScript scriptPubKey;
-    if (!address.IsValid())
+	// DigitalNote address
+	CDigitalNoteAddress address = CDigitalNoteAddress(params[0].get_str());
+	CScript scriptPubKey;
+	if (!address.IsValid())
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
-    }
-	
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
+	}
+
 	scriptPubKey.SetDestination(address.Get());
-    
+
 	if (!IsMine(*pwalletMain,scriptPubKey))
 	{
-        return (double)0.0;
+		return (double)0.0;
 	}
-	
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (params.size() > 1)
+
+	// Minimum confirmations
+	int nMinDepth = 1;
+	if (params.size() > 1)
 	{
-        nMinDepth = params[1].get_int();
+		nMinDepth = params[1].get_int();
 	}
-	
-    // Tally
-    CAmount nAmount = 0;
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
+
+	// Tally
+	CAmount nAmount = 0;
+	for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+	{
+		const CWalletTx& wtx = (*it).second;
+		if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
 		{
-            continue;
+			continue;
 		}
 		
-        for(const CTxOut& txout : wtx.vout)
+		for(const CTxOut& txout : wtx.vout)
 		{
-            if (txout.scriptPubKey == scriptPubKey && wtx.GetDepthInMainChain() >= nMinDepth)
+			if (txout.scriptPubKey == scriptPubKey && wtx.GetDepthInMainChain() >= nMinDepth)
 			{
 				nAmount += txout.nValue;
 			}
 		}
-    }
+	}
 
-    return  ValueFromAmount(nAmount);
+	return  ValueFromAmount(nAmount);
 }
 
 void GetAccountAddresses(const std::string &strAccount, std::set<CTxDestination>& setAddress)
 {
-    for(const std::pair<CTxDestination, std::string>& item : pwalletMain->mapAddressBook)
-    {
-        const CTxDestination& address = item.first;
-        const std::string& strName = item.second;
+	for(const pairAddressBook_t& item : pwalletMain->mapAddressBook)
+	{
+		const CTxDestination& address = item.first;
+		const std::string& strName = item.second;
 		
-        if (strName == strAccount)
+		if (strName == strAccount)
 		{
-            setAddress.insert(address);
+			setAddress.insert(address);
 		}
-    }
+	}
 }
 
 json_spirit::Value getreceivedbyaccount(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "getreceivedbyaccount \"account\" ( minconf )\n"
-            "\nReturns the total amount received by addresses with <account> in transactions with at least [minconf] confirmations.\n"
-            "\nArguments:\n"
-            "1. \"account\"      (string, required) The selected account, may be the default account using \"\".\n"
-            "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
-            "\nResult:\n"
-            "amount              (numeric) The total amount in XDN received for this account.\n"
-            "\nExamples:\n"
-            "\nAmount received by the default account with at least 1 confirmation\n"
-            + HelpExampleCli("getreceivedbyaccount", "\"\"") +
-            "\nAmount received at the tabby account including unconfirmed amounts with zero confirmations\n"
-            + HelpExampleCli("getreceivedbyaccount", "\"tabby\" 0") +
-            "\nThe amount with at least 10 confirmation, very safe\n"
-            + HelpExampleCli("getreceivedbyaccount", "\"tabby\" 10") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("getreceivedbyaccount", "\"tabby\", 10")
-        );
+		throw std::runtime_error(
+			"getreceivedbyaccount \"account\" ( minconf )\n"
+			"\nReturns the total amount received by addresses with <account> in transactions with at least [minconf] confirmations.\n"
+			"\nArguments:\n"
+			"1. \"account\"      (string, required) The selected account, may be the default account using \"\".\n"
+			"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+			"\nResult:\n"
+			"amount              (numeric) The total amount in XDN received for this account.\n"
+			"\nExamples:\n"
+			"\nAmount received by the default account with at least 1 confirmation\n"
+			+ HelpExampleCli("getreceivedbyaccount", "\"\"") +
+			"\nAmount received at the tabby account including unconfirmed amounts with zero confirmations\n"
+			+ HelpExampleCli("getreceivedbyaccount", "\"tabby\" 0") +
+			"\nThe amount with at least 10 confirmation, very safe\n"
+			+ HelpExampleCli("getreceivedbyaccount", "\"tabby\" 10") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("getreceivedbyaccount", "\"tabby\", 10")
+		);
 	}
-	
-    accountingDeprecationCheck();
 
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (params.size() > 1)
+	accountingDeprecationCheck();
+
+	// Minimum confirmations
+	int nMinDepth = 1;
+	if (params.size() > 1)
 	{
-        nMinDepth = params[1].get_int();
+		nMinDepth = params[1].get_int();
 	}
-	
-    // Get the set of pub keys assigned to account
-    std::string strAccount = AccountFromValue(params[0]);
-    std::set<CTxDestination> setAddress;
-    
+
+	// Get the set of pub keys assigned to account
+	std::string strAccount = AccountFromValue(params[0]);
+	std::set<CTxDestination> setAddress;
+
 	GetAccountAddresses(strAccount, setAddress);
 
-    // Tally
-    CAmount nAmount = 0;
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        
+	// Tally
+	CAmount nAmount = 0;
+	for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+	{
+		const CWalletTx& wtx = (*it).second;
+		
 		if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
 		{
-            continue;
+			continue;
 		}
 		
-        for(const CTxOut& txout : wtx.vout)
-        {
-            CTxDestination address;
-            
+		for(const CTxOut& txout : wtx.vout)
+		{
+			CTxDestination address;
+			
 			if (ExtractDestination(txout.scriptPubKey, address) &&
 				IsMine(*pwalletMain, address) &&
 				setAddress.count(address) && 
@@ -893,759 +891,739 @@ json_spirit::Value getreceivedbyaccount(const json_spirit::Array& params, bool f
 			{
 				nAmount += txout.nValue;
 			}
-        }
-    }
+		}
+	}
 
-    return (double)nAmount / (double)COIN;
+	return (double)nAmount / (double)COIN;
 }
 
 int64_t GetAccountBalance(CWalletDB& walletdb, const std::string& strAccount, int nMinDepth, const isminefilter& filter)
 {
-    int64_t nBalance = 0;
+	int64_t nBalance = 0;
 
-    // Tally wallet transactions
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (!IsFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+	// Tally wallet transactions
+	for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+	{
+		const CWalletTx& wtx = (*it).second;
+		if (!IsFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
 		{
-            continue;
+			continue;
 		}
 		
-        int64_t nReceived, nSent, nFee;
-        wtx.GetAccountAmounts(strAccount, nReceived, nSent, nFee, filter);
+		int64_t nReceived, nSent, nFee;
+		wtx.GetAccountAmounts(strAccount, nReceived, nSent, nFee, filter);
 
-        if (nReceived != 0 && wtx.GetDepthInMainChain() >= nMinDepth)
+		if (nReceived != 0 && wtx.GetDepthInMainChain() >= nMinDepth)
 		{
-            nBalance += nReceived;
+			nBalance += nReceived;
 		}
 		
 		nBalance -= nSent + nFee;
-    }
+	}
 
-    // Tally internal accounting entries
-    nBalance += walletdb.GetAccountCreditDebit(strAccount);
+	// Tally internal accounting entries
+	nBalance += walletdb.GetAccountCreditDebit(strAccount);
 
-    return nBalance;
+	return nBalance;
 }
 
 int64_t GetAccountBalance(const std::string& strAccount, int nMinDepth, const isminefilter& filter)
 {
-    CWalletDB walletdb(pwalletMain->strWalletFile);
-    
+	CWalletDB walletdb(pwalletMain->strWalletFile);
+
 	return GetAccountBalance(walletdb, strAccount, nMinDepth, filter);
 }
 
 json_spirit::Value getbalance(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 3)
+	if (fHelp || params.size() > 3)
 	{
-        throw std::runtime_error(
-            "getbalance ( \"account\" minconf includeWatchonly )\n"
-            "\nIf account is not specified, returns the server's total available balance.\n"
-            "If account is specified, returns the balance in the account.\n"
-            "Note that the account \"\" is not the same as leaving the parameter out.\n"
-            "The server total may be different to the balance in the default \"\" account.\n"
-            "\nArguments:\n"
-            "1. \"account\"      (string, optional) The selected account, or \"*\" for entire wallet. It may be the default account using \"\".\n"
-            "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
-            "3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses (see 'importaddress')\n"
-            "\nResult:\n"
-            "amount              (numeric) The total amount in XDN received for this account.\n"
-            "\nExamples:\n"
-            "\nThe total amount in the server across all accounts\n"
-            + HelpExampleCli("getbalance", "") +
-            "\nThe total amount in the server across all accounts, with at least 5 confirmations\n"
-            + HelpExampleCli("getbalance", "\"*\" 6") +
-            "\nThe total amount in the default account with at least 1 confirmation\n"
-            + HelpExampleCli("getbalance", "\"\"") +
-            "\nThe total amount in the account named tabby with at least 10 confirmations\n"
-            + HelpExampleCli("getbalance", "\"tabby\" 10") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("getbalance", "\"tabby\", 10")
-        );
-    }
-    
+		throw std::runtime_error(
+			"getbalance ( \"account\" minconf includeWatchonly )\n"
+			"\nIf account is not specified, returns the server's total available balance.\n"
+			"If account is specified, returns the balance in the account.\n"
+			"Note that the account \"\" is not the same as leaving the parameter out.\n"
+			"The server total may be different to the balance in the default \"\" account.\n"
+			"\nArguments:\n"
+			"1. \"account\"      (string, optional) The selected account, or \"*\" for entire wallet. It may be the default account using \"\".\n"
+			"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+			"3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses (see 'importaddress')\n"
+			"\nResult:\n"
+			"amount              (numeric) The total amount in XDN received for this account.\n"
+			"\nExamples:\n"
+			"\nThe total amount in the server across all accounts\n"
+			+ HelpExampleCli("getbalance", "") +
+			"\nThe total amount in the server across all accounts, with at least 5 confirmations\n"
+			+ HelpExampleCli("getbalance", "\"*\" 6") +
+			"\nThe total amount in the default account with at least 1 confirmation\n"
+			+ HelpExampleCli("getbalance", "\"\"") +
+			"\nThe total amount in the account named tabby with at least 10 confirmations\n"
+			+ HelpExampleCli("getbalance", "\"tabby\" 10") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("getbalance", "\"tabby\", 10")
+		);
+	}
+
 	if (params.size() == 0)
 	{
-        return  ValueFromAmount(pwalletMain->GetBalance());
+		return  ValueFromAmount(pwalletMain->GetBalance());
 	}
-	
-    int nMinDepth = 1;
-    if (params.size() > 1)
+
+	int nMinDepth = 1;
+	if (params.size() > 1)
 	{
-        nMinDepth = params[1].get_int();
-    }
-	
+		nMinDepth = params[1].get_int();
+	}
+
 	isminefilter filter = ISMINE_SPENDABLE;
-    
+
 	if(params.size() > 2 && params[2].get_bool())
 	{
 		filter = filter | ISMINE_WATCH_ONLY;
 	}
-	
-    if (params[0].get_str() == "*")
+
+	if (params[0].get_str() == "*")
 	{
-        // Calculate total balance a different way from GetBalance()
-        // (GetBalance() sums up all unspent TxOuts)
-        // getbalance and getbalance '*' 0 should return the same number.
-        CAmount nBalance = 0;
-        for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-        {
-            const CWalletTx& wtx = (*it).second;
-            if (!IsFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+		// Calculate total balance a different way from GetBalance()
+		// (GetBalance() sums up all unspent TxOuts)
+		// getbalance and getbalance '*' 0 should return the same number.
+		CAmount nBalance = 0;
+		for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+		{
+			const CWalletTx& wtx = (*it).second;
+			if (!IsFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
 			{
-                continue;
+				continue;
 			}
 			
-            CAmount allFee;
-            std::string strSentAccount;
-            std::list<std::pair<CTxDestination, int64_t> > listReceived;
-            std::list<std::pair<CTxDestination, int64_t> > listSent;
-            
+			CAmount allFee;
+			std::string strSentAccount;
+			std::list<std::pair<CTxDestination, int64_t> > listReceived;
+			std::list<std::pair<CTxDestination, int64_t> > listSent;
+			
 			wtx.GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
-            
-			if (wtx.GetDepthInMainChain() >= nMinDepth)
-            {
-                for(const std::pair<CTxDestination, int64_t>& r : listReceived)
-				{
-                    nBalance += r.second;
-				}
-            }
 			
-            for(const std::pair<CTxDestination, int64_t>& r : listSent)
+			if (wtx.GetDepthInMainChain() >= nMinDepth)
 			{
-                nBalance -= r.second;
+				for(const std::pair<CTxDestination, int64_t>& r : listReceived)
+				{
+					nBalance += r.second;
+				}
 			}
 			
-            nBalance -= allFee;
-        }
+			for(const std::pair<CTxDestination, int64_t>& r : listSent)
+			{
+				nBalance -= r.second;
+			}
+			
+			nBalance -= allFee;
+		}
 		
-        return  ValueFromAmount(nBalance);
-    }
+		return  ValueFromAmount(nBalance);
+	}
 
-    accountingDeprecationCheck();
+	accountingDeprecationCheck();
 
-    std::string strAccount = AccountFromValue(params[0]);
+	std::string strAccount = AccountFromValue(params[0]);
 
-    CAmount nBalance = GetAccountBalance(strAccount, nMinDepth, filter);
+	CAmount nBalance = GetAccountBalance(strAccount, nMinDepth, filter);
 
-    return ValueFromAmount(nBalance);
+	return ValueFromAmount(nBalance);
 }
 
 json_spirit::Value movecmd(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 3 || params.size() > 5)
+	if (fHelp || params.size() < 3 || params.size() > 5)
 	{
-        throw std::runtime_error(
-            "move \"fromaccount\" \"toaccount\" amount ( minconf \"comment\" )\n"
-            "\nMove a specified amount from one account in your wallet to another.\n"
-            "\nArguments:\n"
-            "1. \"fromaccount\"   (string, required) The name of the account to move funds from. May be the default account using \"\".\n"
-            "2. \"toaccount\"     (string, required) The name of the account to move funds to. May be the default account using \"\".\n"
-            "3. minconf           (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
-            "4. \"comment\"       (string, optional) An optional comment, stored in the wallet only.\n"
-            "\nResult:\n"
-            "true|false           (boolean) true if successfull.\n"
-            "\nExamples:\n"
-            "\nMove 0.01 XDN from the default account to the account named tabby\n"
-            + HelpExampleCli("move", "\"\" \"tabby\" 0.01") +
-            "\nMove 0.01 XDN timotei to akiko with a comment and funds have 10 confirmations\n"
-            + HelpExampleCli("move", "\"timotei\" \"akiko\" 0.01 10 \"happy birthday!\"") +
-            "\nAs a json XDN call\n"
-            + HelpExampleRpc("move", "\"timotei\", \"akiko\", 0.01, 10, \"happy birthday!\"")
-        );
+		throw std::runtime_error(
+			"move \"fromaccount\" \"toaccount\" amount ( minconf \"comment\" )\n"
+			"\nMove a specified amount from one account in your wallet to another.\n"
+			"\nArguments:\n"
+			"1. \"fromaccount\"   (string, required) The name of the account to move funds from. May be the default account using \"\".\n"
+			"2. \"toaccount\"     (string, required) The name of the account to move funds to. May be the default account using \"\".\n"
+			"3. minconf           (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
+			"4. \"comment\"       (string, optional) An optional comment, stored in the wallet only.\n"
+			"\nResult:\n"
+			"true|false           (boolean) true if successfull.\n"
+			"\nExamples:\n"
+			"\nMove 0.01 XDN from the default account to the account named tabby\n"
+			+ HelpExampleCli("move", "\"\" \"tabby\" 0.01") +
+			"\nMove 0.01 XDN timotei to akiko with a comment and funds have 10 confirmations\n"
+			+ HelpExampleCli("move", "\"timotei\" \"akiko\" 0.01 10 \"happy birthday!\"") +
+			"\nAs a json XDN call\n"
+			+ HelpExampleRpc("move", "\"timotei\", \"akiko\", 0.01, 10, \"happy birthday!\"")
+		);
 	}
-	
-    accountingDeprecationCheck();
 
-    std::string strFrom = AccountFromValue(params[0]);
-    std::string strTo = AccountFromValue(params[1]);
-    CAmount nAmount = AmountFromValue(params[2]);
+	accountingDeprecationCheck();
 
-    if (params.size() > 3)
+	std::string strFrom = AccountFromValue(params[0]);
+	std::string strTo = AccountFromValue(params[1]);
+	CAmount nAmount = AmountFromValue(params[2]);
+
+	if (params.size() > 3)
 	{
-        // unused parameter, used to be nMinDepth, keep type-checking it though
-        (void)params[3].get_int();
-    }
-	
+		// unused parameter, used to be nMinDepth, keep type-checking it though
+		(void)params[3].get_int();
+	}
+
 	std::string strComment;
-    if (params.size() > 4)
+	if (params.size() > 4)
 	{
-        strComment = params[4].get_str();
+		strComment = params[4].get_str();
 	}
-	
-    CWalletDB walletdb(pwalletMain->strWalletFile);
-    
+
+	CWalletDB walletdb(pwalletMain->strWalletFile);
+
 	if (!walletdb.TxnBegin())
 	{
-        throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
+		throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
 	}
-	
-    int64_t nNow = GetAdjustedTime();
 
-    // Debit
-    CAccountingEntry debit;
-    
+	int64_t nNow = GetAdjustedTime();
+
+	// Debit
+	CAccountingEntry debit;
+
 	debit.nOrderPos = pwalletMain->IncOrderPosNext(&walletdb);
-    debit.strAccount = strFrom;
-    debit.nCreditDebit = -nAmount;
-    debit.nTime = nNow;
-    debit.strOtherAccount = strTo;
-    debit.strComment = strComment;
-    
+	debit.strAccount = strFrom;
+	debit.nCreditDebit = -nAmount;
+	debit.nTime = nNow;
+	debit.strOtherAccount = strTo;
+	debit.strComment = strComment;
+
 	pwalletMain->AddAccountingEntry(debit, walletdb);
 
-    // Credit
-    CAccountingEntry credit;
-    
+	// Credit
+	CAccountingEntry credit;
+
 	credit.nOrderPos = pwalletMain->IncOrderPosNext(&walletdb);
-    credit.strAccount = strTo;
-    credit.nCreditDebit = nAmount;
-    credit.nTime = nNow;
-    credit.strOtherAccount = strFrom;
-    credit.strComment = strComment;
-    
+	credit.strAccount = strTo;
+	credit.nCreditDebit = nAmount;
+	credit.nTime = nNow;
+	credit.strOtherAccount = strFrom;
+	credit.strComment = strComment;
+
 	pwalletMain->AddAccountingEntry(credit, walletdb);
 
-    if (!walletdb.TxnCommit())
+	if (!walletdb.TxnCommit())
 	{
-        throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
+		throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
 	}
-	
-    return true;
+
+	return true;
 }
 
 json_spirit::Value sendfrom(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 3 || params.size() > 7)
+	if (fHelp || params.size() < 3 || params.size() > 7)
 	{
-        throw std::runtime_error(
-            "sendfrom \"fromaccount\" \"toDigitalNoteaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
-            "\nSent an amount from an account to a DigitalNote address.\n"
-            "The amount is a real and is rounded to the nearest 0.00000001."
-            + HelpRequiringPassphrase() + "\n"
-            "\nArguments:\n"
-            "1. \"fromaccount\"       (string, required) The name of the account to send funds from. May be the default account using \"\".\n"
-            "2. \"toDigitalNoteaddress\"  (string, required) The DigitalNote address to send funds to.\n"
-            "3. amount                (numeric, required) The amount in IC. (transaction fee is added on top).\n"
-            "4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
-            "5. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
-            "                                     This is not part of the transaction, just kept in your wallet.\n"
-            "6. \"comment-to\"        (string, optional) An optional comment to store the name of the person or organization \n"
-            "                                     to which you're sending the transaction. This is not part of the transaction, \n"
-            "                                     it is just kept in your wallet.\n"
-            "\nResult:\n"
-            "\"transactionid\"        (string) The transaction id.\n"
-            "\nExamples:\n"
-            "\nSend 0.01 XDN from the default account to the address, must have at least 1 confirmation\n"
-            + HelpExampleCli("sendfrom", "\"\" \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.01") +
-            "\nSend 0.01 from the tabby account to the given address, funds must have at least 10 confirmations\n"
-            + HelpExampleCli("sendfrom", "\"tabby\" \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.01 10 \"donation\" \"seans outpost\"") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("sendfrom", "\"tabby\", \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 0.01, 10, \"donation\", \"seans outpost\"")
-        );
+		throw std::runtime_error(
+			"sendfrom \"fromaccount\" \"toDigitalNoteaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
+			"\nSent an amount from an account to a DigitalNote address.\n"
+			"The amount is a real and is rounded to the nearest 0.00000001."
+			+ HelpRequiringPassphrase() + "\n"
+			"\nArguments:\n"
+			"1. \"fromaccount\"       (string, required) The name of the account to send funds from. May be the default account using \"\".\n"
+			"2. \"toDigitalNoteaddress\"  (string, required) The DigitalNote address to send funds to.\n"
+			"3. amount                (numeric, required) The amount in IC. (transaction fee is added on top).\n"
+			"4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
+			"5. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
+			"                                     This is not part of the transaction, just kept in your wallet.\n"
+			"6. \"comment-to\"        (string, optional) An optional comment to store the name of the person or organization \n"
+			"                                     to which you're sending the transaction. This is not part of the transaction, \n"
+			"                                     it is just kept in your wallet.\n"
+			"\nResult:\n"
+			"\"transactionid\"        (string) The transaction id.\n"
+			"\nExamples:\n"
+			"\nSend 0.01 XDN from the default account to the address, must have at least 1 confirmation\n"
+			+ HelpExampleCli("sendfrom", "\"\" \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.01") +
+			"\nSend 0.01 from the tabby account to the given address, funds must have at least 10 confirmations\n"
+			+ HelpExampleCli("sendfrom", "\"tabby\" \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\" 0.01 10 \"donation\" \"seans outpost\"") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("sendfrom", "\"tabby\", \"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\", 0.01, 10, \"donation\", \"seans outpost\"")
+		);
 	}
 
-    EnsureWalletIsUnlocked();
+	EnsureWalletIsUnlocked();
 
-    std::string strAccount = AccountFromValue(params[0]);
-    CDigitalNoteAddress address(params[1].get_str());
-    if (!address.IsValid())
+	std::string strAccount = AccountFromValue(params[0]);
+	CDigitalNoteAddress address(params[1].get_str());
+	if (!address.IsValid())
 	{
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
-    }
-	
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address");
+	}
+
 	CAmount nAmount = AmountFromValue(params[2]);
 
-    int nMinDepth = 1;
-    if (params.size() > 3)
+	int nMinDepth = 1;
+	if (params.size() > 3)
 	{
-        nMinDepth = params[3].get_int();
+		nMinDepth = params[3].get_int();
 	}
-	
-    CWalletTx wtx;
-    wtx.strFromAccount = strAccount;
 
-    if (params.size() > 4 && params[4].type() != json_spirit::null_type && !params[4].get_str().empty())
+	CWalletTx wtx;
+	wtx.strFromAccount = strAccount;
+
+	if (params.size() > 4 && params[4].type() != json_spirit::null_type && !params[4].get_str().empty())
 	{
-        wtx.mapValue["comment"] = params[4].get_str();
-    }
-	
+		wtx.mapValue["comment"] = params[4].get_str();
+	}
+
 	if (params.size() > 5 && params[5].type() != json_spirit::null_type && !params[5].get_str().empty())
 	{
-        wtx.mapValue["to"]      = params[5].get_str();
+		wtx.mapValue["to"]      = params[5].get_str();
 	}
-	
-    std::string sNarr;
-    if (params.size() > 6 && params[6].type() != json_spirit::null_type && !params[6].get_str().empty())
+
+	std::string sNarr;
+	if (params.size() > 6 && params[6].type() != json_spirit::null_type && !params[6].get_str().empty())
 	{
-        sNarr = params[6].get_str();
+		sNarr = params[6].get_str();
 	}
-	
-    if (sNarr.length() > 24)
+
+	if (sNarr.length() > 24)
 	{
-        throw std::runtime_error("Narration must be 24 characters or less.");
+		throw std::runtime_error("Narration must be 24 characters or less.");
 	}
-	
-    // Check funds
-    int64_t nBalance = GetAccountBalance(strAccount, nMinDepth, ISMINE_SPENDABLE);
-    if (nAmount > nBalance)
+
+	// Check funds
+	int64_t nBalance = GetAccountBalance(strAccount, nMinDepth, ISMINE_SPENDABLE);
+	if (nAmount > nBalance)
 	{
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
+		throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 	}
-	
-    // Send
-    std::string strError = pwalletMain->SendMoneyToDestination(address.Get(), nAmount, sNarr, wtx);
-    if (strError != "")
+
+	// Send
+	std::string strError = pwalletMain->SendMoneyToDestination(address.Get(), nAmount, sNarr, wtx);
+	if (strError != "")
 	{
-        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+		throw JSONRPCError(RPC_WALLET_ERROR, strError);
 	}
-	
-    return wtx.GetHash().GetHex();
+
+	return wtx.GetHash().GetHex();
 }
 
 json_spirit::Value sendmany(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 4)
+	if (fHelp || params.size() < 2 || params.size() > 4)
 	{
-        throw std::runtime_error(
-            "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" )\n"
-            "\nSend multiple times. Amounts are double-precision floating point numbers."
-            + HelpRequiringPassphrase() + "\n"
-            "\nArguments:\n"
-            "1. \"fromaccount\"         (string, required) The account to send the funds from, can be \"\" for the default account\n"
-            "2. \"amounts\"             (string, required) A json object with addresses and amounts\n"
-            "    {\n"
-            "      \"address\":amount   (numeric) The DigitalNote address is the key, the numeric amount in XDN is the value\n"
-            "      ,...\n"
-            "    }\n"
-            "3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
-            "4. \"comment\"             (string, optional) A comment\n"
-            "\nResult:\n"
-            "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
-            "                                    the number of addresses.\n"
-            "\nExamples:\n"
-            "\nSend two amounts to two different addresses:\n"
-            + HelpExampleCli("sendmany", "\"tabby\" \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\"") +
-            "\nSend two amounts to two different addresses setting the confirmation and comment:\n"
-            + HelpExampleCli("sendmany", "\"tabby\" \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\" 10 \"testing\"") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("sendmany", "\"tabby\", \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\", 10, \"testing\"")
-        );
+		throw std::runtime_error(
+			"sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" )\n"
+			"\nSend multiple times. Amounts are double-precision floating point numbers."
+			+ HelpRequiringPassphrase() + "\n"
+			"\nArguments:\n"
+			"1. \"fromaccount\"         (string, required) The account to send the funds from, can be \"\" for the default account\n"
+			"2. \"amounts\"             (string, required) A json object with addresses and amounts\n"
+			"    {\n"
+			"      \"address\":amount   (numeric) The DigitalNote address is the key, the numeric amount in XDN is the value\n"
+			"      ,...\n"
+			"    }\n"
+			"3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
+			"4. \"comment\"             (string, optional) A comment\n"
+			"\nResult:\n"
+			"\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
+			"                                    the number of addresses.\n"
+			"\nExamples:\n"
+			"\nSend two amounts to two different addresses:\n"
+			+ HelpExampleCli("sendmany", "\"tabby\" \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\"") +
+			"\nSend two amounts to two different addresses setting the confirmation and comment:\n"
+			+ HelpExampleCli("sendmany", "\"tabby\" \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\" 10 \"testing\"") +
+			"\nAs a json rpc call\n"
+			+ HelpExampleRpc("sendmany", "\"tabby\", \"{\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\":0.01,\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\":0.02}\", 10, \"testing\"")
+		);
 	}
-	
-    std::string strAccount = AccountFromValue(params[0]);
-    json_spirit::Object sendTo = params[1].get_obj();
-    int nMinDepth = 1;
-    
+
+	std::string strAccount = AccountFromValue(params[0]);
+	json_spirit::Object sendTo = params[1].get_obj();
+	int nMinDepth = 1;
+
 	if (params.size() > 2)
 	{
-        nMinDepth = params[2].get_int();
+		nMinDepth = params[2].get_int();
 	}
-	
-    CWalletTx wtx;
-    wtx.strFromAccount = strAccount;
-    
+
+	CWalletTx wtx;
+	wtx.strFromAccount = strAccount;
+
 	if (params.size() > 3 && params[3].type() != json_spirit::null_type && !params[3].get_str().empty())
 	{
-        wtx.mapValue["comment"] = params[3].get_str();
+		wtx.mapValue["comment"] = params[3].get_str();
 	}
-	
-    std::set<CDigitalNoteAddress> setAddress;
-    std::vector<std::pair<CScript, int64_t> > vecSend;
 
-    int64_t totalAmount = 0;
-    for(const json_spirit::Pair& s : sendTo)
-    {
-        CDigitalNoteAddress address(s.name_);
-        if (!address.IsValid())
+	std::set<CDigitalNoteAddress> setAddress;
+	std::vector<std::pair<CScript, int64_t> > vecSend;
+
+	int64_t totalAmount = 0;
+	for(const json_spirit::Pair& s : sendTo)
+	{
+		CDigitalNoteAddress address(s.name_);
+		if (!address.IsValid())
 		{
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid DigitalNote address: ")+s.name_);
+			throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid DigitalNote address: ")+s.name_);
 		}
 		
-        if (setAddress.count(address))
+		if (setAddress.count(address))
 		{
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ")+s.name_);
-        }
+			throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ")+s.name_);
+		}
 		
 		setAddress.insert(address);
 
-        CScript scriptPubKey;
-        scriptPubKey.SetDestination(address.Get());
-        CAmount nAmount = AmountFromValue(s.value_);
+		CScript scriptPubKey;
+		scriptPubKey.SetDestination(address.Get());
+		CAmount nAmount = AmountFromValue(s.value_);
 
-        totalAmount += nAmount;
+		totalAmount += nAmount;
 
-        vecSend.push_back(std::make_pair(scriptPubKey, nAmount));
-    }
-
-    EnsureWalletIsUnlocked();
-
-    // Check funds
-    int64_t nBalance = GetAccountBalance(strAccount, nMinDepth, ISMINE_SPENDABLE);
-    if (totalAmount > nBalance)
-	{
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
+		vecSend.push_back(std::make_pair(scriptPubKey, nAmount));
 	}
-	
-    // Send
-    CReserveKey keyChange(pwalletMain);
-    int64_t nFeeRequired = 0;
-    int nChangePos;
-    std::string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePos, strFailReason);
-    
+
+	EnsureWalletIsUnlocked();
+
+	// Check funds
+	int64_t nBalance = GetAccountBalance(strAccount, nMinDepth, ISMINE_SPENDABLE);
+	if (totalAmount > nBalance)
+	{
+		throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
+	}
+
+	// Send
+	CReserveKey keyChange(pwalletMain);
+	int64_t nFeeRequired = 0;
+	int nChangePos;
+	std::string strFailReason;
+	bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePos, strFailReason);
+
 	if (!fCreated)
-    {
-        if (totalAmount + nFeeRequired > pwalletMain->GetBalance())
+	{
+		if (totalAmount + nFeeRequired > pwalletMain->GetBalance())
 		{
-            throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+			throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 		}
 		
-        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction creation failed");
-    }
-    
+		throw JSONRPCError(RPC_WALLET_ERROR, "Transaction creation failed");
+	}
+
 	if (!pwalletMain->CommitTransaction(wtx, keyChange))
 	{
-        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
+		throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 	}
-	
-    return wtx.GetHash().GetHex();
-}
 
-// Defined in rpcmisc.cpp
-extern CScript _createmultisig_redeemScript(const json_spirit::Array& params);
+	return wtx.GetHash().GetHex();
+}
 
 json_spirit::Value addmultisigaddress(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 3)
-    {
-        throw std::runtime_error(
+	if (fHelp || params.size() < 2 || params.size() > 3)
+	{
+		throw std::runtime_error(
 			"addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n"
-            "\nAdd a nrequired-to-sign multisignature address to the wallet.\n"
-            "Each key is a DigitalNote address or hex-encoded public key.\n"
-            "If 'account' is specified, assign address to that account.\n"
+			"\nAdd a nrequired-to-sign multisignature address to the wallet.\n"
+			"Each key is a DigitalNote address or hex-encoded public key.\n"
+			"If 'account' is specified, assign address to that account.\n"
 
-            "\nArguments:\n"
-            "1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keysobject\"   (string, required) A json array of DigitalNote addresses or hex-encoded public keys\n"
-            "     [\n"
-            "       \"address\"  (string) DigitalNote address or hex-encoded public key\n"
-            "       ...,\n"
-            "     ]\n"
-            "3. \"account\"      (string, optional) An account to assign the addresses to.\n"
+			"\nArguments:\n"
+			"1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n"
+			"2. \"keysobject\"   (string, required) A json array of DigitalNote addresses or hex-encoded public keys\n"
+			"     [\n"
+			"       \"address\"  (string) DigitalNote address or hex-encoded public key\n"
+			"       ...,\n"
+			"     ]\n"
+			"3. \"account\"      (string, optional) An account to assign the addresses to.\n"
 
-            "\nResult:\n"
-            "\"DigitalNote\"  (string) A DigitalNote address associated with the keys.\n"
+			"\nResult:\n"
+			"\"DigitalNote\"  (string) A DigitalNote address associated with the keys.\n"
 
-            "\nExamples:\n"
-            "\nAdd a multisig address from 2 addresses\n"
-            + HelpExampleCli("addmultisigaddress", "2 \"[\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\",\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\"]\"") +
-            "\nAs json rpc call\n"
-            + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\",\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\"]\"")
+			"\nExamples:\n"
+			"\nAdd a multisig address from 2 addresses\n"
+			+ HelpExampleCli("addmultisigaddress", "2 \"[\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\",\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\"]\"") +
+			"\nAs json rpc call\n"
+			+ HelpExampleRpc("addmultisigaddress", "2, \"[\\\"ie6sxvFwLpMsp5tRHpAS6q3cZVewmqYzTg\\\",\\\"ThiLpx7oYd5YuuhsJAUD5ZsEX2YHgU98Us\\\"]\"")
 		);
-    }
+	}
 
-    int nRequired = params[0].get_int();
-    const json_spirit::Array& keys = params[1].get_array();
-    std::string strAccount;
-    
+	int nRequired = params[0].get_int();
+	const json_spirit::Array& keys = params[1].get_array();
+	std::string strAccount;
+
 	if (params.size() > 2)
 	{
-        strAccount = AccountFromValue(params[2]);
+		strAccount = AccountFromValue(params[2]);
 	}
-	
-    // Gather public keys
-    if (nRequired < 1)
+
+	// Gather public keys
+	if (nRequired < 1)
 	{
-        throw std::runtime_error("a multisignature address must require at least one key to redeem");
-    }
-	
+		throw std::runtime_error("a multisignature address must require at least one key to redeem");
+	}
+
 	if ((int)keys.size() < nRequired)
 	{
-        throw std::runtime_error(
-            strprintf(
+		throw std::runtime_error(
+			strprintf(
 				"not enough keys supplied (got %u keys, but need at least %d to redeem)",
 				keys.size(),
 				nRequired
 			)
 		);
-    }
-	
-	std::vector<CPubKey> pubkeys;
-    pubkeys.resize(keys.size());
-    
-	for (unsigned int i = 0; i < keys.size(); i++)
-    {
-        const std::string& ks = keys[i].get_str();
+	}
 
-        // Case 1: DigitalNote address and we have full public key:
-        CDigitalNoteAddress address(ks);
-        if (pwalletMain && address.IsValid())
-        {
-            CKeyID keyID;
+	std::vector<CPubKey> pubkeys;
+	pubkeys.resize(keys.size());
+
+	for (unsigned int i = 0; i < keys.size(); i++)
+	{
+		const std::string& ks = keys[i].get_str();
+
+		// Case 1: DigitalNote address and we have full public key:
+		CDigitalNoteAddress address(ks);
+		if (pwalletMain && address.IsValid())
+		{
+			CKeyID keyID;
 			CPubKey vchPubKey;
 			
-            if (!address.GetKeyID(keyID))
+			if (!address.GetKeyID(keyID))
 			{
-                throw std::runtime_error(strprintf("%s does not refer to a key",ks));
-            }
+				throw std::runtime_error(strprintf("%s does not refer to a key",ks));
+			}
 			
 			if (!pwalletMain->GetPubKey(keyID, vchPubKey))
 			{
-                throw std::runtime_error(strprintf("no full public key for address %s",ks));
+				throw std::runtime_error(strprintf("no full public key for address %s",ks));
 			}
-            if (!vchPubKey.IsFullyValid())
-			{
-                throw std::runtime_error(" Invalid public key: "+ks);
-            }
-			
-			pubkeys[i] = vchPubKey;
-        }
-        // Case 2: hex public key
-        else if (IsHex(ks))
-        {
-            CPubKey vchPubKey(ParseHex(ks));
-            
 			if (!vchPubKey.IsFullyValid())
 			{
-                throw std::runtime_error(" Invalid public key: "+ks);
-            }
+				throw std::runtime_error(" Invalid public key: "+ks);
+			}
 			
 			pubkeys[i] = vchPubKey;
-        }
-        else
-        {
-            throw std::runtime_error(" Invalid public key: "+ks);
-        }
-    }
+		}
+		// Case 2: hex public key
+		else if (IsHex(ks))
+		{
+			CPubKey vchPubKey(ParseHex(ks));
+			
+			if (!vchPubKey.IsFullyValid())
+			{
+				throw std::runtime_error(" Invalid public key: "+ks);
+			}
+			
+			pubkeys[i] = vchPubKey;
+		}
+		else
+		{
+			throw std::runtime_error(" Invalid public key: "+ks);
+		}
+	}
 
-    // Construct using pay-to-script-hash:
-    CScript inner;
-    inner.SetMultisig(nRequired, pubkeys);
-    CScriptID innerID = inner.GetID();
-    
+	// Construct using pay-to-script-hash:
+	CScript inner;
+	inner.SetMultisig(nRequired, pubkeys);
+	CScriptID innerID = inner.GetID();
+
 	if (!pwalletMain->AddCScript(inner))
 	{
-        throw std::runtime_error("AddCScript() failed");
+		throw std::runtime_error("AddCScript() failed");
 	}
-	
-    pwalletMain->SetAddressBookName(innerID, strAccount);
-    
+
+	pwalletMain->SetAddressBookName(innerID, strAccount);
+
 	return CDigitalNoteAddress(innerID).ToString();
 }
 
 json_spirit::Value addredeemscript(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
-    {
-        throw std::runtime_error("addredeemscript <redeemScript> [account]\n"
-            "Add a P2SH address with a specified redeemScript to the wallet.\n"
-            "If [account] is specified, assign address to [account]."
-		);
-    }
-
-    std::string strAccount;
-    if (params.size() > 1)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        strAccount = AccountFromValue(params[1]);
+		throw std::runtime_error("addredeemscript <redeemScript> [account]\n"
+			"Add a P2SH address with a specified redeemScript to the wallet.\n"
+			"If [account] is specified, assign address to [account]."
+		);
 	}
-	
-    // Construct using pay-to-script-hash:
-    std::vector<unsigned char> innerData = ParseHexV(params[0], "redeemScript");
-    CScript inner(innerData.begin(), innerData.end());
-    CScriptID innerID = inner.GetID();
-    
+
+	std::string strAccount;
+	if (params.size() > 1)
+	{
+		strAccount = AccountFromValue(params[1]);
+	}
+
+	// Construct using pay-to-script-hash:
+	std::vector<unsigned char> innerData = ParseHexV(params[0], "redeemScript");
+	CScript inner(innerData.begin(), innerData.end());
+	CScriptID innerID = inner.GetID();
+
 	if (!pwalletMain->AddCScript(inner))
 	{
-        throw std::runtime_error("AddCScript() failed");
+		throw std::runtime_error("AddCScript() failed");
 	}
-	
-    pwalletMain->SetAddressBookName(innerID, strAccount);
-    
+
+	pwalletMain->SetAddressBookName(innerID, strAccount);
+
 	return CDigitalNoteAddress(innerID).ToString();
 }
 
-struct tallyitem
-{
-    CAmount nAmount;
-    int nConf;
-    int nBCConf;
-    std::vector<uint256> txids;
-    bool fIsWatchonly;
-    
-	tallyitem()
-    {
-        nAmount = 0;
-        nConf = std::numeric_limits<int>::max();
-        nBCConf = std::numeric_limits<int>::max();
-        fIsWatchonly = false;
-    }
-};
-
 json_spirit::Value ListReceived(const json_spirit::Array& params, bool fByAccounts)
 {
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (params.size() > 0)
+	// Minimum confirmations
+	int nMinDepth = 1;
+	if (params.size() > 0)
 	{
-        nMinDepth = params[0].get_int();
+		nMinDepth = params[0].get_int();
 	}
-	
-    // Whether to include empty accounts
-    bool fIncludeEmpty = false;
-    if (params.size() > 1)
+
+	// Whether to include empty accounts
+	bool fIncludeEmpty = false;
+	if (params.size() > 1)
 	{
-        fIncludeEmpty = params[1].get_bool();
+		fIncludeEmpty = params[1].get_bool();
 	}
-	
-    isminefilter filter = ISMINE_SPENDABLE;
-    
+
+	isminefilter filter = ISMINE_SPENDABLE;
+
 	if(params.size() > 2 && params[2].get_bool())
 	{
 		filter = filter | ISMINE_WATCH_ONLY;
 	}
-	
-    // Tally
-    std::map<CDigitalNoteAddress, tallyitem> mapTally;
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
 
-        if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
+	// Tally
+	std::map<CDigitalNoteAddress, tallyitem> mapTally;
+	for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+	{
+		const CWalletTx& wtx = (*it).second;
+
+		if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
 		{
-            continue;
+			continue;
 		}
 		
-        int nDepth = wtx.GetDepthInMainChain();
-        int nBCDepth = wtx.GetDepthInMainChain(false);
-        if (nDepth < nMinDepth)
+		int nDepth = wtx.GetDepthInMainChain();
+		int nBCDepth = wtx.GetDepthInMainChain(false);
+		if (nDepth < nMinDepth)
 		{
-            continue;
+			continue;
 		}
 		
-        for(const CTxOut& txout : wtx.vout)
-        {
-            CTxDestination address;
-            
+		for(const CTxOut& txout : wtx.vout)
+		{
+			CTxDestination address;
+			
 			if (!ExtractDestination(txout.scriptPubKey, address))
 			{
-                continue;
+				continue;
 			}
 			
-            isminefilter mine = IsMine(*pwalletMain, address);
-            
+			isminefilter mine = IsMine(*pwalletMain, address);
+			
 			if(!(mine & filter))
 			{
-                continue;
+				continue;
 			}
 			
-            tallyitem& item = mapTally[address];
-            
+			tallyitem& item = mapTally[address];
+			
 			item.nAmount += txout.nValue;
-            item.nConf = std::min(item.nConf, nDepth);
-            item.nBCConf = std::min(item.nBCConf, nBCDepth);
-            item.txids.push_back(wtx.GetHash());
-            
+			item.nConf = std::min(item.nConf, nDepth);
+			item.nBCConf = std::min(item.nBCConf, nBCDepth);
+			item.txids.push_back(wtx.GetHash());
+			
 			if (mine & ISMINE_WATCH_ONLY)
 			{
-                item.fIsWatchonly = true;
+				item.fIsWatchonly = true;
 			}
-        }
-    }
+		}
+	}
 
-    // Reply
-    json_spirit::Array ret;
-    std::map<std::string, tallyitem> mapAccountTally;
-    
+	// Reply
+	json_spirit::Array ret;
+	std::map<std::string, tallyitem> mapAccountTally;
+
 	for(const std::pair<CDigitalNoteAddress, std::string>& item : pwalletMain->mapAddressBook)
-    {
-        const CDigitalNoteAddress& address = item.first;
-        const std::string& strAccount = item.second;
-        std::map<CDigitalNoteAddress, tallyitem>::iterator it = mapTally.find(address);
-        
+	{
+		const CDigitalNoteAddress& address = item.first;
+		const std::string& strAccount = item.second;
+		std::map<CDigitalNoteAddress, tallyitem>::iterator it = mapTally.find(address);
+		
 		if (it == mapTally.end() && !fIncludeEmpty)
 		{
-            continue;
+			continue;
 		}
 		
-        CAmount nAmount = 0;
-        int nConf = std::numeric_limits<int>::max();
-        int nBCConf = std::numeric_limits<int>::max();
-        bool fIsWatchonly = false;
-        
+		CAmount nAmount = 0;
+		int nConf = std::numeric_limits<int>::max();
+		int nBCConf = std::numeric_limits<int>::max();
+		bool fIsWatchonly = false;
+		
 		if (it != mapTally.end())
-        {
-            nAmount = (*it).second.nAmount;
-            nConf = (*it).second.nConf;
-            nBCConf = (*it).second.nBCConf;
-            fIsWatchonly = (*it).second.fIsWatchonly;
-        }
+		{
+			nAmount = (*it).second.nAmount;
+			nConf = (*it).second.nConf;
+			nBCConf = (*it).second.nBCConf;
+			fIsWatchonly = (*it).second.fIsWatchonly;
+		}
 
-        if (fByAccounts)
-        {
-            tallyitem& item = mapAccountTally[strAccount];
-            
+		if (fByAccounts)
+		{
+			tallyitem& item = mapAccountTally[strAccount];
+			
 			item.nAmount += nAmount;
-            item.nConf = std::min(item.nConf, nConf);
-            item.nBCConf = std::min(item.nBCConf, nBCConf);
-            item.fIsWatchonly = fIsWatchonly;
-        }
-        else
-        {
-            json_spirit::Object obj;
+			item.nConf = std::min(item.nConf, nConf);
+			item.nBCConf = std::min(item.nBCConf, nBCConf);
+			item.fIsWatchonly = fIsWatchonly;
+		}
+		else
+		{
+			json_spirit::Object obj;
 			
-            if(fIsWatchonly)
+			if(fIsWatchonly)
 			{
-                obj.push_back(json_spirit::Pair("involvesWatchonly", true));
+				obj.push_back(json_spirit::Pair("involvesWatchonly", true));
 			}
-            
-			obj.push_back(json_spirit::Pair("address",       address.ToString()));
-            obj.push_back(json_spirit::Pair("account",       strAccount));
-            obj.push_back(json_spirit::Pair("amount",        ValueFromAmount(nAmount)));
-            obj.push_back(json_spirit::Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
-            obj.push_back(json_spirit::Pair("bcconfirmations", (nBCConf == std::numeric_limits<int>::max() ? 0 : nBCConf)));
-            
-            json_spirit::Array transactions;
-			if (it != mapTally.end())
-            {
-                for(const uint256& item : (*it).second.txids)
-                {
-                    transactions.push_back(item.GetHex());
-                }
-            }
 			
-            obj.push_back(json_spirit::Pair("txids", transactions));
-            
+			obj.push_back(json_spirit::Pair("address",       address.ToString()));
+			obj.push_back(json_spirit::Pair("account",       strAccount));
+			obj.push_back(json_spirit::Pair("amount",        ValueFromAmount(nAmount)));
+			obj.push_back(json_spirit::Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
+			obj.push_back(json_spirit::Pair("bcconfirmations", (nBCConf == std::numeric_limits<int>::max() ? 0 : nBCConf)));
+			
+			json_spirit::Array transactions;
+			if (it != mapTally.end())
+			{
+				for(const uint256& item : (*it).second.txids)
+				{
+					transactions.push_back(item.GetHex());
+				}
+			}
+			
+			obj.push_back(json_spirit::Pair("txids", transactions));
+			
 			ret.push_back(obj);
-        }
-    }
+		}
+	}
 
-    if (fByAccounts)
-    {
-        for (std::map<std::string, tallyitem>::iterator it = mapAccountTally.begin(); it != mapAccountTally.end(); ++it)
-        {
-            CAmount nAmount = (*it).second.nAmount;
-            int nConf = (*it).second.nConf;
-            int nBCConf = (*it).second.nBCConf;
-            json_spirit::Object obj;
-            
+	if (fByAccounts)
+	{
+		for (std::map<std::string, tallyitem>::iterator it = mapAccountTally.begin(); it != mapAccountTally.end(); ++it)
+		{
+			CAmount nAmount = (*it).second.nAmount;
+			int nConf = (*it).second.nConf;
+			int nBCConf = (*it).second.nBCConf;
+			json_spirit::Object obj;
+			
 			if((*it).second.fIsWatchonly)
 			{
-                obj.push_back(json_spirit::Pair("involvesWatchonly", true));
-            }
+				obj.push_back(json_spirit::Pair("involvesWatchonly", true));
+			}
 			
 			obj.push_back(json_spirit::Pair("account",       (*it).first));
-            obj.push_back(json_spirit::Pair("amount",        ValueFromAmount(nAmount)));
-            obj.push_back(json_spirit::Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
-            obj.push_back(json_spirit::Pair("bcconfirmations", (nBCConf == std::numeric_limits<int>::max() ? 0 : nBCConf)));
-            
+			obj.push_back(json_spirit::Pair("amount",        ValueFromAmount(nAmount)));
+			obj.push_back(json_spirit::Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
+			obj.push_back(json_spirit::Pair("bcconfirmations", (nBCConf == std::numeric_limits<int>::max() ? 0 : nBCConf)));
+			
 			ret.push_back(obj);
-        }
-    }
+		}
+	}
 
-    return ret;
+	return ret;
 }
 
 json_spirit::Value listreceivedbyaddress(const json_spirit::Array& params, bool fHelp)
@@ -2055,7 +2033,7 @@ json_spirit::Value listaccounts(const json_spirit::Array& params, bool fHelp)
 	
     std::map<std::string, CAmount> mapAccountBalances;
 	
-    for(const std::pair<CTxDestination, std::string>& entry : pwalletMain->mapAddressBook)
+    for(const pairAddressBook_t& entry : pwalletMain->mapAddressBook)
 	{
         if (IsMine(*pwalletMain, entry.first) & includeWatchonly) // This address belongs to me
 		{
@@ -2063,7 +2041,7 @@ json_spirit::Value listaccounts(const json_spirit::Array& params, bool fHelp)
 		}
     }
 
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
+    for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletTx& wtx = (*it).second;
         CAmount nFee;
@@ -2187,7 +2165,7 @@ json_spirit::Value listsinceblock(const json_spirit::Array& params, bool fHelp)
 
     json_spirit::Array transactions;
 
-    for (std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); it++)
+    for (mapWallet_t::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); it++)
     {
         CWalletTx tx = (*it).second;
 
@@ -2427,97 +2405,97 @@ static void LockWallet(CWallet* pWallet)
 
 json_spirit::Value walletpassphrase(const json_spirit::Array& params, bool fHelp)
 {
-    if (pwalletMain->IsCrypted() && (fHelp || params.size() < 2 || params.size() > 3))
+	if (pwalletMain->IsCrypted() && (fHelp || params.size() < 2 || params.size() > 3))
 	{
-        throw std::runtime_error(
-            "walletpassphrase \"passphrase\" timeout ( anonymizeonly )\n"
-            "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
-            "This is needed prior to performing transactions related to private keys such as sending XDN\n"
-            "\nArguments:\n"
-            "1. \"passphrase\"     (string, required) The wallet passphrase\n"
-            "2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n"
-            "3. anonymizeonly      (boolean, optional, default=flase) If is true sending functions are disabled."
-            "\nNote:\n"
-            "Issuing the walletpassphrase command while the wallet is already unlocked will set a new unlock\n"
-            "time that overrides the old one.\n"
-            "\nExamples:\n"
-            "\nUnlock the wallet for 60 seconds\n"
-            + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 60") +
-            "\nLock the wallet again (before 60 seconds)\n"
-            + HelpExampleCli("walletlock", "") +
-            "\nAs json rpc call\n"
-            + HelpExampleRpc("walletpassphrase", "\"my pass phrase\", 60")
-        );
-	}
-	
-    if (fHelp)
-	{
-        return true;
-    }
-	
-	if (!fServer)
-	{
-        throw JSONRPCError(RPC_SERVER_NOT_STARTED, "Error: RPC server was not started, use server=1 to change this.");
-    }
-	
-	if (!pwalletMain->IsCrypted())
-	{
-        throw JSONRPCError(RPC_WALLET_WRONG_ENC_STATE, "Error: running with an unencrypted wallet, but walletpassphrase was called.");
-	}
-	
-    // Note that the walletpassphrase is stored in params[0] which is not mlock()ed
-    SecureString strWalletPass;
-    strWalletPass.reserve(100);
-    
-	// TODO: get rid of this .c_str() by implementing SecureString::operator=(std::string)
-    // Alternately, find a way to make params[0] mlock()'d to begin with.
-    strWalletPass = params[0].get_str().c_str();
-
-    if (strWalletPass.length() > 0)
-    {
-        if (!pwalletMain->Unlock(strWalletPass))
-		{
-            throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT, "Error: The wallet passphrase entered was incorrect.");
-		}
-    }
-    else
-	{
-        throw std::runtime_error(
-            "walletpassphrase <passphrase> <timeout>\n"
-            "Stores the wallet decryption key in memory for <timeout> seconds."
+		throw std::runtime_error(
+			"walletpassphrase \"passphrase\" timeout ( anonymizeonly )\n"
+			"\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
+			"This is needed prior to performing transactions related to private keys such as sending XDN\n"
+			"\nArguments:\n"
+			"1. \"passphrase\"     (string, required) The wallet passphrase\n"
+			"2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n"
+			"3. anonymizeonly      (boolean, optional, default=flase) If is true sending functions are disabled."
+			"\nNote:\n"
+			"Issuing the walletpassphrase command while the wallet is already unlocked will set a new unlock\n"
+			"time that overrides the old one.\n"
+			"\nExamples:\n"
+			"\nUnlock the wallet for 60 seconds\n"
+			+ HelpExampleCli("walletpassphrase", "\"my pass phrase\" 60") +
+			"\nLock the wallet again (before 60 seconds)\n"
+			+ HelpExampleCli("walletlock", "") +
+			"\nAs json rpc call\n"
+			+ HelpExampleRpc("walletpassphrase", "\"my pass phrase\", 60")
 		);
 	}
-	
-    pwalletMain->TopUpKeyPool();
 
-    int64_t nSleepTime = params[1].get_int64();
-    
+	if (fHelp)
+	{
+		return true;
+	}
+
+	if (!fServer)
+	{
+		throw JSONRPCError(RPC_SERVER_NOT_STARTED, "Error: RPC server was not started, use server=1 to change this.");
+	}
+
+	if (!pwalletMain->IsCrypted())
+	{
+		throw JSONRPCError(RPC_WALLET_WRONG_ENC_STATE, "Error: running with an unencrypted wallet, but walletpassphrase was called.");
+	}
+
+	// Note that the walletpassphrase is stored in params[0] which is not mlock()ed
+	SecureString strWalletPass;
+	strWalletPass.reserve(100);
+
+	// TODO: get rid of this .c_str() by implementing SecureString::operator=(std::string)
+	// Alternately, find a way to make params[0] mlock()'d to begin with.
+	strWalletPass = params[0].get_str().c_str();
+
+	if (strWalletPass.length() > 0)
+	{
+		if (!pwalletMain->Unlock(strWalletPass))
+		{
+			throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT, "Error: The wallet passphrase entered was incorrect.");
+		}
+	}
+	else
+	{
+		throw std::runtime_error(
+			"walletpassphrase <passphrase> <timeout>\n"
+			"Stores the wallet decryption key in memory for <timeout> seconds."
+		);
+	}
+
+	pwalletMain->TopUpKeyPool();
+
+	int64_t nSleepTime = params[1].get_int64();
+
 	// If the timeout value is too large or negative, the conversion from nSleepTime to seconds
-    // results in a negative value and the wallet unlocking will fail.
-    if (nSleepTime > INT32_MAX || nSleepTime < 0)
-    {
-        pwalletMain->Lock();
-        
+	// results in a negative value and the wallet unlocking will fail.
+	if (nSleepTime > INT32_MAX || nSleepTime < 0)
+	{
+		pwalletMain->Lock();
+		
 		throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: The timeout value entered was incorrect.");
-    }
+	}
 
-    LOCK(cs_nWalletUnlockTime);
-    
+	LOCK(cs_nWalletUnlockTime);
+
 	nWalletUnlockTime = GetTime() + nSleepTime;
-    
+
 	RPCRunLater("lockwallet", boost::bind(&LockWallet, pwalletMain), nSleepTime);
 
-    // ppcoin: if user OS account compromised prevent trivial sendmoney commands
-    if (params.size() > 2)
+	// ppcoin: if user OS account compromised prevent trivial sendmoney commands
+	if (params.size() > 2)
 	{
-        fWalletUnlockStakingOnly = params[2].get_bool();
+		fWalletUnlockStakingOnly = params[2].get_bool();
 	}
-    else
+	else
 	{
-        fWalletUnlockStakingOnly = false;
+		fWalletUnlockStakingOnly = false;
 	}
-	
-    return json_spirit::Value::null;
+
+	return json_spirit::Value::null;
 }
 
 json_spirit::Value walletpassphrasechange(const json_spirit::Array& params, bool fHelp)

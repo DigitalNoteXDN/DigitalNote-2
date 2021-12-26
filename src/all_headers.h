@@ -58,7 +58,7 @@
 	#include "types/data_chunk.h"
 	#include "types/ec_point.h"
 	#include "types/isminefilter.h"
-	#include "types/mapprevtx.h"
+	#include "types/mapprevtx_t.h"
 	#include "types/mapvalue_t.h"
 	#include "types/txitems.h"
 	#include "types/txpair.h"

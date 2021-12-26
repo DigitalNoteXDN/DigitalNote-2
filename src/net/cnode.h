@@ -9,19 +9,17 @@
 #include "uint/uint256.h"
 #include "thread/csemaphoregrant.h"
 #include "types/nodeid.h"
+#include "types/banmap_t.h"
 
 #if defined(__clang__) && defined(MAC_OSX)
 	#include "cinv.h"
 #endif // defined(__clang__) && defined(MAC_OSX)
 
 class CSubNet;
-class CBanEntry;
 class CBlockIndex;
 class CNodeStats;
 class CInv;
 struct CNodeSignals;
-
-typedef std::map<CSubNet, CBanEntry> banmap_t;
 
 /** Information about a peer */
 class CNode
