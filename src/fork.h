@@ -30,6 +30,10 @@ static const int64_t VELOCITY_TDIFF = 0; // Use Velocity's retargetting method.
 #define VERION_UNKNOWN_C_MANDATORY_UPDATE_END	0		// Unknown
 #define VERION_UNKNOWN_C_DEVELOPER_ADDRESS		"dPxigPi3gY3Za2crBUV2Sn2BDCrpX9eweo"
 
+#define BURN_ADDRESS_A							"dMsop93F7hbLSA2d666tSPjB2NXSAfXpeU"
+#define BURN_ADDRESS_B							"dVibZ11CVyiso4Kw3ZLAHp7Wn77dXuvq1d"
+#define BURN_ADDRESS_C							"daigDQ7VxAFwmhh59HstA53KYD5a4q81N5"
+
 /*
 	Update 1.0.0:
 	- Add first developer address
