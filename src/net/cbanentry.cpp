@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "net/banreason.h"
 #include "serialize.h"
 #include "cdatastream.h"

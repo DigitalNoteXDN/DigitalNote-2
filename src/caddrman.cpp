@@ -4,6 +4,7 @@
 #include "addrman.h"
 #include "thread.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "caddrman.h"
 

@@ -1,10 +1,13 @@
 #include "compat.h"
 
 #include <cassert>
+#include <cstring>
 
 #include "util.h"
 #include "netbase.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "serialize.h"
 
 #include "net/cservice.h"
 

@@ -1,6 +1,7 @@
 #include "tinyformat.h"
 #include "serialize.h"
 #include "cdatastream.h"
+#include "cvarint.h"
 
 #include "cdiskblockpos.h"
 

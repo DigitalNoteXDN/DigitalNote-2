@@ -1,10 +1,14 @@
 #include "compat.h"
 
+#include <cstring>
+
 #include "serialize.h"
 #include "cchainparams.h"
 #include "chainparams.h"
 #include "util.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "main_const.h"
 
 #include "cmessageheader.h"
 
@@ -60,9 +64,9 @@ bool CMessageHeader::IsValid() const
 	}
 
 	// Message size
-	if (nMessageSize > MAX_SIZE)
+	if (nMessageSize > MAX_MESSAGE_SIZE)
 	{
-		LogPrintf("CMessageHeader::IsValid() : (%s, %u bytes) nMessageSize > MAX_SIZE\n", GetCommand(), nMessageSize);
+		LogPrintf("CMessageHeader::IsValid() : (%s, %u bytes) nMessageSize > MAX_MESSAGE_SIZE\n", GetCommand(), nMessageSize);
 		
 		return false;
 	}

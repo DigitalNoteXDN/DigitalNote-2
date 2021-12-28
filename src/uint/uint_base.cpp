@@ -1,5 +1,7 @@
 #include "compat.h"
 
+#include <cstring>
+
 #include "uint/uint256.h"
 #include "serialize.h"
 #include "util.h"

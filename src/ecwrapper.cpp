@@ -1,11 +1,13 @@
-#include "ecwrapper.h"
+#include <cstring>
+#include <cassert>
+#include <openssl/bn.h>
+#include <openssl/ecdsa.h>
+#include <openssl/obj_mac.h>
 
 #include "serialize.h"
 #include "uint/uint256.h"
 
-#include <openssl/bn.h>
-#include <openssl/ecdsa.h>
-#include <openssl/obj_mac.h>
+#include "ecwrapper.h"
 
 namespace {
 

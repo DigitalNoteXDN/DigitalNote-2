@@ -53,6 +53,7 @@
 #include "util.h"
 #include "cblockindex.h"
 #include "ctxindex.h"
+#include "serialize.h"
 
 #include "cwallet.h"
 

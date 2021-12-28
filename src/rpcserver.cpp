@@ -739,7 +739,7 @@ void ServiceConnection(AcceptedConnection *conn)
 		}
 		
         // Read HTTP message headers and body
-        ReadHTTPMessage(conn->stream(), mapHeaders, strRequest, nProto, MAX_SIZE);
+        ReadHTTPMessage(conn->stream(), mapHeaders, strRequest, nProto, MAX_MESSAGE_SIZE);
 
         if (strURI != "/") {
             conn->stream() << HTTPReply(HTTP_NOT_FOUND, "", false) << std::flush;

@@ -7,7 +7,6 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include "serialize.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <openssl/bio.h>

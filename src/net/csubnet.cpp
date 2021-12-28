@@ -1,9 +1,12 @@
 #include "compat.h"
 
+#include <cstring>
+
 #include "serialize.h"
 #include "netbase.h"
 #include "util.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
 
 #include "net/csubnet.h"
 

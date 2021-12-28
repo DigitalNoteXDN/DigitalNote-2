@@ -7,6 +7,8 @@
 #include "cmasternodeman.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "serialize.h"
 
 #include "cmasternodedb.h"
 

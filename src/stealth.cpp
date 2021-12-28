@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <openssl/rand.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>

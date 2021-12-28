@@ -10,6 +10,7 @@
 #include "mnengine.h"
 #include "mnengine_extern.h"
 #include "thread.h"
+#include "serialize.h"
 
 #include "cmnenginequeue.h"
 

@@ -6,6 +6,7 @@
 #include "cbignum_ctx.h"
 #include "util.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "cbignum.h"
 

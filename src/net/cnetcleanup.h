@@ -10,7 +10,9 @@ class CNetCleanup
 public:
 	CNetCleanup()
 	{
+		
 	}
+	
 	~CNetCleanup()
 	{
 		// Close sockets
@@ -46,9 +48,11 @@ public:
 		
 		vNodes.clear();
 		vNodesDisconnected.clear();
+		
 		delete semOutbound;
-		semOutbound = NULL;
 		delete pnodeLocalHost;
+		
+		semOutbound = NULL;
 		pnodeLocalHost = NULL;
 
 #ifdef WIN32

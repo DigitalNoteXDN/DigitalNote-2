@@ -36,6 +36,7 @@
 #include "cblockindex.h"
 #include "main_extern.h"
 #include "fork.h"
+#include "serialize.h"
 
 #include "script.h"
 

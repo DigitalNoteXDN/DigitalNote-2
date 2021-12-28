@@ -44,6 +44,8 @@
 #include "cblocklocator.h"
 #include "calert.h"
 #include "caccount.h"
+#include "cflatdata.h"
+#include "cvarint.h"
 
 #include "cdatastream.h"
 
@@ -442,6 +444,7 @@ void CDataStream::Serialize(Stream& s, int nType, int nVersion) const
 	}
 }
 
+template void CDataStream::Serialize<CDataStream>(CDataStream&, int, int) const;
 template void CDataStream::Serialize<CAutoFile>(CAutoFile&, int, int) const;
 
 template<typename T>

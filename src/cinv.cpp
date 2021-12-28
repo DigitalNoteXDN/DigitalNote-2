@@ -2,6 +2,7 @@
 
 #include "util.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "cinv.h"
 

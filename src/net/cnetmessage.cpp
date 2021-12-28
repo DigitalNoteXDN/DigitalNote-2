@@ -1,6 +1,6 @@
 #include <cstring>
 
-#include "serialize.h"
+#include "main_const.h"
 
 #include "net/cnetmessage.h"
 
@@ -45,8 +45,8 @@ int CNetMessage::readHeader(const char *pch, unsigned int nBytes)
         return -1;
     }
 
-    // reject messages larger than MAX_SIZE
-    if (hdr.nMessageSize > MAX_SIZE)
+    // reject messages larger than MAX_MESSAGE_SIZE
+    if (hdr.nMessageSize > MAX_MESSAGE_SIZE)
             return -1;
 
     // switch state to reading message data
@@ -70,3 +70,4 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
     return nCopy;
 }
+

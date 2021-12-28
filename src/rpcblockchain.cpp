@@ -15,6 +15,7 @@
 #include "enums/serialize_type.h"
 #include "rpcprotocol.h"
 #include "rpcrawtransaction.h"
+#include "serialize.h"
 
 double GetDifficulty(const CBlockIndex* blockindex)
 {

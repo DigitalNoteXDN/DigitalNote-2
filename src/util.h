@@ -14,7 +14,6 @@
 #include <sys/resource.h>
 #endif
 
-#include "serialize.h"
 #include "tinyformat.h"
 #include "allocators/securestring.h"
 

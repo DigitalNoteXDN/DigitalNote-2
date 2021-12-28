@@ -2,6 +2,8 @@
 #include "serialize.h"
 #include "ctransaction.h"
 #include "ctxout.h"
+#include "cflatdata.h"
+#include "cvarint.h"
 
 #include "chashwriter.h"
 

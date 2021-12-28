@@ -6,6 +6,8 @@
 #include "cscriptid.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "cvarint.h"
 
 #include "cscriptcompressor.h"
 

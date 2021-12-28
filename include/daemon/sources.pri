@@ -1,5 +1,6 @@
 SOURCES += src/bitcoind.cpp
 
+SOURCES += src/crpctable.cpp
 SOURCES += src/caddrman.cpp
 SOURCES += src/caddrinfo.cpp
 SOURCES += src/cinv.cpp
@@ -91,7 +92,6 @@ SOURCES += src/rpcclient.cpp
 SOURCES += src/ssliostreamdevice.cpp
 SOURCES += src/rpcprotocol.cpp
 SOURCES += src/rpcserver.cpp
-SOURCES += src/crpctable.cpp
 SOURCES += src/rpcdump.cpp
 SOURCES += src/rpcmisc.cpp
 SOURCES += src/describeaddressvisitor.cpp
@@ -118,6 +118,8 @@ SOURCES += src/mruset.cpp
 SOURCES += src/cautofile.cpp
 SOURCES += src/csizecomputer.cpp
 SOURCES += src/cdatastream.cpp
+SOURCES += src/cflatdata.cpp
+SOURCES += src/cvarint.cpp
 SOURCES += src/fork.cpp
 
 SOURCES += src/cbignum_ctx.cpp
@@ -192,6 +194,16 @@ SOURCES += src/uint/uint256.cpp
 SOURCES += src/uint/uint512.cpp
 
 SOURCES += src/support/cleanse.cpp
+
+SOURCES += src/serialize/base.cpp
+SOURCES += src/serialize/read.cpp
+SOURCES += src/serialize/write.cpp
+SOURCES += src/serialize/string.cpp
+SOURCES += src/serialize/vector.cpp
+SOURCES += src/serialize/pair.cpp
+SOURCES += src/serialize/tuple.cpp
+SOURCES += src/serialize/map.cpp
+SOURCES += src/serialize/set.cpp
 
 SOURCES += src/crypto/common/hmac_sha256.cpp
 SOURCES += src/crypto/common/hmac_sha512.cpp

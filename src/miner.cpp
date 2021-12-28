@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <openssl/sha.h>
+#include <boost/tuple/tuple.hpp>
 
 #include "blockparams.h"
 #include "txdb-leveldb.h"
@@ -34,6 +35,7 @@
 #include "cblockindex.h"
 #include "ctxindex.h"
 #include "enums/serialize_type.h"
+#include "serialize.h"
 
 #include "miner.h"
 

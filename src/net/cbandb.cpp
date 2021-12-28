@@ -8,6 +8,8 @@
 #include "net/csubnet.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "serialize.h"
 
 #include "net/cbandb.h"
 

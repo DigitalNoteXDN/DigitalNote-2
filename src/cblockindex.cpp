@@ -9,6 +9,7 @@
 #include "util.h"
 #include "ctxout.h"
 #include "ctxin.h"
+#include "serialize.h"
 
 #include "cblockindex.h"
 

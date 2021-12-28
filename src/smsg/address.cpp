@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "serialize.h"
 #include "cdatastream.h"
 

@@ -1,5 +1,7 @@
 #include "compat.h"
 
+#include <cstring>
+
 #include "crypto/common/common.h"
 #include "crypto/common/hmac_sha512.h"
 

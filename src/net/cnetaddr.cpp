@@ -9,6 +9,8 @@
 #include "crypto/bmw/bmw512.h"
 #include "net/cservice.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "serialize.h"
 
 #include "net/cnetaddr.h"
 

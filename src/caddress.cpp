@@ -1,5 +1,7 @@
 #include "compat.h"
 
+#include <cassert>
+
 #include "serialize.h"
 #include "enums/serialize_type.h"
 #include "version.h"

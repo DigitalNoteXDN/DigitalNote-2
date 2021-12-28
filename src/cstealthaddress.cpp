@@ -1,5 +1,7 @@
 #include "compat.h"
 
+#include <cstring>
+
 #include "base58.h"
 #include "cpubkey.h"
 #include "serialize.h"

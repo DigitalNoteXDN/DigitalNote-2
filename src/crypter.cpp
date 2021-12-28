@@ -1,5 +1,6 @@
 #include "compat.h"
 
+#include <cstring>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 

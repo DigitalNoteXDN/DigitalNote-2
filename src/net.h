@@ -8,7 +8,7 @@
 #include <boost/signals2/signal.hpp>
 
 #include "limitedmap.h"
-#include "serialize.h"
+#include "serialize/base.h"
 #include "net/cnode.h"
 
 class CAddrMan;

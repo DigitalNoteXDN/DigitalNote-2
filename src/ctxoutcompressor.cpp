@@ -4,6 +4,7 @@
 #include "chashwriter.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cvarint.h"
 
 #include "ctxoutcompressor.h"
 

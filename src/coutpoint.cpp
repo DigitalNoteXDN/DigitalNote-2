@@ -3,6 +3,7 @@
 #include "chashwriter.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
 
 #include "coutpoint.h"
 

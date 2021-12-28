@@ -55,4 +55,6 @@ static const unsigned char REJECT_INVALID = 0x10;
 // Minimum disk space required - used in CheckDiskSpace()
 static const uint64_t nMinDiskSpace = 52428800;
 
+static const unsigned int MAX_MESSAGE_SIZE = 0x02000000;
+
 #endif // MAIN_CONST_H

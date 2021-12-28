@@ -7,6 +7,7 @@
 #include "addrman.h"
 #include "cdatastream.h"
 #include "types/cserializedata.h"
+#include "serialize.h"
 
 #include "caddrinfo.h"
 

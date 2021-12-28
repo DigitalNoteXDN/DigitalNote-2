@@ -8,6 +8,7 @@
 #include "ctxin.h"
 #include "ctransaction.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "cdiskblockindex.h"
 

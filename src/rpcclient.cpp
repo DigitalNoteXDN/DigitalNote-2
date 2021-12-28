@@ -23,6 +23,7 @@
 #include "chainparams.h"
 #include "ui_translate.h"
 #include "types/iocontext.h"
+#include "main_const.h"
 
 #include "rpcclient.h"
 
@@ -85,7 +86,7 @@ json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Arr
 	// Receive HTTP reply message headers and body
 	std::map<std::string, std::string> mapHeaders;
 	std::string strReply;
-	ReadHTTPMessage(stream, mapHeaders, strReply, nProto, MAX_SIZE);
+	ReadHTTPMessage(stream, mapHeaders, strReply, nProto, MAX_MESSAGE_SIZE);
 
 	if (nStatus == HTTP_UNAUTHORIZED)
 	{

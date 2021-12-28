@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "csizecomputer.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "csporkmessage.h"
 

@@ -1,5 +1,7 @@
 #include "compat.h"
 
+#include <boost/tuple/tuple.hpp>
+
 #include "util.h"
 #include "db.h"
 #include "enums/serialize_type.h"

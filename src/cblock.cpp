@@ -49,6 +49,7 @@
 #include "util/backwards.h"
 #include "cautofile.h"
 #include "fork.h"
+#include "cflatdata.h"
 
 #include "cblock.h"
 

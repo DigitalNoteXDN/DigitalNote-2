@@ -71,6 +71,7 @@
 #include "ctxindex.h"
 #include "util/backwards.h"
 #include "cautofile.h"
+#include "serialize.h"
 
 //
 // Global state
@@ -2308,7 +2309,7 @@ FILE* AppendBlockFile(unsigned int& nFileRet)
 		}
 		
 		// FAT32 file size max 4GB, fseek and ftell max 2GB, so we must stay under 2GB
-		if (ftell(file) < (long)(0x7F000000 - MAX_SIZE))
+		if (ftell(file) < (long)(0x7F000000 - MAX_MESSAGE_SIZE))
 		{
 			nFileRet = nCurrentBlockFile;
 			

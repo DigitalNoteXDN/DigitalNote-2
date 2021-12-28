@@ -7,6 +7,8 @@
 #include "caddrman.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "serialize.h"
 
 #include "net/caddrdb.h"
 

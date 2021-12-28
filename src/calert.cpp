@@ -19,6 +19,7 @@
 #include "crypto/bmw/bmw512.h"
 #include "cpubkey.h"
 #include "ui_interface.h"
+#include "serialize.h"
 
 #include "calert.h"
 
