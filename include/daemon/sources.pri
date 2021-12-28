@@ -1,5 +1,10 @@
 SOURCES += src/bitcoind.cpp
 
+## Fix order to get table correctly
+!win32 {
+	SOURCES += src/crpctable.cpp
+}
+
 SOURCES += src/caddrman.cpp
 SOURCES += src/caddrinfo.cpp
 SOURCES += src/cinv.cpp
@@ -215,4 +220,8 @@ SOURCES += src/crypto/common/bmw.c
 SOURCES += src/crypto/common/echo.c
 
 SOURCES += src/rpcmintblock.cpp
-SOURCES += src/crpctable.cpp
+
+## Fix order to get table correctly
+win32 {
+	SOURCES += src/crpctable.cpp
+}
