@@ -154,7 +154,15 @@ template void CVarInt<long>::Serialize<CHashWriter>(CHashWriter&, int, int) cons
 template void CVarInt<long>::Unserialize<CDataStream>(CDataStream&, int, int);
 template void CVarInt<long>::Unserialize<CAutoFile>(CAutoFile&, int, int);
 
+template class CVarInt<long long>;
+template void CVarInt<long long>::Serialize<CDataStream>(CDataStream&, int, int) const;
+template void CVarInt<long long>::Serialize<CAutoFile>(CAutoFile&, int, int) const;
+template void CVarInt<long long>::Serialize<CHashWriter>(CHashWriter&, int, int) const;
+template void CVarInt<long long>::Unserialize<CDataStream>(CDataStream&, int, int);
+template void CVarInt<long long>::Unserialize<CAutoFile>(CAutoFile&, int, int);
+
 // WrapVarInt
 template CVarInt<int> WrapVarInt<int>(int&);
 template CVarInt<unsigned int> WrapVarInt<unsigned int>(unsigned int&);
 template CVarInt<long> WrapVarInt<long>(long&);
+template CVarInt<long long> WrapVarInt<long long>(long long&);

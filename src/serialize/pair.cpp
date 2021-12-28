@@ -49,8 +49,8 @@ void Unserialize(Stream& is, std::pair<K, T>& item, int nType, int nVersion)
 
 TmpGetSerializeSize(const std::string, std::string);
 TmpGetSerializeSize(std::string,		std::string);
-TmpGetSerializeSize(const CNetAddr,		long);
-TmpGetSerializeSize(const COutPoint,	long);
+TmpGetSerializeSize(const CNetAddr,		int64_t);
+TmpGetSerializeSize(const COutPoint,	int64_t);
 
 // Serialize
 #define TmpSerialize(A, B, C)	template void Serialize<A, B, C>(A&, const std::pair<B, C>&, int, int);
@@ -64,8 +64,8 @@ TmpSerialize(CDataStream, std::string, CPubKey);
 TmpSerialize(CDataStream, std::string, CScript);
 TmpSerialize(CDataStream, std::string, uint160);
 TmpSerialize(CDataStream, std::string, uint256);
-TmpSerialize(CDataStream, const CNetAddr, long);
-TmpSerialize(CDataStream, const COutPoint, long);
+TmpSerialize(CDataStream, const CNetAddr, int64_t);
+TmpSerialize(CDataStream, const COutPoint, int64_t);
 TmpSerialize(CDataStream, const CSubNet, CBanEntry);
 TmpSerialize(CDataStream, const std::string, std::string);
 template void Serialize<CDataStream, std::string, std::vector<unsigned char, std::allocator<unsigned char>>>(
@@ -78,7 +78,7 @@ template void Serialize<CDataStream, std::vector<unsigned char, secure_allocator
 #define TmpUnserialize(A, B, C)	template void Unserialize<A, B, C>(A&, std::pair<B, C>&, int, int);
 
 TmpUnserialize(CDataStream, std::string, std::string);
-TmpUnserialize(CDataStream, CNetAddr, long);
-TmpUnserialize(CDataStream, COutPoint, long);
+TmpUnserialize(CDataStream, CNetAddr, int64_t);
+TmpUnserialize(CDataStream, COutPoint, int64_t);
 TmpUnserialize(CDataStream, CSubNet, CBanEntry);
 

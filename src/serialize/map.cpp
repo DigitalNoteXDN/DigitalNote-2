@@ -63,16 +63,16 @@ void Unserialize(Stream& is, std::map<K, T, Pred, A>& m, int nType, int nVersion
 		const std::map<A, B, std::less<A>, std::allocator<std::pair<const A, B>>>&, int, int);
 
 TmpGetSerializeSize(std::string, std::string);
-TmpGetSerializeSize(CNetAddr, long);
-TmpGetSerializeSize(COutPoint, long);
+TmpGetSerializeSize(CNetAddr, int64_t);
+TmpGetSerializeSize(COutPoint, int64_t);
 
 // Serialize
 #define TmpSerialize(A, B)	template void Serialize<CDataStream, A, B, std::less<A>, std::allocator<std::pair<const A, B>>>( \
 		CDataStream&, const std::map<A, B, std::less<A>, std::allocator<std::pair<const A, B>>>&, int, int);
 
 TmpSerialize(std::string, std::string)
-TmpSerialize(CNetAddr, long)
-TmpSerialize(COutPoint, long)
+TmpSerialize(CNetAddr, int64_t)
+TmpSerialize(COutPoint, int64_t)
 TmpSerialize(CSubNet, CBanEntry)
 
 // Unserialize
@@ -80,7 +80,7 @@ TmpSerialize(CSubNet, CBanEntry)
 		CDataStream&, std::map<A, B, std::less<A>, std::allocator<std::pair<const A, B>>>&, int, int);
 		
 TmpUnserialize(std::string, std::string)
-TmpUnserialize(CNetAddr, long)
-TmpUnserialize(COutPoint, long)
+TmpUnserialize(CNetAddr, int64_t)
+TmpUnserialize(COutPoint, int64_t)
 TmpUnserialize(CSubNet, CBanEntry)
 

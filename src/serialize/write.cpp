@@ -200,16 +200,19 @@ TmpSerialize(CDataStream,	unsigned short);
 
 TmpSerialize(CAutoFile,	int);
 TmpSerialize(CAutoFile,	long);
+TmpSerialize(CAutoFile,	long long);
 TmpSerialize(CAutoFile,	unsigned int);
 TmpSerialize(CAutoFile,	unsigned char);
 
 TmpSerialize(CHashWriter,	int);
 TmpSerialize(CHashWriter,	long);
+TmpSerialize(CHashWriter,	long long);
 TmpSerialize(CHashWriter,	unsigned int);
 TmpSerialize(CHashWriter,	unsigned char);
 
 TmpSerialize(CSizeComputer,	int);
 TmpSerialize(CSizeComputer,	long);
+TmpSerialize(CSizeComputer,	long long);
 
 // Serialize 2
 #define TmpSerialize2(A, B)	template void Serialize<A, B>(A&, const B&, long, int);
@@ -256,6 +259,7 @@ TmpSerialize2(CDataStream, CTxOut);
 TmpSerialize2(CDataStream, CUnsignedAlert);
 TmpSerialize2(CDataStream, CVarInt<int>);
 TmpSerialize2(CDataStream, CVarInt<long>);
+TmpSerialize2(CDataStream, CVarInt<long long>);
 TmpSerialize2(CDataStream, CVarInt<unsigned int>);
 TmpSerialize2(CDataStream, CWalletTx);
 TmpSerialize2(CDataStream, DigitalNote::SMSG::Stored);
@@ -273,6 +277,7 @@ TmpSerialize2(CAutoFile, CTxIn);
 TmpSerialize2(CAutoFile, CTxOut);
 TmpSerialize2(CAutoFile, uint256);
 TmpSerialize2(CAutoFile, CVarInt<long>);
+TmpSerialize2(CAutoFile, CVarInt<long long>);
 TmpSerialize2(CAutoFile, CVarInt<unsigned int>);
 
 TmpSerialize2(CHashWriter, CDiskTxPos);
@@ -283,11 +288,12 @@ TmpSerialize2(CHashWriter, CTransaction);
 TmpSerialize2(CHashWriter, CTxIn);
 TmpSerialize2(CHashWriter, CTxOut);
 TmpSerialize2(CHashWriter, CVarInt<long>);
+TmpSerialize2(CHashWriter, CVarInt<long long>);
 TmpSerialize2(CHashWriter, CVarInt<unsigned int>);
 
 // WriteCompactSize
-template void WriteCompactSize<CDataStream>(CDataStream&, unsigned long);
-template void WriteCompactSize<CAutoFile>(CAutoFile&, unsigned long);
-template void WriteCompactSize<CHashWriter>(CHashWriter&, unsigned long);
-template void WriteCompactSize<CSizeComputer>(CSizeComputer&, unsigned long);
+template void WriteCompactSize<CDataStream>(CDataStream&, uint64_t);
+template void WriteCompactSize<CAutoFile>(CAutoFile&, uint64_t);
+template void WriteCompactSize<CHashWriter>(CHashWriter&, uint64_t);
+template void WriteCompactSize<CSizeComputer>(CSizeComputer&, uint64_t);
 

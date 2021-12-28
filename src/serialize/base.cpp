@@ -96,10 +96,12 @@ class CSporkMessage;
 template int& REF<int>(int const&);
 template unsigned int& REF<unsigned int>(unsigned int const&);
 template long& REF<long>(long const&);
+template long long& REF<long long>(long long const&);
 template CScript& REF<CScript>(CScript const&);
 template CFlatData& REF<CFlatData>(CFlatData const&);
 template CVarInt<int>& REF<CVarInt<int>>(CVarInt<int> const&);
 template CVarInt<long>& REF<CVarInt<long>>(CVarInt<long> const&);
+template CVarInt<long long>& REF<CVarInt<long long>>(CVarInt<long long> const&);
 template CVarInt<unsigned int>& REF<CVarInt<unsigned int>>(CVarInt<unsigned int> const&);
 
 // NCONST_PTR

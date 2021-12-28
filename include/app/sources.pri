@@ -1,4 +1,8 @@
-SOURCES += src/crpctable.cpp
+## Fix order to get table correctly
+!win32 {
+	SOURCES += src/crpctable.cpp
+}
+
 SOURCES += src/caddrman.cpp
 SOURCES += src/caddrinfo.cpp
 SOURCES += src/cinv.cpp
@@ -272,3 +276,8 @@ macx {
 }
 
 SOURCES += src/rpcmintblock.cpp
+
+## Fix order to get table correctly
+win32 {
+	SOURCES += src/crpctable.cpp
+}

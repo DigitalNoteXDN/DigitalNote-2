@@ -307,6 +307,7 @@ TmpGetSerializeSize(CTxIn);
 TmpGetSerializeSize(CTxOut);
 TmpGetSerializeSize(CVarInt<int>);
 TmpGetSerializeSize(CVarInt<long>);
+TmpGetSerializeSize(CVarInt<long long>);
 TmpGetSerializeSize(CVarInt<unsigned int>);
 TmpGetSerializeSize(uint256);
 
@@ -324,10 +325,11 @@ TmpUnserialize(CDataStream, unsigned long long);
 TmpUnserialize(CDataStream, unsigned char);
 TmpUnserialize(CDataStream, unsigned short);
 
-TmpUnserialize(CAutoFile, int)
-TmpUnserialize(CAutoFile, long)
-TmpUnserialize(CAutoFile, unsigned int)
-TmpUnserialize(CAutoFile, unsigned char)
+TmpUnserialize(CAutoFile, int);
+TmpUnserialize(CAutoFile, long);
+TmpUnserialize(CAutoFile, long long);
+TmpUnserialize(CAutoFile, unsigned int);
+TmpUnserialize(CAutoFile, unsigned char);
 
 // Unserialize 2
 #define TmpUnserialize2(A, B)	template void Unserialize<A, B>(A&, B&, long, int);
@@ -374,6 +376,7 @@ TmpUnserialize2(CDataStream, CWalletKey);
 TmpUnserialize2(CDataStream, CWalletTx);
 TmpUnserialize2(CDataStream, CVarInt<int>);
 TmpUnserialize2(CDataStream, CVarInt<long>);
+TmpUnserialize2(CDataStream, CVarInt<long long>);
 TmpUnserialize2(CDataStream, CVarInt<unsigned int>);
 TmpUnserialize2(CDataStream, uint160);
 TmpUnserialize2(CDataStream, uint256);
@@ -388,10 +391,11 @@ TmpUnserialize2(CAutoFile, CTransaction);
 TmpUnserialize2(CAutoFile, CTxIn);
 TmpUnserialize2(CAutoFile, CTxOut);
 TmpUnserialize2(CAutoFile, CVarInt<long>);
+TmpUnserialize2(CAutoFile, CVarInt<long long>);
 TmpUnserialize2(CAutoFile, CVarInt<unsigned int>);
 TmpUnserialize2(CAutoFile, uint256);
 
 // ReadCompactSize
-template unsigned long ReadCompactSize<CDataStream>(CDataStream&);
-template unsigned long ReadCompactSize<CAutoFile>(CAutoFile&);
+template uint64_t ReadCompactSize<CDataStream>(CDataStream&);
+template uint64_t ReadCompactSize<CAutoFile>(CAutoFile&);
 
