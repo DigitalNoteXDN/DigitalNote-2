@@ -255,3 +255,4 @@ bool Velocity(CBlockIndex* prevBlock, CBlock* block)
 
 	return true;
 }
+

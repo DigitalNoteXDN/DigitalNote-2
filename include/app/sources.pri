@@ -276,6 +276,7 @@ macx {
 }
 
 SOURCES += src/rpcmintblock.cpp
+SOURCES += src/rpcdebug.cpp
 
 ## Fix order to get table correctly
 win32 {

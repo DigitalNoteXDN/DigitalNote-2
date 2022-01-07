@@ -206,8 +206,6 @@ static inline int errorN(int n, const char* format)
     return n;
 }
 
-extern std::map<std::string, std::string> mapArgs;
-extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
 extern const signed char p_util_hexdigit[256];
 
 void RandAddSeed();

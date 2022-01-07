@@ -181,5 +181,6 @@ extern json_spirit::Value smsggetmessagesforaccount(const json_spirit::Array& pa
 extern json_spirit::Value cclistcoins(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value mintblock(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value debugrpcallowip(const json_spirit::Array& params, bool fHelp);
 
 #endif // RPCSERVER_H

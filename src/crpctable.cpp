@@ -134,7 +134,8 @@ static const CRPCCommand vRPCCommands[] =
 	{ "smsgbuckets",            &smsgbuckets,            false,     false,     false },
 	{ "smsggetmessagesforaccount", &smsggetmessagesforaccount,            false,     false,     false },
 #endif // ENABLE_WALLET
-	{ "mintblock",              &mintblock,              false,     false,     false }
+	{ "mintblock",              &mintblock,              false,     false,     false },
+	{ "debugrpcallowip",        &debugrpcallowip,        false,     false,     false }
 };
 
 CRPCTable::CRPCTable()

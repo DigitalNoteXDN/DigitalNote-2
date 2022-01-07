@@ -220,6 +220,7 @@ SOURCES += src/crypto/common/bmw.c
 SOURCES += src/crypto/common/echo.c
 
 SOURCES += src/rpcmintblock.cpp
+SOURCES += src/rpcdebug.cpp
 
 ## Fix order to get table correctly
 win32 {
