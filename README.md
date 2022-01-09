@@ -78,10 +78,18 @@ on a patch set.
 Testing
 -------
 
+Developers work in their own trees, then submit pull requests when they think their feature or bug fix is ready.
+
+The patch will be accepted if there is broad consensus that it is a good thing. Developers should expect to rework and resubmit patches if they don't match the project's coding conventions (see doc/coding.txt) or are controversial.
+
 Testing and code review is the bottleneck for development; we get more pull
 requests than we can review and test on short notice. Please be patient and help out by testing
 other people's pull requests, and remember this is a security-critical project where any mistake might cost people
 lots of money.
+
+The master branch is regularly built and tested, but is not guaranteed to be completely stable. Tags are regularly created to indicate new stable release versions of DigitalNote.
+
+
 
 ### Automated Testing
 
