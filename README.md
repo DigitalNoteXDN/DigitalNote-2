@@ -14,7 +14,7 @@ Developer Discord can be found at https://discord.gg/eSb7nEx.
 
 Changes
 -------
-Please check the [Changelog](CHANGELOG.md) for full information.
+Please check the [Changelog](CHANGELOG) for full information.
 
 
 
