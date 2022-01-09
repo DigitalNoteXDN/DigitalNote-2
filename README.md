@@ -2,11 +2,6 @@ DigitalNote [XDN] 2014-2018 (CryptoNote Base), 2018-2020 (Current) integration/s
 ===========================================================================================
 
 
-
-
-
-
-
 http://www.digitalnote.org
 
 What is the DigitalNote [XDN] Blockchain?
@@ -14,32 +9,6 @@ What is the DigitalNote [XDN] Blockchain?
 To save on space and instructions please check out our [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
 
 
-
-
-*TODO: Update documentation regarding implemented tech as this section is out of date and much progress and upgrades have been made to mentioned sections...*
-
-### Overview
-DigitalNote is a blockchain project with the goal of offering secured messaging, Darksend, masternodes and an overall pleasing experience to the user.
-
-### Blockchain Technology
-The DigitalNote [XDN] Blockchain is an experimental smart contract platform protocol that enables 
-instant payments to anyone, anywhere in the world in a private, secure manner. 
-DigitalNote [XDN] uses peer-to-peer blockchain technology developed by DigitalNote to operate
-with no central authority: managing transactions, execution of contracts, and 
-issuing money are carried out collectively by the network. DigitalNote [XDN] is the name of 
-open source software which enables the use of this protocol.
-
-### Custom Difficulty Retarget Algorithm “VRX”
-VRX is designed from the ground up to integrate properly with the Velocity parameter enforcement system to ensure users no longer receive orphan blocks.
-
-### Velocity Block Constraint System
-Ensuring Insane stays as secure and robust as possible the CryptoCoderz team have implemented what's known as the Velocity block constraint system. This system acts as third and final check for both mined and peer-accepted blocks ensuring that all parameters are strictly enforced.
-
-### Wish (bmw512) Proof-of-Work Algorithm
-Wish or bmw512 hashing algorithm is utilized for the Proof-of-Work function and also replaces much of the underlying codebase hashing functions as well that normally are SHA256. By doing so this codebase is able to be both exponentially lighter and more secure in comparison to reference implementations.
-
-### Echo512 Proof-of-Stake Algorithm
-DigitalNote's proof of stake system utilizes Echo512 which is a super lightweight and secure hashing algorithm.
 
 Changes
 -------
@@ -52,21 +21,21 @@ Specifications and General info
 ------------------
 DigitalNote uses 
 
-	libsecp256k1,
-	libgmp,
-	Boost1.68, OR Boost1.58,  
-	Openssl1.02r,
-	Berkeley DB 6.2.32,
-	QT5.12.1,
-	to compile
+	* libsecp256k1,
+	* libgmp,
+	* Boost1.68, OR Boost1.58,  
+	* Openssl1.02r,
+	* erkeley DB 6.2.32,
+	* QT5.12.1,
+	* to compile
 
 
 General Specs
 
-	Block Spacing: 2 Minutes
-	Stake Minimum Age: 15 Confirmations (PoS-v3) | 30 Minutes (PoS-v2)
-	Port: 18092
-	RPC Port: 18094
+	* Block Spacing: 2 Minutes
+	* Stake Minimum Age: 15 Confirmations (PoS-v3) | 30 Minutes (PoS-v2)
+	* Port: 18092
+	* RPC Port: 18094
 
 BUILD MacOS
 -----------
