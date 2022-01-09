@@ -1,10 +1,21 @@
 DigitalNote [XDN] 2014-2018 (CryptoNote Base), 2018-2020 (Current) integration/staging tree
 ===========================================================================================
 
+
+
+
+
+
+
 http://www.digitalnote.org
 
 What is the DigitalNote [XDN] Blockchain?
 -----------------------------------------
+To save on space and instructions please check out our [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
+
+
+
+
 *TODO: Update documentation regarding implemented tech as this section is out of date and much progress and upgrades have been made to mentioned sections...*
 
 ### Overview
@@ -29,6 +40,13 @@ Wish or bmw512 hashing algorithm is utilized for the Proof-of-Work function and 
 
 ### Echo512 Proof-of-Stake Algorithm
 DigitalNote's proof of stake system utilizes Echo512 which is a super lightweight and secure hashing algorithm.
+
+Changes
+-------
+Please check the [Changelog](CHANGELOG.md) for full information.
+
+
+
 
 Specifications and General info
 ------------------
