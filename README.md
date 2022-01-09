@@ -10,7 +10,7 @@ To save on space and instructions please check out our [► WHITEPAPER](https://
 
 **Support Contact**
 -------------------
-Developer Discord can be found at https://discord.gg/eSb7nEx.
+Developer Discord can be found [here](https://discord.gg/4dUquty)
 
 Changes
 -------
@@ -41,15 +41,15 @@ General Specs
 
 BUILD MacOS
 -----------
-Please check the [build-osx](/docs/build-osx.md) for full instructions.
+Please check the [build-osx](/doc/build-osx.md) for full instructions.
 
 BUILD Windows
 -----------
-Please check the [build-msw](/docs/build-msw.md) for full instructions.
+Please check the [build-msw](/doc/build-msw.md) for full instructions.
 
 BUILD Linux
 -----------
-Please check the [build-lnx](/docs/build-lnx.md) for full instructions.
+Please check the [build-lnx](/doc/build-lnx.md) for full instructions.
 
 
 
@@ -68,9 +68,10 @@ regularly to indicate new official, stable release versions of DigitalNote [XDN]
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-The developer [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/bitcoin-dev)
-should be used to discuss complicated or controversial changes before working
+
+The Developer Team [Discord](https://discord.gg/4dUquty) should be used to discuss complicated or controversial changes before working
 on a patch set.
+
 
 
 
@@ -88,8 +89,6 @@ Developers are strongly encouraged to write [unit tests](/doc/unit-tests.md) for
 submit new unit tests for old code. Unit tests can be compiled and run
 (assuming they weren't disabled in configure) with: `make check`
 
-There are also [regression and integration tests](/qa) of the RPC interface, written
-in Python, that are run automatically on the build server.
 
 ### Manual Quality Assurance (QA) Testing
 
