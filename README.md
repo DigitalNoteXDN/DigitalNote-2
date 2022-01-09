@@ -1,4 +1,4 @@
-DigitalNote [XDN] 2014-2018 (CryptoNote Base), 2018-2020 (Current) integration/staging tree
+DigitalNote [XDN] 2014-2018 (CryptoNote Base), 2018-2022 (Current) integration/staging tree
 ===========================================================================================
 ![http://www.digitalnote.org](doc/digitalnote_logo.png)
 
