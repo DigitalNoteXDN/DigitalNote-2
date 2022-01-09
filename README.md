@@ -68,13 +68,8 @@ The `master` branch is regularly built and tested, but is not guaranteed to be
 completely stable. [Tags](https://github.com/DigitalNoteXDN/DigitalNote-1) are created
 regularly to indicate new official, stable release versions of DigitalNote [XDN].
 
-The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-
 The Developer Team [Discord](https://discord.gg/4dUquty) should be used to discuss complicated or controversial changes before working
 on a patch set.
-
-
 
 
 Testing
