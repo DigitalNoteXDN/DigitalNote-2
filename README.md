@@ -39,7 +39,12 @@ General Specs
 
 BUILD MacOS
 -----------
-See /docs/build-osx.md
+Please check the [build-osx](/docs/build-osx.md) for full instructions.
+
+BUILD Windows
+-----------
+Please check the [build-msw](/docs/build-msw.md) for full instructions.
+
 
 BUILD LINUX
 -----------
