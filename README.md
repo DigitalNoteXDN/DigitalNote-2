@@ -8,7 +8,9 @@ What is the DigitalNote [XDN] Blockchain?
 -----------------------------------------
 To save on space and instructions please check out our [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
 
-
+**Support Contact**
+-------------------
+Developer Discord can be found at https://discord.gg/eSb7nEx.
 
 Changes
 -------
@@ -70,7 +72,7 @@ The developer [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/
 should be used to discuss complicated or controversial changes before working
 on a patch set.
 
-Developer Discord can be found at https://discord.gg/eSb7nEx.
+
 
 Testing
 -------
