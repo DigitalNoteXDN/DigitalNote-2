@@ -15,7 +15,7 @@ Discord: [► invite link](https://discord.gg/4dUquty)
 
 Official download
 -------------------
-[Digitalnote github releases](https://github.com/DigitalNoteXDN/DigitalNote-2/releases)
+github releases: [► DigitalNoteXDN/DigitalNote-2](https://github.com/DigitalNoteXDN/DigitalNote-2/releases)
 
 
 Build instructions:
