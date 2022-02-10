@@ -13,9 +13,9 @@ Telegram: [► invite link](https://t.me/XDNDN)
 Discord: [► invite link](https://discord.gg/4dUquty)
 
 
-Official Download
+Official download
 -------------------
-Official executables releases you can find [Digitalnote github](https://github.com/DigitalNoteXDN/DigitalNote-2/releases)
+[Digitalnote github releases](https://github.com/DigitalNoteXDN/DigitalNote-2/releases)
 
 
 Build instructions:
