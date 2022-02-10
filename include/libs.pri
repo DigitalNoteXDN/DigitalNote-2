@@ -12,12 +12,7 @@ macx {
 
 LIBS += -lz
 
-contains(USE_NEW_LEVELDB, 1) {
-	include(libs/leveldb-2.11.pri)
-} else {
-	include(libs/leveldb.pri)
-}
-
+include(libs/leveldb.pri)
 include(libs/secp256k1.pri)
 include(libs/openssl.pri)
 include(libs/gmp.pri)
