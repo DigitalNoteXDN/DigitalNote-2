@@ -1,5 +1,11 @@
 DigitalNote Daemon/QT-Wallet
 ============================================
+
+DigitalNote (XDN) Hybrid PoW/PoS blockchain with Masternode Support.
+DigitalNote provides a lightweight blockchain with several avenues for passive income.
+DigitalNote (SatoshiCore) is the core of the DigitalNote ecosystem and was been developed from a bitcore base and
+since morphing into its own unique blockchain system.
+
 ![http://www.digitalnote.org](doc/digitalnote_logo.png)
 
 Official website: [► Digitalnote.org](http://www.digitalnote.org)
