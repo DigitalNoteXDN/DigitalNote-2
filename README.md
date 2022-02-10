@@ -1,28 +1,32 @@
-DigitalNote [XDN] 2014-2018 (CryptoNote Base),
-2018-2022 (Current) integration/staging tree
+DigitalNote Daemon/QT-Wallet
 ============================================
 ![http://www.digitalnote.org](doc/digitalnote_logo.png)
 
-http://www.digitalnote.org
+Official website: [► Digitalnote.org](http://www.digitalnote.org)
+White paper: [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
 
 
-What is the DigitalNote [XDN] Blockchain?
------------------------------------------
-To save on space and instructions please check out our [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
-
-**Support Contact**
+Support Contact
 -------------------
-Developer Discord can be found [here](https://discord.gg/4dUquty)
-
-Changes
--------
-Please check the [Changelog](CHANGELOG) for full information.
+Twitter: [► digitalnotexdn](https://twitter.com/digitalnotexdn)
+Telegram: [► invite link](https://t.me/XDNDN)
+Discord: [► invite link](https://discord.gg/4dUquty)
 
 
+Official Download
+-------------------
+Official executables releases you can find [Digitalnote github](https://github.com/DigitalNoteXDN/DigitalNote-2/releases)
+
+
+Build instructions:
+-------------------
+MacOS: [build-osx](/doc/build-osx.md)
+Windows: [build-msw](/doc/build-msw.md)
+Linux: [build-lnx](/doc/build-lnx.md)
 
 
 Specifications and General info
-------------------
+-------------------
 DigitalNote uses 
 
 	* libsecp256k1,
@@ -33,7 +37,6 @@ DigitalNote uses
 	* QT5.12.1,
 	* to compile
 
-
 General Specs
 
 	* Block Spacing: 2 Minutes
@@ -41,25 +44,13 @@ General Specs
 	* Port: 18092
 	* RPC Port: 18094
 
-BUILD MacOS
------------
-Please check the [build-osx](/doc/build-osx.md) for full instructions.
-
-BUILD Windows
------------
-Please check the [build-msw](/doc/build-msw.md) for full instructions.
-
-BUILD Linux
------------
-Please check the [build-lnx](/doc/build-lnx.md) for full instructions.
-
-
 
 License
--------
+-------------------
 
 DigitalNote [XDN] is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see https://opensource.org/licenses/MIT.
+
 
 Development Process
 -------------------
@@ -73,7 +64,7 @@ on a patch set.
 
 
 Testing
--------
+-------------------
 
 Developers work in their own trees, then submit pull requests when they think their feature or bug fix is ready.
 
@@ -86,7 +77,8 @@ lots of money.
 
 The master branch is regularly built and tested, but is not guaranteed to be completely stable. Tags are regularly created to indicate new stable release versions of DigitalNote.
 
-### Manual Quality Assurance (QA) Testing
+Manual Quality Assurance (QA) Testing
+-------------------
 
 Changes should be tested by somebody other than the developer who wrote the
 code. This is especially important for large or high-risk changes. It is useful
