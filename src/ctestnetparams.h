@@ -9,9 +9,9 @@
 class CTestNetParams : public CMainParams
 {
 public:
-    CTestNetParams();
-	
-    virtual CChainParams_Network NetworkID() const;
+	CTestNetParams();
+
+	virtual CChainParams_Network NetworkID() const;
 };
 
 #endif // CTESTNETPARAMS_H

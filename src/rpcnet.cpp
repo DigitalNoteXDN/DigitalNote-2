@@ -25,183 +25,183 @@ typedef std::list<std::pair<std::string, std::vector<CService>>> addresslist_t;
 
 json_spirit::Value getconnectioncount(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+	if (fHelp || params.size() != 0)
 	{
-        throw std::runtime_error(
-            "getconnectioncount\n"
-            "Returns the number of connections to other nodes."
+		throw std::runtime_error(
+			"getconnectioncount\n"
+			"Returns the number of connections to other nodes."
 		);
 	}
-	
-    LOCK(cs_vNodes);
-	
-    return (int)vNodes.size();
+
+	LOCK(cs_vNodes);
+
+	return (int)vNodes.size();
 }
 
 json_spirit::Value ping(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+	if (fHelp || params.size() != 0)
 	{
-        throw std::runtime_error(
-            "ping\n"
-            "Requests that a ping be sent to all other nodes, to measure ping time.\n"
-            "Results provided in getpeerinfo, pingtime and pingwait fields are decimal seconds.\n"
-            "Ping command is handled in queue with all other commands, so it measures processing backlog, not just network ping."
+		throw std::runtime_error(
+			"ping\n"
+			"Requests that a ping be sent to all other nodes, to measure ping time.\n"
+			"Results provided in getpeerinfo, pingtime and pingwait fields are decimal seconds.\n"
+			"Ping command is handled in queue with all other commands, so it measures processing backlog, not just network ping."
 		);
 	}
-	
-    // Request that each node send a ping during next message processing pass
-    LOCK(cs_vNodes);
-	
-    for(CNode* pNode : vNodes)
-	{
-        pNode->fPingQueued = true;
-    }
 
-    return json_spirit::Value::null;
+	// Request that each node send a ping during next message processing pass
+	LOCK(cs_vNodes);
+
+	for(CNode* pNode : vNodes)
+	{
+		pNode->fPingQueued = true;
+	}
+
+	return json_spirit::Value::null;
 }
 
 static void CopyNodeStats(std::vector<CNodeStats>& vstats)
 {
-    vstats.clear();
+	vstats.clear();
 
-    LOCK(cs_vNodes);
-    
+	LOCK(cs_vNodes);
+
 	vstats.reserve(vNodes.size());
-    
+
 	for(CNode* pnode : vNodes)
 	{
-        CNodeStats stats;
-        
+		CNodeStats stats;
+		
 		pnode->copyStats(stats);
-        vstats.push_back(stats);
-    }
+		vstats.push_back(stats);
+	}
 }
 
 json_spirit::Value getpeerinfo(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+	if (fHelp || params.size() != 0)
 	{
-        throw std::runtime_error(
-            "getpeerinfo\n"
-            "Returns data about each connected network node."
+		throw std::runtime_error(
+			"getpeerinfo\n"
+			"Returns data about each connected network node."
 		);
 	}
-	
-    std::vector<CNodeStats> vstats;
-    CopyNodeStats(vstats);
-    json_spirit::Array ret;
 
-    for(const CNodeStats& stats : vstats)
+	std::vector<CNodeStats> vstats;
+	CopyNodeStats(vstats);
+	json_spirit::Array ret;
+
+	for(const CNodeStats& stats : vstats)
 	{
-        json_spirit::Object obj;
-        CNodeStateStats statestats;
-        bool fStateStats = GetNodeStateStats(stats.nodeid, statestats);
-        
+		json_spirit::Object obj;
+		CNodeStateStats statestats;
+		bool fStateStats = GetNodeStateStats(stats.nodeid, statestats);
+		
 		obj.push_back(json_spirit::Pair("addr", stats.addrName));
-        
+		
 		if (!(stats.addrLocal.empty()))
 		{
-            obj.push_back(json_spirit::Pair("addrlocal", stats.addrLocal));
-        }
-		
-		obj.push_back(json_spirit::Pair("services", strprintf("%08x", stats.nServices)));
-        obj.push_back(json_spirit::Pair("lastsend", (int64_t)stats.nLastSend));
-        obj.push_back(json_spirit::Pair("lastrecv", (int64_t)stats.nLastRecv));
-        obj.push_back(json_spirit::Pair("bytessent", (int64_t)stats.nSendBytes));
-        obj.push_back(json_spirit::Pair("bytesrecv", (int64_t)stats.nRecvBytes));
-        obj.push_back(json_spirit::Pair("conntime", (int64_t)stats.nTimeConnected));
-        obj.push_back(json_spirit::Pair("timeoffset", stats.nTimeOffset));
-        obj.push_back(json_spirit::Pair("pingtime", stats.dPingTime));
-        
-		if (stats.dPingWait > 0.0)
-		{
-            obj.push_back(json_spirit::Pair("pingwait", stats.dPingWait));
+			obj.push_back(json_spirit::Pair("addrlocal", stats.addrLocal));
 		}
 		
-        obj.push_back(json_spirit::Pair("version", stats.nVersion));
-        obj.push_back(json_spirit::Pair("subver", stats.strSubVer));
-        obj.push_back(json_spirit::Pair("inbound", stats.fInbound));
-        obj.push_back(json_spirit::Pair("startingheight", stats.nStartingHeight));
-        
+		obj.push_back(json_spirit::Pair("services", strprintf("%08x", stats.nServices)));
+		obj.push_back(json_spirit::Pair("lastsend", (int64_t)stats.nLastSend));
+		obj.push_back(json_spirit::Pair("lastrecv", (int64_t)stats.nLastRecv));
+		obj.push_back(json_spirit::Pair("bytessent", (int64_t)stats.nSendBytes));
+		obj.push_back(json_spirit::Pair("bytesrecv", (int64_t)stats.nRecvBytes));
+		obj.push_back(json_spirit::Pair("conntime", (int64_t)stats.nTimeConnected));
+		obj.push_back(json_spirit::Pair("timeoffset", stats.nTimeOffset));
+		obj.push_back(json_spirit::Pair("pingtime", stats.dPingTime));
+		
+		if (stats.dPingWait > 0.0)
+		{
+			obj.push_back(json_spirit::Pair("pingwait", stats.dPingWait));
+		}
+		
+		obj.push_back(json_spirit::Pair("version", stats.nVersion));
+		obj.push_back(json_spirit::Pair("subver", stats.strSubVer));
+		obj.push_back(json_spirit::Pair("inbound", stats.fInbound));
+		obj.push_back(json_spirit::Pair("startingheight", stats.nStartingHeight));
+		
 		if (fStateStats)
 		{
-            obj.push_back(json_spirit::Pair("banscore", statestats.nMisbehavior));
-        }
+			obj.push_back(json_spirit::Pair("banscore", statestats.nMisbehavior));
+		}
 		
-        obj.push_back(json_spirit::Pair("syncnode", stats.fSyncNode));
+		obj.push_back(json_spirit::Pair("syncnode", stats.fSyncNode));
 
-        ret.push_back(obj);
-    }
+		ret.push_back(obj);
+	}
 
-    return ret;
+	return ret;
 }
 
 json_spirit::Value addnode(const json_spirit::Array& params, bool fHelp)
 {
-    std::string strCommand;
-    
+	std::string strCommand;
+
 	if (params.size() == 2)
 	{
-        strCommand = params[1].get_str();
+		strCommand = params[1].get_str();
 	}
-	
-    if (fHelp || params.size() != 2 ||
-        (
+
+	if (fHelp || params.size() != 2 ||
+		(
 			strCommand != "onetry" &&
 			strCommand != "add" &&
 			strCommand != "remove"
 		)
 	)
 	{
-        throw std::runtime_error(
-            "addnode <node> <add|remove|onetry>\n"
-            "Attempts add or remove <node> from the addnode list or try a connection to <node> once."
+		throw std::runtime_error(
+			"addnode <node> <add|remove|onetry>\n"
+			"Attempts add or remove <node> from the addnode list or try a connection to <node> once."
 		);
 	}
-	
-    std::string strNode = params[0].get_str();
 
-    if (strCommand == "onetry")
-    {
-        CAddress addr;
-        ConnectNode(addr, strNode.c_str());
-        
+	std::string strNode = params[0].get_str();
+
+	if (strCommand == "onetry")
+	{
+		CAddress addr;
+		ConnectNode(addr, strNode.c_str());
+		
 		return json_spirit::Value::null;
-    }
+	}
 
-    LOCK(cs_vAddedNodes);
-	
-    std::vector<std::string>::iterator it = vAddedNodes.begin();
-    
+	LOCK(cs_vAddedNodes);
+
+	std::vector<std::string>::iterator it = vAddedNodes.begin();
+
 	for(; it != vAddedNodes.end(); it++)
 	{
-        if (strNode == *it)
+		if (strNode == *it)
 		{
-            break;
+			break;
 		}
 	}
-	
-    if (strCommand == "add")
-    {
-        if (it != vAddedNodes.end())
+
+	if (strCommand == "add")
+	{
+		if (it != vAddedNodes.end())
 		{
-            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
-        }
-		
-		vAddedNodes.push_back(strNode);
-    }
-    else if(strCommand == "remove")
-    {
-        if (it == vAddedNodes.end())
-		{
-            throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
+			throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
 		}
 		
-        vAddedNodes.erase(it);
-    }
+		vAddedNodes.push_back(strNode);
+	}
+	else if(strCommand == "remove")
+	{
+		if (it == vAddedNodes.end())
+		{
+			throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
+		}
+		
+		vAddedNodes.erase(it);
+	}
 
-    return json_spirit::Value::null;
+	return json_spirit::Value::null;
 }
 
 json_spirit::Value getaddednodeinfo(const json_spirit::Array& params, bool fHelp)

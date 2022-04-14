@@ -13,39 +13,39 @@ class CBlock;
 class CMerkleTx : public CTransaction
 {
 private:
-    int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
+	int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
 
 public:
-    uint256 hashBlock;
-    std::vector<uint256> vMerkleBranch;
-    int nIndex;
+	uint256 hashBlock;
+	std::vector<uint256> vMerkleBranch;
+	int nIndex;
 
-    // memory only
-    mutable bool fMerkleVerified;
-	
-    CMerkleTx();
-    CMerkleTx(const CTransaction& txIn);
-    
+	// memory only
+	mutable bool fMerkleVerified;
+
+	CMerkleTx();
+	CMerkleTx(const CTransaction& txIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
-	
-	void Init();
-    int SetMerkleBranch(const CBlock* pblock=NULL);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    // Return depth of transaction in blockchain:
-    // -1  : not in blockchain, and not in memory pool (conflicted transaction)
-    //  0  : in memory pool, waiting to be included in a block
-    // >=1 : this many blocks deep in the main chain
-    int GetDepthInMainChain(CBlockIndex* &pindexRet, bool enableIX=true) const;
-    int GetDepthInMainChain(bool enableIX=true) const;
-    bool IsInMainChain() const;
-    int GetBlocksToMaturity() const;
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectInsaneFee=true, bool ignoreFees=false);
-    int GetTransactionLockSignatures() const;
-    bool IsTransactionLockTimedOut() const;
+	void Init();
+	int SetMerkleBranch(const CBlock* pblock=NULL);
+
+	// Return depth of transaction in blockchain:
+	// -1  : not in blockchain, and not in memory pool (conflicted transaction)
+	//  0  : in memory pool, waiting to be included in a block
+	// >=1 : this many blocks deep in the main chain
+	int GetDepthInMainChain(CBlockIndex* &pindexRet, bool enableIX=true) const;
+	int GetDepthInMainChain(bool enableIX=true) const;
+	bool IsInMainChain() const;
+	int GetBlocksToMaturity() const;
+	bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectInsaneFee=true, bool ignoreFees=false);
+	int GetTransactionLockSignatures() const;
+	bool IsTransactionLockTimedOut() const;
 };
 
 #endif // CMERKLETX_H

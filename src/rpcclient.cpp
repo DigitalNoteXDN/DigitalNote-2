@@ -122,8 +122,8 @@ json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Arr
 class CRPCConvertParam
 {
 public:
-	std::string methodName;            // method whose params want conversion
-	int paramIdx;                      // 0-based idx of param to convert
+	std::string methodName;		// method whose params want conversion
+	int paramIdx;				// 0-based idx of param to convert
 };
 
 static const CRPCConvertParam vRPCConvertParams[] =

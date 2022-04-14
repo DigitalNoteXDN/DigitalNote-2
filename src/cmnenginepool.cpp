@@ -782,52 +782,52 @@ void CMNenginePool::CheckForCompleteQueue()
 // check to see if the signature is valid
 bool CMNenginePool::SignatureValid(const CScript& newSig, const CTxIn& newVin)
 {
-    CTransaction txNew;
-    txNew.vin.clear();
-    txNew.vout.clear();
+	CTransaction txNew;
+	txNew.vin.clear();
+	txNew.vout.clear();
 
-    int found = -1;
-    CScript sigPubKey = CScript();
-    unsigned int i = 0;
+	int found = -1;
+	CScript sigPubKey = CScript();
+	unsigned int i = 0;
 
-    for(CMNengineEntry& e : entries)
+	for(CMNengineEntry& e : entries)
 	{
-        for(const CTxOut& out : e.vout)
+		for(const CTxOut& out : e.vout)
 		{
-            txNew.vout.push_back(out);
+			txNew.vout.push_back(out);
 		}
 		
-        for(const CTxDSIn& s : e.sev)
+		for(const CTxDSIn& s : e.sev)
 		{
-            txNew.vin.push_back(s);
+			txNew.vin.push_back(s);
 
-            if(s == newVin)
+			if(s == newVin)
 			{
-                found = i;
-                sigPubKey = s.prevPubKey;
-            }
+				found = i;
+				sigPubKey = s.prevPubKey;
+			}
 			
-            i++;
-        }
-    }
+			i++;
+		}
+	}
 
-    if(found >= 0) //might have to do this one input at a time?
+	if(found >= 0) //might have to do this one input at a time?
 	{
-        int n = found;
-        txNew.vin[n].scriptSig = newSig;
-        
+		int n = found;
+		txNew.vin[n].scriptSig = newSig;
+		
 		LogPrint("mnengine", "CMNenginePool::SignatureValid() - Sign with sig %s\n", newSig.ToString().substr(0,24));
-        
+		
 		if (!VerifyScript(txNew.vin[n].scriptSig, sigPubKey, txNew, n, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, 0))
 		{
-            LogPrint("mnengine", "CMNenginePool::SignatureValid() - Signing - Error signing input %u\n", n);
-            
+			LogPrint("mnengine", "CMNenginePool::SignatureValid() - Signing - Error signing input %u\n", n);
+			
 			return false;
-        }
-    }
+		}
+	}
 
-    LogPrint("mnengine", "CMNenginePool::SignatureValid() - Signing - Successfully validated input\n");
-    
+	LogPrint("mnengine", "CMNenginePool::SignatureValid() - Signing - Successfully validated input\n");
+
 	return true;
 }
 
@@ -1331,79 +1331,79 @@ bool CMNenginePool::SendRandomPaymentToSelf()
 // Split up large inputs or create fee sized inputs
 bool CMNenginePool::MakeCollateralAmounts()
 {
-    CWalletTx wtx;
-    int64_t nFeeRet = 0;
-    std::string strFail = "";
-    std::vector<std::pair<CScript, int64_t>> vecSend;
-    CCoinControl *coinControl = NULL;
+	CWalletTx wtx;
+	int64_t nFeeRet = 0;
+	std::string strFail = "";
+	std::vector<std::pair<CScript, int64_t>> vecSend;
+	CCoinControl *coinControl = NULL;
 
-    // make our collateral address
-    CReserveKey reservekeyCollateral(pwalletMain);
-    // make our change address
-    CReserveKey reservekeyChange(pwalletMain);
+	// make our collateral address
+	CReserveKey reservekeyCollateral(pwalletMain);
+	// make our change address
+	CReserveKey reservekeyChange(pwalletMain);
 
-    CScript scriptCollateral;
-    CPubKey vchPubKey;
-    assert(reservekeyCollateral.GetReservedKey(vchPubKey)); // should never fail, as we just unlocked
-    scriptCollateral = GetScriptForDestination(vchPubKey.GetID());
+	CScript scriptCollateral;
+	CPubKey vchPubKey;
+	assert(reservekeyCollateral.GetReservedKey(vchPubKey)); // should never fail, as we just unlocked
+	scriptCollateral = GetScriptForDestination(vchPubKey.GetID());
 
-    vecSend.push_back(std::make_pair(scriptCollateral, MNengine_COLLATERAL*4));
+	vecSend.push_back(std::make_pair(scriptCollateral, MNengine_COLLATERAL*4));
 
-    int32_t nChangePos;
-    // try to use non-denominated and not mn-like funds
-    bool success = pwalletMain->CreateTransaction(
+	int32_t nChangePos;
+	// try to use non-denominated and not mn-like funds
+	bool success = pwalletMain->CreateTransaction(
 		vecSend,
 		wtx,
 		reservekeyChange,
-        nFeeRet,
+		nFeeRet,
 		nChangePos,
 		strFail,
 		coinControl,
 		ONLY_NONDENOMINATED_NOT10000IFMN
 	);
-    
+
 	if(!success)
 	{
-        // if we failed (most likeky not enough funds), try to use denominated instead -
-        // MN-like funds should not be touched in any case and we can't mix denominated without collaterals anyway
-        LogPrintf("MakeCollateralAmounts: ONLY_NONDENOMINATED_NOT1000IFMN Error - %s\n", strFail);
-        
+		// if we failed (most likeky not enough funds), try to use denominated instead -
+		// MN-like funds should not be touched in any case and we can't mix denominated without collaterals anyway
+		LogPrintf("MakeCollateralAmounts: ONLY_NONDENOMINATED_NOT1000IFMN Error - %s\n", strFail);
+		
 		success = pwalletMain->CreateTransaction(
 			vecSend,
 			wtx,
 			reservekeyChange,
-            nFeeRet,
+			nFeeRet,
 			nChangePos,
 			strFail,
 			coinControl,
 			ONLY_NOT10000IFMN
 		);
-        
+		
 		if(!success)
 		{
-            LogPrintf("MakeCollateralAmounts: ONLY_NOT1000IFMN Error - %s\n", strFail);
-            
+			LogPrintf("MakeCollateralAmounts: ONLY_NOT1000IFMN Error - %s\n", strFail);
+			
 			reservekeyCollateral.ReturnKey();
-            
+			
 			return false;
-        }
-    }
+		}
+	}
 
-    reservekeyCollateral.KeepKey();
+	reservekeyCollateral.KeepKey();
 
-    LogPrintf("MakeCollateralAmounts: tx %s\n", wtx.GetHash().GetHex());
+	LogPrintf("MakeCollateralAmounts: tx %s\n", wtx.GetHash().GetHex());
 
-    // use the same cachedLastSuccess as for DS mixinx to prevent race
-    if(!pwalletMain->CommitTransaction(wtx, reservekeyChange))
+	// use the same cachedLastSuccess as for DS mixinx to prevent race
+	if(!pwalletMain->CommitTransaction(wtx, reservekeyChange))
 	{
-        LogPrintf("MakeCollateralAmounts: CommitTransaction failed!\n");
-        
+		LogPrintf("MakeCollateralAmounts: CommitTransaction failed!\n");
+		
 		return false;
-    }
+	}
 
-    cachedLastSuccess = pindexBest->nHeight;
+	cachedLastSuccess = pindexBest->nHeight;
 
-    return true;
+	return true;
 }
 
 std::string CMNenginePool::GetMessageByID(int messageID)

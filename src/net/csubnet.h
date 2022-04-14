@@ -32,10 +32,10 @@ public:
 	friend bool operator<(const CSubNet& a, const CSubNet& b);
 	
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // NET_CSUBNET_H

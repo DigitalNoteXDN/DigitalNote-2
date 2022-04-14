@@ -475,57 +475,57 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
 
 bool CPubKey::Decompress()
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return false;
+		return false;
 	}
-	
-    secp256k1_pubkey pubkey;
-    
+
+	secp256k1_pubkey pubkey;
+
 	if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
 	{
-        return false;
-    }
-	
-    unsigned char pub[65];
-    size_t publen = 65;
-    
+		return false;
+	}
+
+	unsigned char pub[65];
+	size_t publen = 65;
+
 	secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
-    
+
 	Set(pub, pub + publen);
-	
-    return true;
+
+	return true;
 }
 
 bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const
 {
-    assert(IsValid());
-    assert((nChild >> 31) == 0);
-    assert(begin() + 33 == end());
-    
+	assert(IsValid());
+	assert((nChild >> 31) == 0);
+	assert(begin() + 33 == end());
+
 	unsigned char out[64];
-    BIP32Hash(cc, nChild, *begin(), begin()+1, out);
-    
+	BIP32Hash(cc, nChild, *begin(), begin()+1, out);
+
 	memcpy(ccChild, out+32, 32);
-    
+
 	secp256k1_pubkey pubkey;
-	
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
 	{
-        return false;
-    }
-	
-    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out))
+		return false;
+	}
+
+	if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out))
 	{
-        return false;
-    }
-	
-    unsigned char pub[33];
-    size_t publen = 33;
-    
+		return false;
+	}
+
+	unsigned char pub[33];
+	size_t publen = 33;
+
 	secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
-    pubkeyChild.Set(pub, pub + publen);
-    
+	pubkeyChild.Set(pub, pub + publen);
+
 	return true;
 }
 

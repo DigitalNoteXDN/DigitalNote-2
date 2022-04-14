@@ -11,10 +11,10 @@ namespace SMSG {
 
 Bucket::Bucket()
 {
-	timeChanged     = 0;
-	hash            = 0;
-	nLockCount      = 0;
-	nLockPeerId     = 0;
+	timeChanged = 0;
+	hash = 0;
+	nLockCount = 0;
+	nLockPeerId = 0;
 }
 
 Bucket::~Bucket()
@@ -24,27 +24,27 @@ Bucket::~Bucket()
 
 void Bucket::hashBucket()
 {
-    if (fDebugSmsg)
+	if (fDebugSmsg)
 	{
-        LogPrint("smsg", "DigitalNote::SMSG::Bucket::hashBucket()\n");
-    }
-	
-    timeChanged = GetTime();
-    
-    std::set<DigitalNote::SMSG::Token>::iterator it;
-    
-    void* state = XXH32_init(1);
-    
-    for (it = setTokens.begin(); it != setTokens.end(); ++it)
-    {
-        XXH32_update(state, it->sample, 8);
-    }
-    
-    hash = XXH32_digest(state);
-    
-    if (fDebugSmsg)
+		LogPrint("smsg", "DigitalNote::SMSG::Bucket::hashBucket()\n");
+	}
+
+	timeChanged = GetTime();
+
+	std::set<DigitalNote::SMSG::Token>::iterator it;
+
+	void* state = XXH32_init(1);
+
+	for (it = setTokens.begin(); it != setTokens.end(); ++it)
 	{
-        LogPrint("smsg", "Hashed %u messages, hash %u\n", setTokens.size(), hash);
+		XXH32_update(state, it->sample, 8);
+	}
+
+	hash = XXH32_digest(state);
+
+	if (fDebugSmsg)
+	{
+		LogPrint("smsg", "Hashed %u messages, hash %u\n", setTokens.size(), hash);
 	}
 }
 

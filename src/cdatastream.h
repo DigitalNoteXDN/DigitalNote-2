@@ -21,15 +21,15 @@ public:
 	int nType;
 	int nVersion;
 
-	typedef vector_type::allocator_type   allocator_type;
-	typedef vector_type::size_type        size_type;
-	typedef vector_type::difference_type  difference_type;
-	typedef vector_type::reference        reference;
-	typedef vector_type::const_reference  const_reference;
-	typedef vector_type::value_type       value_type;
-	typedef vector_type::iterator         iterator;
-	typedef vector_type::const_iterator   const_iterator;
-	typedef vector_type::reverse_iterator reverse_iterator;
+	typedef vector_type::allocator_type		allocator_type;
+	typedef vector_type::size_type			size_type;
+	typedef vector_type::difference_type	difference_type;
+	typedef vector_type::reference			reference;
+	typedef vector_type::const_reference	const_reference;
+	typedef vector_type::value_type			value_type;
+	typedef vector_type::iterator			iterator;
+	typedef vector_type::const_iterator		const_iterator;
+	typedef vector_type::reverse_iterator	reverse_iterator;
 
 	explicit CDataStream(int nTypeIn, int nVersionIn);
 	CDataStream(const_iterator pbegin, const_iterator pend, int nTypeIn, int nVersionIn);

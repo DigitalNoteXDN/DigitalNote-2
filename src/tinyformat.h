@@ -97,27 +97,27 @@ namespace tfm = tinyformat;
 #include <stdexcept>
 
 #ifndef TINYFORMAT_ERROR
-#   define TINYFORMAT_ERROR(reason) assert(0 && reason)
-#endif
+	#define TINYFORMAT_ERROR(reason) assert(0 && reason)
+#endif // TINYFORMAT_ERROR
 
 #if !defined(TINYFORMAT_USE_VARIADIC_TEMPLATES) && !defined(TINYFORMAT_NO_VARIADIC_TEMPLATES)
-#   ifdef __GXX_EXPERIMENTAL_CXX0X__
-#       define TINYFORMAT_USE_VARIADIC_TEMPLATES
-#   endif
+	#ifdef __GXX_EXPERIMENTAL_CXX0X__
+		#define TINYFORMAT_USE_VARIADIC_TEMPLATES
+	#endif // __GXX_EXPERIMENTAL_CXX0X__
 #endif
 
 #ifdef __GNUC__
-#   define TINYFORMAT_NOINLINE __attribute__((noinline))
+	#define TINYFORMAT_NOINLINE __attribute__((noinline))
 #elif defined(_MSC_VER)
-#   define TINYFORMAT_NOINLINE __declspec(noinline)
+	#define TINYFORMAT_NOINLINE __declspec(noinline)
 #else
-#   define TINYFORMAT_NOINLINE
+	#define TINYFORMAT_NOINLINE
 #endif
 
 #if defined(__GLIBCXX__) && __GLIBCXX__ < 20080201
 //  std::showpos is broken on old libstdc++ as provided with OSX.  See
 //  http://gcc.gnu.org/ml/libstdc++/2007-11/msg00075.html
-#   define TINYFORMAT_OLD_LIBSTDCPLUSPLUS_WORKAROUND
+	#define TINYFORMAT_OLD_LIBSTDCPLUSPLUS_WORKAROUND
 #endif
 
 namespace tinyformat {

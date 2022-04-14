@@ -10,14 +10,14 @@ template<typename K, int Size, CChainParams_Base58Type Type>
 class CDigitalNoteExtKeyBase : public CBase58Data
 {
 public:
-    void SetKey(const K &key)
+	void SetKey(const K &key)
 	{
-        unsigned char vch[Size];
-        
+		unsigned char vch[Size];
+		
 		key.Encode(vch);
 		
-        SetData(Params().Base58Prefix(Type), vch, vch+Size);
-    }
+		SetData(Params().Base58Prefix(Type), vch, vch+Size);
+	}
 	
 	CDigitalNoteExtKeyBase()
 	{
@@ -26,17 +26,17 @@ public:
 	
 	CDigitalNoteExtKeyBase(const K &key)
 	{
-        SetKey(key);
-    }
+		SetKey(key);
+	}
 	
-    K GetKey()
+	K GetKey()
 	{
-        K ret;
-        
+		K ret;
+		
 		ret.Decode(&vchData[0], &vchData[Size]);
-        
+		
 		return ret;
-    }
+	}
 };
 
 //typedef CDigitalNoteExtKeyBase<CExtKey, 74, CChainParams::EXT_SECRET_KEY> CDigitalNoteExtKey;

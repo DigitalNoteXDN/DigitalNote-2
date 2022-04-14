@@ -97,28 +97,28 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
 template<typename Stream, typename T, typename A>
 void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const boost::false_type&)
 {
-    v.clear();
-	
-    unsigned int nSize = ReadCompactSize(is);
-    unsigned int i = 0;
-    unsigned int nMid = 0;
-	
-    while (nMid < nSize)
-    {
-        nMid += 5000000 / sizeof(T);
+	v.clear();
+
+	unsigned int nSize = ReadCompactSize(is);
+	unsigned int i = 0;
+	unsigned int nMid = 0;
+
+	while (nMid < nSize)
+	{
+		nMid += 5000000 / sizeof(T);
 		
-        if (nMid > nSize)
+		if (nMid > nSize)
 		{
-            nMid = nSize;
+			nMid = nSize;
 		}
 		
-        v.resize(nMid);
-        
+		v.resize(nMid);
+		
 		for (; i < nMid; i++)
 		{
-            Unserialize(is, v[i], nType, nVersion);
+			Unserialize(is, v[i], nType, nVersion);
 		}
-    }
+	}
 }
 
 template<typename Stream, typename T, typename A>

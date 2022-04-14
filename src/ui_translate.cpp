@@ -8,8 +8,8 @@
  */
 std::string ui_translate(const char* psz)
 {
-    boost::optional<std::string> rv = uiInterface.Translate(psz);
-	
-    return rv ? (*rv) : psz;
+	boost::optional<std::string> rv = uiInterface.Translate(psz);
+
+	return rv ? (*rv) : psz;
 }
 

@@ -1048,18 +1048,18 @@ void CWalletTx::RelayWalletTransaction(std::string strCommand)
 
 std::set<uint256> CWalletTx::GetConflicts() const
 {
-    std::set<uint256> result;
-	
-    if (pwallet != NULL)
-    {
+	std::set<uint256> result;
+
+	if (pwallet != NULL)
+	{
 		uint256 myHash = GetHash();
 		
 		result = pwallet->GetConflicts(myHash);
 		
 		result.erase(myHash);
-    }
-	
-    return result;
+	}
+
+	return result;
 }
 
 /**
@@ -1067,14 +1067,14 @@ std::set<uint256> CWalletTx::GetConflicts() const
 */
 void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
-    if (!mapValue.count("n"))
-    {
-        nOrderPos = -1; // TODO: calculate elsewhere
+	if (!mapValue.count("n"))
+	{
+		nOrderPos = -1; // TODO: calculate elsewhere
 		
-        return;
-    }
-	
-    nOrderPos = atoi64(mapValue["n"].c_str());
+		return;
+	}
+
+	nOrderPos = atoi64(mapValue["n"].c_str());
 }
 
 void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)

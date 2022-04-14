@@ -11,10 +11,10 @@
 class CMNengineBroadcastTx
 {
 public:
-    CTransaction tx;
-    CTxIn vin;
-    std::vector<unsigned char> vchSig;
-    int64_t sigTime;
+	CTransaction tx;
+	CTxIn vin;
+	std::vector<unsigned char> vchSig;
+	int64_t sigTime;
 };
 
 #endif // CMNENGINEBROADCASTTX_H

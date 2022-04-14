@@ -1,31 +1,33 @@
 #ifndef ADDRMAN_H
 #define ADDRMAN_H
 
-// Stochastic address manager
-//
-// Design goals:
-//  * Only keep a limited number of addresses around, so that addr.dat and memory requirements do not grow without bound.
-//  * Keep the address tables in-memory, and asynchronously dump the entire to able in addr.dat.
-//  * Make sure no (localized) attacker can fill the entire table with his nodes/addresses.
-//
-// To that end:
-//  * Addresses are organized into buckets.
-//    * Address that have not yet been tried go into 256 "new" buckets.
-//      * Based on the address range (/16 for IPv4) of source of the information, 32 buckets are selected at random
-//      * The actual bucket is chosen from one of these, based on the range the address itself is located.
-//      * One single address can occur in up to 4 different buckets, to increase selection chances for addresses that
-//        are seen frequently. The chance for increasing this multiplicity decreases exponentially.
-//      * When adding a new address to a full bucket, a randomly chosen entry (with a bias favoring less recently seen
-//        ones) is removed from it first.
-//    * Addresses of nodes that are known to be accessible go into 64 "tried" buckets.
-//      * Each address range selects at random 4 of these buckets.
-//      * The actual bucket is chosen from one of these, based on the full address.
-//      * When adding a new good address to a full bucket, a randomly chosen entry (with a bias favoring less recently
-//        tried ones) is evicted from it, back to the "new" buckets.
-//    * Bucket selection is based on cryptographic hashing, using a randomly-generated 256-bit key, which should not
-//      be observable by adversaries.
-//    * Several indexes are kept for high performance. Defining DEBUG_ADDRMAN will introduce frequent (and expensive)
-//      consistency checks for the entire data structure.
+/*
+Stochastic address manager
+
+Design goals:
+	* Only keep a limited number of addresses around, so that addr.dat and memory requirements do not grow without bound.
+	* Keep the address tables in-memory, and asynchronously dump the entire to able in addr.dat.
+	* Make sure no (localized) attacker can fill the entire table with his nodes/addresses.
+
+To that end:
+	* Addresses are organized into buckets.
+	* Address that have not yet been tried go into 256 "new" buckets.
+		* Based on the address range (/16 for IPv4) of source of the information, 32 buckets are selected at random
+		* The actual bucket is chosen from one of these, based on the range the address itself is located.
+		* One single address can occur in up to 4 different buckets, to increase selection chances for addresses that
+		  are seen frequently. The chance for increasing this multiplicity decreases exponentially.
+		* When adding a new address to a full bucket, a randomly chosen entry (with a bias favoring less recently seen
+		  ones) is removed from it first.
+	* Addresses of nodes that are known to be accessible go into 64 "tried" buckets.
+		* Each address range selects at random 4 of these buckets.
+		* The actual bucket is chosen from one of these, based on the full address.
+		* When adding a new good address to a full bucket, a randomly chosen entry (with a bias favoring less recently
+		  tried ones) is evicted from it, back to the "new" buckets.
+	* Bucket selection is based on cryptographic hashing, using a randomly-generated 256-bit key, which should not
+	  be observable by adversaries.
+	* Several indexes are kept for high performance. Defining DEBUG_ADDRMAN will introduce frequent (and expensive)
+	 consistency checks for the entire data structure.
+*/
 
 // total number of buckets for tried addresses
 #define ADDRMAN_TRIED_BUCKET_COUNT 64

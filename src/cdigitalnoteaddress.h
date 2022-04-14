@@ -18,18 +18,18 @@ class CScriptID;
 class CDigitalNoteAddress : public CBase58Data
 {
 public:
-    CDigitalNoteAddress();
-    CDigitalNoteAddress(const CTxDestination &dest);
-    CDigitalNoteAddress(const std::string& strAddress);
-    CDigitalNoteAddress(const char* pszAddress);
-	
+	CDigitalNoteAddress();
+	CDigitalNoteAddress(const CTxDestination &dest);
+	CDigitalNoteAddress(const std::string& strAddress);
+	CDigitalNoteAddress(const char* pszAddress);
+
 	bool Set(const CKeyID &id);
-    bool Set(const CScriptID &id);
-    bool Set(const CTxDestination &dest);
-    bool IsValid() const;
-    CTxDestination Get() const;
-    bool GetKeyID(CKeyID &keyID) const;
-    bool IsScript() const;
+	bool Set(const CScriptID &id);
+	bool Set(const CTxDestination &dest);
+	bool IsValid() const;
+	CTxDestination Get() const;
+	bool GetKeyID(CKeyID &keyID) const;
+	bool IsScript() const;
 };
 
 #endif // CDIGITALNOTEADDRESS_H

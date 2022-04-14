@@ -26,51 +26,49 @@ class uint256;
 
 namespace boost
 {
-    class thread_group;
+	class thread_group;
 }
 
 enum
 {
-    LOCAL_NONE,   // unknown
-    LOCAL_IF,     // address a local interface listens on
-    LOCAL_BIND,   // address explicit bound to
-    LOCAL_UPNP,   // address reported by UPnP
-    LOCAL_MANUAL, // address explicitly specified (-externalip=)
+	LOCAL_NONE,		// unknown
+	LOCAL_IF,		// address a local interface listens on
+	LOCAL_BIND,		// address explicit bound to
+	LOCAL_UPNP,		// address reported by UPnP
+	LOCAL_MANUAL,	// address explicitly specified (-externalip=)
 
-    LOCAL_MAX
+	LOCAL_MAX
 };
 
 enum
 {
-    MSG_TX = 1,
-    MSG_BLOCK,
-    // Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
-    // MSG_FILTERED_BLOCK should not appear in any invs except as a part of getdata.
-    MSG_FILTERED_BLOCK,
-    MSG_TXLOCK_REQUEST,
-    MSG_TXLOCK_VOTE,
-    MSG_SPORK,
-    MSG_MASTERNODE_WINNER,
-    MSG_MASTERNODE_SCANNING_ERROR,
-    MSG_DSTX
+	MSG_TX = 1,
+	MSG_BLOCK,
+	// Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
+	// MSG_FILTERED_BLOCK should not appear in any invs except as a part of getdata.
+	MSG_FILTERED_BLOCK,
+	MSG_TXLOCK_REQUEST,
+	MSG_TXLOCK_VOTE,
+	MSG_SPORK,
+	MSG_MASTERNODE_WINNER,
+	MSG_MASTERNODE_SCANNING_ERROR,
+	MSG_DSTX
 };
-
-
 
 struct LocalServiceInfo
 {
-    int nScore;
-    int nPort;
+	int nScore;
+	int nPort;
 };
 
 // Signals for message handling
 struct CNodeSignals
 {
-    boost::signals2::signal<int ()> GetHeight;
-    boost::signals2::signal<bool (CNode*)> ProcessMessages;
-    boost::signals2::signal<bool (CNode*, bool)> SendMessages;
-    boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
-    boost::signals2::signal<void (NodeId)> FinalizeNode;
+	boost::signals2::signal<int ()> GetHeight;
+	boost::signals2::signal<bool (CNode*)> ProcessMessages;
+	boost::signals2::signal<bool (CNode*, bool)> SendMessages;
+	boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
+	boost::signals2::signal<void (NodeId)> FinalizeNode;
 };
 
 /** Time between pings automatically sent out for latency probing and keepalive (in seconds). */

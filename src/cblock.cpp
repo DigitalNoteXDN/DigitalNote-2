@@ -217,7 +217,7 @@ int64_t CBlock::GetBlockTime() const
 
 void CBlock::UpdateTime(const CBlockIndex* pindexPrev)
 {
-    nTime = std::max(GetBlockTime(), GetAdjustedTime());
+	nTime = std::max(GetBlockTime(), GetAdjustedTime());
 }
 
 // entropy bit for stake modifier if chosen by modifier
@@ -1836,14 +1836,14 @@ bool CBlock::AcceptBlock()
 bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
 {
 	// if we are trying to sign
-	//    something except proof-of-stake block template
+	// something except proof-of-stake block template
 	if (!vtx[0].vout[0].IsEmpty())
 	{
 		return false;
 	}
 
 	// if we are trying to sign
-	//    a complete proof-of-stake block
+	// a complete proof-of-stake block
 	if (IsProofOfStake())
 	{
 		return true;
@@ -1866,11 +1866,11 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
 			if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1)
 			{
 				// make sure coinstake would meet timestamp protocol
-				//    as it would be the same as the block timestamp
+				// as it would be the same as the block timestamp
 				vtx[0].nTime = nTime = txCoinStake.nTime;
 
 				// we have to make sure that we have no future timestamps in
-				//    our transactions set
+				// our transactions set
 				for (std::vector<CTransaction>::iterator it = vtx.begin(); it != vtx.end();)
 				{
 					if (it->nTime > nTime)

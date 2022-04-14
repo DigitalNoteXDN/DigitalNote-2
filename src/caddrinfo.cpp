@@ -33,37 +33,37 @@ void CAddrInfo::Init()
 
 int CAddrInfo::GetTriedBucket(const std::vector<unsigned char> &nKey) const
 {
-    CDataStream ss1(SER_GETHASH, 0);
-    CDataStream ss2(SER_GETHASH, 0);
-    std::vector<unsigned char> vchKey = GetKey();
+	CDataStream ss1(SER_GETHASH, 0);
+	CDataStream ss2(SER_GETHASH, 0);
+	std::vector<unsigned char> vchKey = GetKey();
 	std::vector<unsigned char> vchGroupKey = GetGroup();
-    
+
 	ss1 << nKey << vchKey;
-    
+
 	uint64_t hash1 = Hash_bmw512(ss1.begin(), ss1.end()).Get64();
 
-    ss2 << nKey << vchGroupKey << (hash1 % ADDRMAN_TRIED_BUCKETS_PER_GROUP);
-    
+	ss2 << nKey << vchGroupKey << (hash1 % ADDRMAN_TRIED_BUCKETS_PER_GROUP);
+
 	uint64_t hash2 = Hash_bmw512(ss2.begin(), ss2.end()).Get64();
-    
+
 	return hash2 % ADDRMAN_TRIED_BUCKET_COUNT;
 }
 
 int CAddrInfo::GetNewBucket(const std::vector<unsigned char> &nKey, const CNetAddr& src) const
 {
-    CDataStream ss1(SER_GETHASH, 0);
-    CDataStream ss2(SER_GETHASH, 0);
-    std::vector<unsigned char> vchGroupKey = GetGroup();
-    std::vector<unsigned char> vchSourceGroupKey = src.GetGroup();
-    
+	CDataStream ss1(SER_GETHASH, 0);
+	CDataStream ss2(SER_GETHASH, 0);
+	std::vector<unsigned char> vchGroupKey = GetGroup();
+	std::vector<unsigned char> vchSourceGroupKey = src.GetGroup();
+
 	ss1 << nKey << vchGroupKey << vchSourceGroupKey;
-    
+
 	uint64_t hash1 = Hash_bmw512(ss1.begin(), ss1.end()).Get64();
-	
+
 	ss2 << nKey << vchSourceGroupKey << (hash1 % ADDRMAN_NEW_BUCKETS_PER_SOURCE_GROUP);
-    
+
 	uint64_t hash2 = Hash_bmw512(ss2.begin(), ss2.end()).Get64();
-    
+
 	return hash2 % ADDRMAN_NEW_BUCKET_COUNT;
 }
 
@@ -74,63 +74,63 @@ int CAddrInfo::GetNewBucket(const std::vector<unsigned char> &nKey) const
 
 bool CAddrInfo::IsTerrible(int64_t nNow) const
 {
-    if (nLastTry && nLastTry >= nNow-60) // never remove things tried the last minute
+	if (nLastTry && nLastTry >= nNow-60) // never remove things tried the last minute
 	{
-        return false;
-	}
-	
-    if (nTime > nNow + 10*60) // came in a flying DeLorean
-	{
-        return true;
-	}
-	
-    if (nTime==0 || nNow-nTime > ADDRMAN_HORIZON_DAYS*86400) // not seen in over a month
-	{
-        return true;
-	}
-	
-    if (nLastSuccess==0 && nAttempts>=ADDRMAN_RETRIES) // tried three times and never a success
-	{
-        return true;
-	}
-	
-    if (nNow-nLastSuccess > ADDRMAN_MIN_FAIL_DAYS*86400 && nAttempts>=ADDRMAN_MAX_FAILURES) // 10 successive failures in the last week
-	{
-        return true;
+		return false;
 	}
 
-    return false;
+	if (nTime > nNow + 10*60) // came in a flying DeLorean
+	{
+		return true;
+	}
+
+	if (nTime==0 || nNow-nTime > ADDRMAN_HORIZON_DAYS*86400) // not seen in over a month
+	{
+		return true;
+	}
+
+	if (nLastSuccess==0 && nAttempts>=ADDRMAN_RETRIES) // tried three times and never a success
+	{
+		return true;
+	}
+
+	if (nNow-nLastSuccess > ADDRMAN_MIN_FAIL_DAYS*86400 && nAttempts>=ADDRMAN_MAX_FAILURES) // 10 successive failures in the last week
+	{
+		return true;
+	}
+
+	return false;
 }
 
 double CAddrInfo::GetChance(int64_t nNow) const
 {
-    double fChance = 1.0;
+	double fChance = 1.0;
 
-    int64_t nSinceLastSeen = nNow - nTime;
-    int64_t nSinceLastTry = nNow - nLastTry;
+	int64_t nSinceLastSeen = nNow - nTime;
+	int64_t nSinceLastTry = nNow - nLastTry;
 
-    if (nSinceLastSeen < 0)
+	if (nSinceLastSeen < 0)
 	{
 		nSinceLastSeen = 0;
 	}
-	
-    if (nSinceLastTry < 0)
+
+	if (nSinceLastTry < 0)
 	{
 		nSinceLastTry = 0;
 	}
-	
-    fChance *= 600.0 / (600.0 + nSinceLastSeen);
 
-    // deprioritize very recent attempts away
-    if (nSinceLastTry < 60*10)
+	fChance *= 600.0 / (600.0 + nSinceLastSeen);
+
+	// deprioritize very recent attempts away
+	if (nSinceLastTry < 60*10)
 	{
-        fChance *= 0.01;
+		fChance *= 0.01;
 	}
-	
-    // deprioritize 66% after each failed attempt, but at most 1/28th to avoid the search taking forever or overly penalizing outages.
-    fChance *= pow(0.66, std::min(nAttempts, 8));
 
-    return fChance;
+	// deprioritize 66% after each failed attempt, but at most 1/28th to avoid the search taking forever or overly penalizing outages.
+	fChance *= pow(0.66, std::min(nAttempts, 8));
+
+	return fChance;
 }
 
 unsigned int CAddrInfo::GetSerializeSize(int nType, int nVersion) const

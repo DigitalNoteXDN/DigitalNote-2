@@ -9,7 +9,7 @@ namespace SMSG {
 class CDigitalNoteAddress_B : public CDigitalNoteAddress
 {
 public:
-    uint8_t getVersion();
+	uint8_t getVersion();
 };
 
 } // namespace SMSG

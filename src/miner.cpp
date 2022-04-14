@@ -592,15 +592,15 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 		}
 		
 		// Fill in header
-		pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-		pblock->nTime          = std::max(pindexPrev->GetPastTimeLimit()+1, pblock->GetMaxTransactionTime());
+		pblock->hashPrevBlock = pindexPrev->GetBlockHash();
+		pblock->nTime = std::max(pindexPrev->GetPastTimeLimit()+1, pblock->GetMaxTransactionTime());
 		
 		if (!fProofOfStake)
 		{
 			pblock->UpdateTime(pindexPrev);
 		}
 		
-		pblock->nNonce         = 0;
+		pblock->nNonce = 0;
 	}
 
 	return pblock.release();
@@ -651,12 +651,12 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
 
 	memset(&tmp, 0, sizeof(tmp));
 
-	tmp.block.nVersion       = pblock->nVersion;
-	tmp.block.hashPrevBlock  = pblock->hashPrevBlock;
+	tmp.block.nVersion = pblock->nVersion;
+	tmp.block.hashPrevBlock = pblock->hashPrevBlock;
 	tmp.block.hashMerkleRoot = pblock->hashMerkleRoot;
-	tmp.block.nTime          = pblock->nTime;
-	tmp.block.nBits          = pblock->nBits;
-	tmp.block.nNonce         = pblock->nNonce;
+	tmp.block.nTime = pblock->nTime;
+	tmp.block.nBits = pblock->nBits;
+	tmp.block.nNonce = pblock->nNonce;
 
 	FormatHashBlocks(&tmp.block, sizeof(tmp.block));
 	FormatHashBlocks(&tmp.hash1, sizeof(tmp.hash1));

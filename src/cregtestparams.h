@@ -9,10 +9,10 @@
 class CRegTestParams : public CTestNetParams
 {
 public:
-    CRegTestParams();
-	
-    virtual bool RequireRPCPassword() const;
-    virtual CChainParams_Network NetworkID() const;
+	CRegTestParams();
+
+	virtual bool RequireRPCPassword() const;
+	virtual CChainParams_Network NetworkID() const;
 };
 
 #endif // CREGTESTPARAMS_H

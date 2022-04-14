@@ -2,16 +2,16 @@
 	#include "compat.h"
 	
 	#include <string>
-    #include <set>
-    #include <map>
+	#include <set>
+	#include <map>
 	#include <list>
-    #include <vector>
-    #include <algorithm>
-    #include <cmath>
-    #include <cassert>
-    #include <cstddef>
-    #include <cstdint>
-    #include <cstdlib>
+	#include <vector>
+	#include <algorithm>
+	#include <cmath>
+	#include <cassert>
+	#include <cstddef>
+	#include <cstdint>
+	#include <cstdlib>
 	#include <functional>
 	#include <string.h>
 	#include <limits>

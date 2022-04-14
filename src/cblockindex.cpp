@@ -32,11 +32,11 @@ CBlockIndex::CBlockIndex()
 	nStakeTime = 0;
 	nSequenceId = 0;
 
-	nVersion       = 0;
+	nVersion = 0;
 	hashMerkleRoot = 0;
-	nTime          = 0;
-	nBits          = 0;
-	nNonce         = 0;
+	nTime = 0;
+	nBits = 0;
+	nNonce = 0;
 }
 
 CBlockIndex::CBlockIndex(unsigned int nFileIn, unsigned int nBlockPosIn, CBlock& block)
@@ -68,22 +68,22 @@ CBlockIndex::CBlockIndex(unsigned int nFileIn, unsigned int nBlockPosIn, CBlock&
 		nStakeTime = 0;
 	}
 
-	nVersion       = block.nVersion;
+	nVersion = block.nVersion;
 	hashMerkleRoot = block.hashMerkleRoot;
-	nTime          = block.nTime;
-	nBits          = block.nBits;
-	nNonce         = block.nNonce;
+	nTime = block.nTime;
+	nBits = block.nBits;
+	nNonce = block.nNonce;
 }
 
 CBlock CBlockIndex::GetBlockHeader() const
 {
 	CBlock block;
 	
-	block.nVersion       = nVersion;
+	block.nVersion = nVersion;
 	block.hashMerkleRoot = hashMerkleRoot;
-	block.nTime          = nTime;
-	block.nBits          = nBits;
-	block.nNonce         = nNonce;
+	block.nTime = nTime;
+	block.nBits = nBits;
+	block.nNonce = nNonce;
 	
 	if (pprev)
 	{

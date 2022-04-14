@@ -144,38 +144,38 @@ void Serialize(Stream& os, const T& a, long nType, int nVersion)
 template<typename Stream>
 void WriteCompactSize(Stream& os, uint64_t nSize)
 {
-    if (nSize < 253)
-    {
-        unsigned char chSize = nSize;
+	if (nSize < 253)
+	{
+		unsigned char chSize = nSize;
 		
-        WRITEDATA(os, chSize);
-    }
-    else if (nSize <= std::numeric_limits<unsigned short>::max())
-    {
-        unsigned char chSize = 253;
-        unsigned short xSize = nSize;
-        
 		WRITEDATA(os, chSize);
-        WRITEDATA(os, xSize);
-    }
-    else if (nSize <= std::numeric_limits<unsigned int>::max())
-    {
-        unsigned char chSize = 254;
-        unsigned int xSize = nSize;
+	}
+	else if (nSize <= std::numeric_limits<unsigned short>::max())
+	{
+		unsigned char chSize = 253;
+		unsigned short xSize = nSize;
 		
-        WRITEDATA(os, chSize);
-        WRITEDATA(os, xSize);
-    }
-    else
-    {
-        unsigned char chSize = 255;
-        uint64_t xSize = nSize;
+		WRITEDATA(os, chSize);
+		WRITEDATA(os, xSize);
+	}
+	else if (nSize <= std::numeric_limits<unsigned int>::max())
+	{
+		unsigned char chSize = 254;
+		unsigned int xSize = nSize;
 		
-        WRITEDATA(os, chSize);
-        WRITEDATA(os, xSize);
-    }
-	
-    return;
+		WRITEDATA(os, chSize);
+		WRITEDATA(os, xSize);
+	}
+	else
+	{
+		unsigned char chSize = 255;
+		uint64_t xSize = nSize;
+		
+		WRITEDATA(os, chSize);
+		WRITEDATA(os, xSize);
+	}
+
+	return;
 }
 
 

@@ -166,12 +166,12 @@ void Shutdown()
 	{
 		LOCK(cs_main);
 #ifdef ENABLE_WALLET
-        if (pwalletMain)
+		if (pwalletMain)
 		{
 			pwalletMain->SetBestChain(CBlockLocator(pindexBest));
 		}
 #endif
-    }
+	}
 
 #ifdef ENABLE_WALLET
 	if (pwalletMain)
@@ -288,13 +288,13 @@ std::string HelpMessage()
 	strUsage += "  -paytxfee=<amt>        " + ui_translate("Fee per KB to add to transactions you send") + "\n";
 	strUsage += "  -mininput=<amt>        " + ui_translate("When creating transactions, ignore inputs with value less than this (default: 0.01)") + "\n";
 
-    if (fHaveGUI)
+	if (fHaveGUI)
 	{
 		strUsage += "  -server                " + ui_translate("Accept command line and JSON-RPC commands") + "\n";
 	}
 	
 #if !defined(WIN32)
-    if (fHaveGUI)
+	if (fHaveGUI)
 	{
 		strUsage += "  -daemon                " + ui_translate("Run in the background as a daemon and accept commands") + "\n";
 	}
@@ -408,22 +408,22 @@ bool InitSanityCheck(void)
  */
 bool AppInit2(boost::thread_group& threadGroup)
 {
-    // ********************************************************* Step 1: setup
+	// ********************************************************* Step 1: setup
 #ifdef _MSC_VER
-    // Turn off Microsoft heap dump noise
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_WARN, CreateFileA("NUL", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0));
+	// Turn off Microsoft heap dump noise
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, CreateFileA("NUL", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0));
 #endif
 
 #if _MSC_VER >= 1400
-    // Disable confusing "helpful" text message on abort, Ctrl-C
-    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+	// Disable confusing "helpful" text message on abort, Ctrl-C
+	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #endif
 
 #ifdef WIN32
-    // Enable Data Execution Prevention (DEP)
-    // Minimum supported OS versions: WinXP SP3, WinVista >= SP1, Win Server 2008
-    // A failure is non-critical and needs no further attention!
+	// Enable Data Execution Prevention (DEP)
+	// Minimum supported OS versions: WinXP SP3, WinVista >= SP1, Win Server 2008
+	// A failure is non-critical and needs no further attention!
 	#ifndef PROCESS_DEP_ENABLE
 		// We define this here, because GCCs winbase.h limits this to _WIN32_WINNT >= 0x0601 (Windows 7),
 		// which is not correct. Can be removed, when GCCs winbase.h is fixed!
@@ -459,7 +459,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	sigaction(SIGHUP, &sa_hup, NULL);
 #endif
 
-    // ********************************************************* Step 2: parameter interactions
+	// ********************************************************* Step 2: parameter interactions
 
 	nNodeLifespan = GetArg("-addrlifespan", 7);
 	fUseFastIndex = GetBoolArg("-fastindex", true);
@@ -640,7 +640,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	}	
 #endif
 
-    fConfChange = GetBoolArg("-confchange", false);
+	fConfChange = GetBoolArg("-confchange", false);
 
 #ifdef ENABLE_WALLET
 	if (mapArgs.count("-mininput"))
@@ -1570,7 +1570,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	// InitRPCMining is needed here so getwork/getblocktemplate in the GUI debug console works properly.
 	InitRPCMining();
 #endif
-    
+
 	if (fServer)
 	{
 		StartRPCThreads();

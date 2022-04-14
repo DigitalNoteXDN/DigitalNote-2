@@ -14,10 +14,10 @@ public:
 	CStealthKeyMetadata(CPubKey pkEphem_, CPubKey pkScan_);
 
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream &s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream &s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream &s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream &s, int nType, int nVersion);
 };
 
 #endif // CSTEALTHKEYMETADATA_H

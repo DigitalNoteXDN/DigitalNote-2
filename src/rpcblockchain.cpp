@@ -225,8 +225,8 @@ json_spirit::Value getdifficulty(const json_spirit::Array& params, bool fHelp)
 	}
 
 	//json_spirit::Object obj;
-	//obj.push_back(json_spirit::Pair("proof-of-work",        GetDifficulty()));
-	//obj.push_back(json_spirit::Pair("proof-of-stake",       GetDifficulty(GetLastBlockIndex(pindexBest, true))));
+	//obj.push_back(json_spirit::Pair("proof-of-work", GetDifficulty()));
+	//obj.push_back(json_spirit::Pair("proof-of-stake", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
 	return GetDifficulty(GetLastBlockIndex(pindexBest, true));
 }
 

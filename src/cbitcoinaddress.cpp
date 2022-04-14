@@ -39,73 +39,73 @@ CBitcoinAddress::CBitcoinAddress(const char* pszAddress)
 
 bool CBitcoinAddress::Set(const CKeyID &id)
 {
-    SetData(Params().Base58Prefix(pubkey_address), &id, 20);
-    
+	SetData(Params().Base58Prefix(pubkey_address), &id, 20);
+
 	return true;
 }
 
 bool CBitcoinAddress::Set(const CScriptID &id)
 {
-    SetData(Params().Base58Prefix(script_address), &id, 20);
-    
+	SetData(Params().Base58Prefix(script_address), &id, 20);
+
 	return true;
 }
 
 bool CBitcoinAddress::Set(const CTxDestination &dest)
 {
-    return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
+	return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
 }
 
 bool CBitcoinAddress::IsValid() const
 {
-    bool fCorrectSize = vchData.size() == 20;
-    bool fKnownVersion = vchVersion == Params().Base58Prefix(pubkey_address) ||
-                         vchVersion == Params().Base58Prefix(script_address);
-    
+	bool fCorrectSize = vchData.size() == 20;
+	bool fKnownVersion = vchVersion == Params().Base58Prefix(pubkey_address) ||
+						 vchVersion == Params().Base58Prefix(script_address);
+
 	return fCorrectSize && fKnownVersion;
 }
 
 CTxDestination CBitcoinAddress::Get() const
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return CNoDestination();
+		return CNoDestination();
 	}
-	
-    uint160 id;
-    memcpy(&id, &vchData[0], 20);
-    
+
+	uint160 id;
+	memcpy(&id, &vchData[0], 20);
+
 	if (vchVersion == Params().Base58Prefix(pubkey_address))
 	{
-        return CKeyID(id);
+		return CKeyID(id);
 	}
-    else if (vchVersion == Params().Base58Prefix(script_address))
+	else if (vchVersion == Params().Base58Prefix(script_address))
 	{
-        return CScriptID(id);
+		return CScriptID(id);
 	}
-    else
+	else
 	{
-        return CNoDestination();
+		return CNoDestination();
 	}
 }
 
 bool CBitcoinAddress::GetKeyID(CKeyID &keyID) const
 {
-    if (!IsValid() || vchVersion != Params().Base58Prefix(pubkey_address))
+	if (!IsValid() || vchVersion != Params().Base58Prefix(pubkey_address))
 	{
-        return false;
+		return false;
 	}
-	
-    uint160 id;
-    
+
+	uint160 id;
+
 	memcpy(&id, &vchData[0], 20);
-    keyID = CKeyID(id);
-    
+	keyID = CKeyID(id);
+
 	return true;
 }
 
 bool CBitcoinAddress::IsScript() const
 {
-    return IsValid() && vchVersion == Params().Base58Prefix(script_address);
+	return IsValid() && vchVersion == Params().Base58Prefix(script_address);
 }
 

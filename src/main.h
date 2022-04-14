@@ -36,9 +36,9 @@ struct CNodeSignals;
 
 enum GetMinFee_mode
 {
-    GMF_BLOCK,
-    GMF_RELAY,
-    GMF_SEND,
+	GMF_BLOCK,
+	GMF_RELAY,
+	GMF_SEND,
 };
 
 namespace boost
@@ -92,10 +92,10 @@ void ThreadStakeMiner(CWallet *pwallet);
 
 /** (try to) add transaction to memory pool **/
 bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectinsaneFee=false, bool ignoreFees=false, bool fFixSpentCoins=false);
+		bool* pfMissingInputs, bool fRejectinsaneFee=false, bool ignoreFees=false, bool fFixSpentCoins=false);
 
 bool AcceptableInputs(CTxMemPool& pool, const CTransaction &txo, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectinsaneFee=false, bool isDSTX=false);
+		bool* pfMissingInputs, bool fRejectinsaneFee=false, bool isDSTX=false);
 
 
 bool FindTransactionsByDestination(const CTxDestination &dest, std::vector<uint256> &vtxhash);
@@ -113,30 +113,30 @@ void Misbehaving(NodeId nodeid, int howmuch);
 int64_t GetMinFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree, enum GetMinFee_mode mode);
 
 /** Check for standard transaction types
-    @param[in] mapInputs    Map of previous transactions that have outputs we're spending
-    @return True if all inputs (scriptSigs) use only standard transaction forms
-    @see CTransaction::FetchInputs
+	@param[in] mapInputs    Map of previous transactions that have outputs we're spending
+	@return True if all inputs (scriptSigs) use only standard transaction forms
+	@see CTransaction::FetchInputs
 */
 bool AreInputsStandard(const CTransaction& tx, const mapPrevTx_t& mapInputs);
 
 /** Count ECDSA signature operations the old-fashioned (pre-0.6) way
-    @return number of sigops this transaction's outputs will produce when spent
-    @see CTransaction::FetchInputs
+	@return number of sigops this transaction's outputs will produce when spent
+	@see CTransaction::FetchInputs
 */
 unsigned int GetLegacySigOpCount(const CTransaction& tx);
 
 /** Count ECDSA signature operations in pay-to-script-hash inputs.
 
-    @param[in] mapInputs    Map of previous transactions that have outputs we're spending
-    @return maximum number of sigops required to validate this transaction's inputs
-    @see CTransaction::FetchInputs
+	@param[in] mapInputs    Map of previous transactions that have outputs we're spending
+	@return maximum number of sigops required to validate this transaction's inputs
+	@see CTransaction::FetchInputs
  */
 unsigned int GetP2SHSigOpCount(const CTransaction& tx, const mapPrevTx_t& mapInputs);
 
 bool AllowFree(double dPriority);
 
 /** Check for standard transaction types
-    @return True if all outputs (scriptPubKeys) use only standard transaction forms
+	@return True if all outputs (scriptPubKeys) use only standard transaction forms
 */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight = 0, int64_t nBlockTime = 0);

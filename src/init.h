@@ -6,7 +6,7 @@
 class CWallet;
 
 namespace boost {
-    class thread_group;
+	class thread_group;
 } // namespace boost
 
 extern CWallet* pwalletMain;

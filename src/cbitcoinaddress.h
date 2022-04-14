@@ -13,18 +13,18 @@
 class CBitcoinAddress : public CBase58Data
 {
 public:
-    CBitcoinAddress();
+	CBitcoinAddress();
 	CBitcoinAddress(const CTxDestination &dest);
 	CBitcoinAddress(const std::string& strAddress);
-    CBitcoinAddress(const char* pszAddress);
-	
+	CBitcoinAddress(const char* pszAddress);
+
 	bool Set(const CKeyID &id);
-    bool Set(const CScriptID &id);
-    bool Set(const CTxDestination &dest);
-    bool IsValid() const;
-    CTxDestination Get() const;
-    bool GetKeyID(CKeyID &keyID) const;
-    bool IsScript() const;
+	bool Set(const CScriptID &id);
+	bool Set(const CTxDestination &dest);
+	bool IsValid() const;
+	CTxDestination Get() const;
+	bool GetKeyID(CKeyID &keyID) const;
+	bool IsScript() const;
 };
 
 #endif // CBITCOINADDRESS_H

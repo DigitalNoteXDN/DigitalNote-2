@@ -15,44 +15,44 @@
 class CScriptNum
 {
 private:
-    int64_t m_value;
-	
+	int64_t m_value;
+
 	int64_t set_vch(const std::vector<unsigned char>& vch);
-    
+
 public:
 	static const size_t nMaxNumSize = 4;
-	
-    explicit CScriptNum(const int64_t& n);
-    explicit CScriptNum(const std::vector<unsigned char>& vch, bool fRequireMinimal);
-	
-    bool operator==(const int64_t& rhs) const;
-    bool operator!=(const int64_t& rhs) const;
-    bool operator<=(const int64_t& rhs) const;
-    bool operator< (const int64_t& rhs) const;
-    bool operator>=(const int64_t& rhs) const;
-    bool operator> (const int64_t& rhs) const;
 
-    bool operator==(const CScriptNum& rhs) const;
-    bool operator!=(const CScriptNum& rhs) const;
-    bool operator<=(const CScriptNum& rhs) const;
-    bool operator< (const CScriptNum& rhs) const;
-    bool operator>=(const CScriptNum& rhs) const;
-    bool operator> (const CScriptNum& rhs) const;
+	explicit CScriptNum(const int64_t& n);
+	explicit CScriptNum(const std::vector<unsigned char>& vch, bool fRequireMinimal);
 
-    CScriptNum operator+(const int64_t& rhs) const;
-    CScriptNum operator-(const int64_t& rhs) const;
-    CScriptNum operator+(const CScriptNum& rhs) const;
-    CScriptNum operator-(const CScriptNum& rhs) const;
+	bool operator==(const int64_t& rhs) const;
+	bool operator!=(const int64_t& rhs) const;
+	bool operator<=(const int64_t& rhs) const;
+	bool operator< (const int64_t& rhs) const;
+	bool operator>=(const int64_t& rhs) const;
+	bool operator> (const int64_t& rhs) const;
 
-    CScriptNum& operator+=(const CScriptNum& rhs);
-    CScriptNum& operator-=(const CScriptNum& rhs);
-    CScriptNum operator-() const;
-    CScriptNum& operator=(const int64_t& rhs);
-    CScriptNum& operator+=(const int64_t& rhs);
-    CScriptNum& operator-=(const int64_t& rhs);
-    int getint() const;
-    std::vector<unsigned char> getvch() const;
-    static std::vector<unsigned char> serialize(const int64_t& value);
+	bool operator==(const CScriptNum& rhs) const;
+	bool operator!=(const CScriptNum& rhs) const;
+	bool operator<=(const CScriptNum& rhs) const;
+	bool operator< (const CScriptNum& rhs) const;
+	bool operator>=(const CScriptNum& rhs) const;
+	bool operator> (const CScriptNum& rhs) const;
+
+	CScriptNum operator+(const int64_t& rhs) const;
+	CScriptNum operator-(const int64_t& rhs) const;
+	CScriptNum operator+(const CScriptNum& rhs) const;
+	CScriptNum operator-(const CScriptNum& rhs) const;
+
+	CScriptNum& operator+=(const CScriptNum& rhs);
+	CScriptNum& operator-=(const CScriptNum& rhs);
+	CScriptNum operator-() const;
+	CScriptNum& operator=(const int64_t& rhs);
+	CScriptNum& operator+=(const int64_t& rhs);
+	CScriptNum& operator-=(const int64_t& rhs);
+	int getint() const;
+	std::vector<unsigned char> getvch() const;
+	static std::vector<unsigned char> serialize(const int64_t& value);
 };
 
 static const CScriptNum ScriptNum_Zero(0);

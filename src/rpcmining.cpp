@@ -135,9 +135,9 @@ json_spirit::Value getmininginfo(const json_spirit::Array& params, bool fHelp)
 
 	json_spirit::Object obj, diff, weight;
 
-	obj.push_back(json_spirit::Pair("blocks",        (int)nBestHeight));
-	obj.push_back(json_spirit::Pair("currentblocksize",(uint64_t)nLastBlockSize));
-	obj.push_back(json_spirit::Pair("currentblocktx",(uint64_t)nLastBlockTx));
+	obj.push_back(json_spirit::Pair("blocks", (int)nBestHeight));
+	obj.push_back(json_spirit::Pair("currentblocksize", (uint64_t)nLastBlockSize));
+	obj.push_back(json_spirit::Pair("currentblocktx", (uint64_t)nLastBlockTx));
 
 	diff.push_back(json_spirit::Pair("proof-of-work", GetDifficulty()));
 	diff.push_back(json_spirit::Pair("proof-of-stake", GetDifficulty(GetLastBlockIndex(pindexBest, true))));
@@ -146,7 +146,7 @@ json_spirit::Value getmininginfo(const json_spirit::Array& params, bool fHelp)
 	obj.push_back(json_spirit::Pair("difficulty", diff));
 	obj.push_back(json_spirit::Pair("blockvalue-PoS", (uint64_t)getstakesubsidy));
 	obj.push_back(json_spirit::Pair("blockvalue-PoW", nRewardPoW));
-	obj.push_back(json_spirit::Pair("netmhashps",  GetPoWMHashPS()));
+	obj.push_back(json_spirit::Pair("netmhashps", GetPoWMHashPS()));
 	obj.push_back(json_spirit::Pair("netstakeweight", GetPoSKernelPS()));
 	obj.push_back(json_spirit::Pair("errors", GetWarnings("statusbar")));
 	obj.push_back(json_spirit::Pair("pooledtx", (uint64_t)mempool.size()));
@@ -329,7 +329,7 @@ json_spirit::Value getworkex(const json_spirit::Array& params, bool fHelp)
 
 	//if (IsInitialBlockDownload())
 	//{
-	//    throw JSONRPCError(-10, "DigitalNote is downloading blocks...");
+	//	throw JSONRPCError(-10, "DigitalNote is downloading blocks...");
 	//}
 
 	if (pindexBest->nHeight >= Params().EndPoWBlock())
@@ -501,7 +501,7 @@ json_spirit::Value getwork(const json_spirit::Array& params, bool fHelp)
 
 	//if (IsInitialBlockDownload())
 	//{
-	//    throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "DigitalNote is downloading blocks...");
+	//	throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "DigitalNote is downloading blocks...");
 	//}
 
 	if (pindexBest->nHeight >= Params().EndPoWBlock())
@@ -509,7 +509,7 @@ json_spirit::Value getwork(const json_spirit::Array& params, bool fHelp)
 		throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
 	}
 	
-	static mapNewBlock_t mapNewBlock;    // FIXME: thread safety
+	static mapNewBlock_t mapNewBlock;	// FIXME: thread safety
 	static std::vector<CBlock*> vNewBlock;
 
 	if (params.size() == 0)
@@ -879,34 +879,34 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 
 json_spirit::Value submitblock(const json_spirit::Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+	if (fHelp || params.size() < 1 || params.size() > 2)
 	{
-        throw std::runtime_error(
-            "submitblock <hex data> [optional-params-obj]\n"
-            "[optional-params-obj] parameter is currently ignored.\n"
-            "Attempts to submit new block to network.\n"
-            "See https://en.bitcoin.it/wiki/BIP_0022 for full specification."
+		throw std::runtime_error(
+			"submitblock <hex data> [optional-params-obj]\n"
+			"[optional-params-obj] parameter is currently ignored.\n"
+			"Attempts to submit new block to network.\n"
+			"See https://en.bitcoin.it/wiki/BIP_0022 for full specification."
 		);
 	}
-	
-    std::vector<unsigned char> blockData(ParseHex(params[0].get_str()));
-    CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);
-    CBlock block;
-    
+
+	std::vector<unsigned char> blockData(ParseHex(params[0].get_str()));
+	CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);
+	CBlock block;
+
 	try
 	{
-        ssBlock >> block;
-    }
-    catch (std::exception &e)
-	{
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
-    }
-
-    bool fAccepted = ProcessBlock(NULL, &block);
-    if (!fAccepted)
-	{
-        return "rejected";
+		ssBlock >> block;
 	}
-	
-    return json_spirit::Value::null;
+	catch (std::exception &e)
+	{
+		throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+	}
+
+	bool fAccepted = ProcessBlock(NULL, &block);
+	if (!fAccepted)
+	{
+		return "rejected";
+	}
+
+	return json_spirit::Value::null;
 }

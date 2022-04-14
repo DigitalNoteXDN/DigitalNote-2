@@ -82,23 +82,23 @@ bool CSporkManager::UpdateSpork(int nSporkID, int64_t nValue)
 
 bool CSporkManager::SetPrivKey(const std::string &strPrivKey)
 {
-    CSporkMessage msg;
+	CSporkMessage msg;
 
-    // Test signing successful, proceed
-    strMasterPrivKey = strPrivKey;
+	// Test signing successful, proceed
+	strMasterPrivKey = strPrivKey;
 
-    Sign(msg);
+	Sign(msg);
 
-    if(CheckSignature(msg))
+	if(CheckSignature(msg))
 	{
-        LogPrintf("CSporkManager::SetPrivKey - Successfully initialized as spork signer\n");
-        
+		LogPrintf("CSporkManager::SetPrivKey - Successfully initialized as spork signer\n");
+		
 		return true;
-    }
+	}
 	else
 	{
-        return false;
-    }
+		return false;
+	}
 }
 
 bool CSporkManager::CheckSignature(CSporkMessage& spork)
@@ -121,41 +121,41 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
 
 bool CSporkManager::Sign(CSporkMessage& spork)
 {
-    std::string strMessage = boost::lexical_cast<std::string>(spork.nSporkID) +
+	std::string strMessage = boost::lexical_cast<std::string>(spork.nSporkID) +
 							boost::lexical_cast<std::string>(spork.nValue) +
 							boost::lexical_cast<std::string>(spork.nTimeSigned);
-    CKey key2;
-    CPubKey pubkey2;
-    std::string errorMessage = "";
+	CKey key2;
+	CPubKey pubkey2;
+	std::string errorMessage = "";
 
-    if(!mnEngineSigner.SetKey(strMasterPrivKey, errorMessage, key2, pubkey2))
-    {
-        LogPrintf("CMasternodePayments::Sign - ERROR: Invalid masternodeprivkey: '%s'\n", errorMessage.c_str());
-        
-		return false;
-    }
-
-    if(!mnEngineSigner.SignMessage(strMessage, errorMessage, spork.vchSig, key2))
+	if(!mnEngineSigner.SetKey(strMasterPrivKey, errorMessage, key2, pubkey2))
 	{
-        LogPrintf("CMasternodePayments::Sign - Sign message failed");
-        
+		LogPrintf("CMasternodePayments::Sign - ERROR: Invalid masternodeprivkey: '%s'\n", errorMessage.c_str());
+		
 		return false;
-    }
+	}
 
-    if(!mnEngineSigner.VerifyMessage(pubkey2, spork.vchSig, strMessage, errorMessage))
+	if(!mnEngineSigner.SignMessage(strMessage, errorMessage, spork.vchSig, key2))
 	{
-        LogPrintf("CMasternodePayments::Sign - Verify message failed");
-        
+		LogPrintf("CMasternodePayments::Sign - Sign message failed");
+		
 		return false;
-    }
+	}
 
-    return true;
+	if(!mnEngineSigner.VerifyMessage(pubkey2, spork.vchSig, strMessage, errorMessage))
+	{
+		LogPrintf("CMasternodePayments::Sign - Verify message failed");
+		
+		return false;
+	}
+
+	return true;
 }
 
 void CSporkManager::Relay(CSporkMessage& msg)
 {
-    CInv inv(MSG_SPORK, msg.GetHash());
+	CInv inv(MSG_SPORK, msg.GetHash());
 
-    RelayInventory(inv);
+	RelayInventory(inv);
 }
 

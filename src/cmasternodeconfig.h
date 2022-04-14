@@ -21,12 +21,12 @@ private:
 	std::vector<CMasternodeConfigEntry> entries;
 
 public:
-    CMasternodeConfig();
+	CMasternodeConfig();
 
-    std::vector<CMasternodeConfigEntry>& getEntries();
-    
-    bool read(boost::filesystem::path path);
-    void add(const std::string &alias, const std::string &ip, const std::string &privKey, const std::string &txHash,
+	std::vector<CMasternodeConfigEntry>& getEntries();
+
+	bool read(boost::filesystem::path path);
+	void add(const std::string &alias, const std::string &ip, const std::string &privKey, const std::string &txHash,
 			const std::string &outputIndex);
 };
 

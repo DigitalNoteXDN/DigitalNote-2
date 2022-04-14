@@ -230,32 +230,32 @@ std::string CRPCTable::help(const std::string &strCommand) const
 
 json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_spirit::Array &params) const
 {
-    // Find method
-    const CRPCCommand* pcmd = tableRPC[strMethod];
-    
+	// Find method
+	const CRPCCommand* pcmd = tableRPC[strMethod];
+
 	if (!pcmd)
 	{
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+		throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
 	}
-	
+
 #ifdef ENABLE_WALLET
-    if (pcmd->reqWallet && !pwalletMain)
+	if (pcmd->reqWallet && !pwalletMain)
 	{
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found (disabled)");
+		throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found (disabled)");
 	}
 #endif // ENABLE_WALLET
 
-    // Observe safe mode
-    std::string strWarning = GetWarnings("rpc");
-    
+	// Observe safe mode
+	std::string strWarning = GetWarnings("rpc");
+
 	if (strWarning != "" &&
 		!GetBoolArg("-disablesafemode", false) &&
-        !pcmd->okSafeMode
+		!pcmd->okSafeMode
 	)
 	{
-        throw JSONRPCError(RPC_FORBIDDEN_BY_SAFE_MODE, std::string("Safe mode: ") + strWarning);
+		throw JSONRPCError(RPC_FORBIDDEN_BY_SAFE_MODE, std::string("Safe mode: ") + strWarning);
 	}
-	
+
 	try
 	{
 		// Execute
@@ -299,9 +299,9 @@ json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_s
 
 std::vector<std::string> CRPCTable::listCommands() const
 {
-    std::vector<std::string> commandList;
-	
-    std::transform(
+	std::vector<std::string> commandList;
+
+	std::transform(
 		mapCommands.begin(),
 		mapCommands.end(),
 		std::back_inserter(commandList),
@@ -310,7 +310,7 @@ std::vector<std::string> CRPCTable::listCommands() const
 			boost::placeholders::_1
 		)
 	);
-    
+
 	return commandList;
 }
 

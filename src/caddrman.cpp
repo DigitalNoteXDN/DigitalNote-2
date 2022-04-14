@@ -488,126 +488,126 @@ CAddress CAddrMan::Select_(int nUnkBias)
 #ifdef DEBUG_ADDRMAN
 int CAddrMan::Check_()
 {
-    std::set<int> setTried;
-    std::map<int, int> mapNew;
+	std::set<int> setTried;
+	std::map<int, int> mapNew;
 
-    if (vRandom.size() != nTried + nNew)
+	if (vRandom.size() != nTried + nNew)
 	{
 		return -7;
 	}
-	
-    for (std::map<int, CAddrInfo>::iterator it = mapInfo.begin(); it != mapInfo.end(); it++)
-    {
-        int n = (*it).first;
-        CAddrInfo &info = (*it).second;
-		
-        if (info.fInTried)
-        {
 
-            if (!info.nLastSuccess)
+	for (std::map<int, CAddrInfo>::iterator it = mapInfo.begin(); it != mapInfo.end(); it++)
+	{
+		int n = (*it).first;
+		CAddrInfo &info = (*it).second;
+		
+		if (info.fInTried)
+		{
+
+			if (!info.nLastSuccess)
 			{
 				return -1;
 			}
 			
-            if (info.nRefCount)
+			if (info.nRefCount)
 			{
 				return -2;
 			}
 			
-            setTried.insert(n);
-        }
+			setTried.insert(n);
+		}
 		else
 		{
-            if (info.nRefCount < 0 || info.nRefCount > ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
+			if (info.nRefCount < 0 || info.nRefCount > ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
 			{
 				return -3;
 			}
 			
-            if (!info.nRefCount)
+			if (!info.nRefCount)
 			{
 				return -4;
 			}
 			
-            mapNew[n] = info.nRefCount;
-        }
+			mapNew[n] = info.nRefCount;
+		}
 		
-        if (mapAddr[info] != n)
+		if (mapAddr[info] != n)
 		{
 			return -5;
 		}
 		
-        if (info.nRandomPos<0 || info.nRandomPos>=vRandom.size() || vRandom[info.nRandomPos] != n)
+		if (info.nRandomPos<0 || info.nRandomPos>=vRandom.size() || vRandom[info.nRandomPos] != n)
 		{
 			return -14;
 		}
 		
-        if (info.nLastTry < 0)
+		if (info.nLastTry < 0)
 		{
 			return -6;
 		}
 		
-        if (info.nLastSuccess < 0)
+		if (info.nLastSuccess < 0)
 		{
 			return -8;
 		}
-    }
+	}
 
-    if (setTried.size() != nTried)
+	if (setTried.size() != nTried)
 	{
 		return -9;
 	}
-	
-    if (mapNew.size() != nNew)
+
+	if (mapNew.size() != nNew)
 	{
 		return -10;
 	}
 
-    for (int n = 0; n < vvTried.size(); n++)
-    {
-        std::vector<int> &vTried = vvTried[n];
+	for (int n = 0; n < vvTried.size(); n++)
+	{
+		std::vector<int> &vTried = vvTried[n];
 		
-        for (std::vector<int>::iterator it = vTried.begin(); it != vTried.end(); it++)
-        {
-            if (!setTried.count(*it))
+		for (std::vector<int>::iterator it = vTried.begin(); it != vTried.end(); it++)
+		{
+			if (!setTried.count(*it))
 			{
 				return -11;
 			}
 			
-            setTried.erase(*it);
-        }
-    }
+			setTried.erase(*it);
+		}
+	}
 
-    for (int n = 0; n < vvNew.size(); n++)
-    {
-        std::set<int> &vNew = vvNew[n];
+	for (int n = 0; n < vvNew.size(); n++)
+	{
+		std::set<int> &vNew = vvNew[n];
 		
-        for (std::set<int>::iterator it = vNew.begin(); it != vNew.end(); it++)
-        {
-            if (!mapNew.count(*it))
+		for (std::set<int>::iterator it = vNew.begin(); it != vNew.end(); it++)
+		{
+			if (!mapNew.count(*it))
 			{
 				return -12;
 			}
 			
-            if (--mapNew[*it] == 0)
+			if (--mapNew[*it] == 0)
 			{
-                mapNew.erase(*it);
+				mapNew.erase(*it);
 			}
-        }
-    }
+		}
+	}
 
-    if (setTried.size())
+	if (setTried.size())
 	{
 		return -13;
 	}
-	
-    if (mapNew.size())
+
+	if (mapNew.size())
 	{
 		return -15;
 	}
-	
-    return 0;
+
+	return 0;
 }
-#endif
+#endif // DEBUG_ADDRMAN
 
 void CAddrMan::GetAddr_(std::vector<CAddress> &vAddr)
 {

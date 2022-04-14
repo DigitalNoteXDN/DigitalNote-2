@@ -14,20 +14,20 @@ class CTxDSOut;
 class CMNengineEntry
 {
 public:
-    bool isSet;
-    std::vector<CTxDSIn> sev;
-    std::vector<CTxDSOut> vout;
-    int64_t amount;
-    CTransaction collateral;
-    CTransaction txSupporting;
-    int64_t addedTime;							// time in UTC milliseconds
+	bool isSet;
+	std::vector<CTxDSIn> sev;
+	std::vector<CTxDSOut> vout;
+	int64_t amount;
+	CTransaction collateral;
+	CTransaction txSupporting;
+	int64_t addedTime;							// time in UTC milliseconds
 
-    CMNengineEntry();
+	CMNengineEntry();
 
-    /// Add entries to use for MNengine
-    bool Add(const std::vector<CTxIn> vinIn, int64_t amountIn, const CTransaction collateralIn, const std::vector<CTxOut> voutIn);
-    bool AddSig(const CTxIn& vin);
-    bool IsExpired();
+	/// Add entries to use for MNengine
+	bool Add(const std::vector<CTxIn> vinIn, int64_t amountIn, const CTransaction collateralIn, const std::vector<CTxOut> voutIn);
+	bool AddSig(const CTxIn& vin);
+	bool IsExpired();
 };
 
 #endif // CMNENFINEENTRY_H

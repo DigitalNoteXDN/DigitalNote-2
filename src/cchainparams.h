@@ -26,40 +26,40 @@ typedef unsigned char MessageStartChars[MESSAGE_START_SIZE];
 class CChainParams
 {
 protected:
-    uint256 hashGenesisBlock;
-    MessageStartChars pchMessageStart;
-    // Raw pub key bytes for the broadcast alert signing key.
-    std::vector<unsigned char> vAlertPubKey;
-    int nDefaultPort;
-    int nRPCPort;
-    CBigNum bnProofOfWorkLimit;
-    CBigNum bnProofOfStakeLimit;
-    std::string strDataDir;
-    std::vector<CDNSSeedData> vSeeds;
-    std::vector<unsigned char> base58Prefixes[CChainParams_Base58Type::MAX_BASE58_TYPES];
-    int nEndPoWBlock;
-    int nStartPoSBlock;
-    int nPoolMaxTransactions;
-    std::string strMNenginePoolDummyAddress;
-    std::string strDevOpsAddress;
+	uint256 hashGenesisBlock;
+	MessageStartChars pchMessageStart;
+	// Raw pub key bytes for the broadcast alert signing key.
+	std::vector<unsigned char> vAlertPubKey;
+	int nDefaultPort;
+	int nRPCPort;
+	CBigNum bnProofOfWorkLimit;
+	CBigNum bnProofOfStakeLimit;
+	std::string strDataDir;
+	std::vector<CDNSSeedData> vSeeds;
+	std::vector<unsigned char> base58Prefixes[CChainParams_Base58Type::MAX_BASE58_TYPES];
+	int nEndPoWBlock;
+	int nStartPoSBlock;
+	int nPoolMaxTransactions;
+	std::string strMNenginePoolDummyAddress;
+	std::string strDevOpsAddress;
 
 public:
 	virtual const CBlock& GenesisBlock() const = 0;
-    virtual CChainParams_Network NetworkID() const = 0;
+	virtual CChainParams_Network NetworkID() const = 0;
 	virtual const std::vector<CAddress>& FixedSeeds() const = 0;
-	
+
 protected:
-    CChainParams();
+	CChainParams();
 
 public:
-    const uint256& HashGenesisBlock() const;
-    const MessageStartChars& MessageStart() const;
-    const std::vector<unsigned char>& AlertKey() const;
-    int GetDefaultPort() const;
+	const uint256& HashGenesisBlock() const;
+	const MessageStartChars& MessageStart() const;
+	const std::vector<unsigned char>& AlertKey() const;
+	int GetDefaultPort() const;
 	const CBigNum& ProofOfWorkLimit() const;
-    const CBigNum& ProofOfStakeLimit() const;
-    virtual bool RequireRPCPassword() const;
-    const std::string& DataDir() const;
+	const CBigNum& ProofOfStakeLimit() const;
+	virtual bool RequireRPCPassword() const;
+	const std::string& DataDir() const;
 	const std::vector<CDNSSeedData>& DNSSeeds() const;
 	const std::vector<unsigned char>& Base58Prefix(CChainParams_Base58Type type) const;
 	int RPCPort() const;

@@ -286,12 +286,12 @@ void UnregisterAllWallets()
 
 void SyncWithWallets(const CTransaction &tx, const CBlock *pblock, bool fConnect, bool fFixSpentCoins)
 {
-    g_signals.SyncTransaction(tx, pblock, fConnect, fFixSpentCoins);
+	g_signals.SyncTransaction(tx, pblock, fConnect, fFixSpentCoins);
 }
 
 void ResendWalletTransactions(bool fForce)
 {
-    g_signals.Broadcast(fForce);
+	g_signals.Broadcast(fForce);
 }
 
 
@@ -305,9 +305,9 @@ namespace
 
 struct CBlockReject
 {
-    unsigned char chRejectCode;
-    std::string strRejectReason;
-    uint256 hashBlock;
+	unsigned char chRejectCode;
+	std::string strRejectReason;
+	uint256 hashBlock;
 };
 
 // Maintain validation-specific state about nodes, protected by cs_main, instead
@@ -316,29 +316,29 @@ struct CBlockReject
 // and we're no longer holding the node's locks.
 struct CNodeState
 {
-    // Accumulated misbehaviour score for this peer.
-    int nMisbehavior;
-    // Whether this peer should be disconnected and banned.
-    bool fShouldBan;
-    std::string name;
-    // List of asynchronously-determined block rejections to notify this peer about.
-    std::vector<CBlockReject> rejects;
-    std::list<QueuedBlock> vBlocksInFlight;
-    int nBlocksInFlight;
-    std::list<uint256> vBlocksToDownload;
-    int nBlocksToDownload;
-    int64_t nLastBlockReceive;
-    int64_t nLastBlockProcess;
+	// Accumulated misbehaviour score for this peer.
+	int nMisbehavior;
+	// Whether this peer should be disconnected and banned.
+	bool fShouldBan;
+	std::string name;
+	// List of asynchronously-determined block rejections to notify this peer about.
+	std::vector<CBlockReject> rejects;
+	std::list<QueuedBlock> vBlocksInFlight;
+	int nBlocksInFlight;
+	std::list<uint256> vBlocksToDownload;
+	int nBlocksToDownload;
+	int64_t nLastBlockReceive;
+	int64_t nLastBlockProcess;
 
-    CNodeState()
+	CNodeState()
 	{
-        nMisbehavior = 0;
-        fShouldBan = false;
-        nBlocksToDownload = 0;
-        nBlocksInFlight = 0;
-        nLastBlockReceive = 0;
-        nLastBlockProcess = 0;
-    }
+		nMisbehavior = 0;
+		fShouldBan = false;
+		nBlocksToDownload = 0;
+		nBlocksInFlight = 0;
+		nLastBlockReceive = 0;
+		nLastBlockProcess = 0;
+	}
 };
 
 std::map<NodeId, CNodeState> mapNodeState;
@@ -1198,7 +1198,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 }
 
 bool AcceptableInputs(CTxMemPool& pool, const CTransaction &txo, bool fLimitFree,
-                         bool* pfMissingInputs, bool fRejectInsaneFee, bool isDSTX)
+		bool* pfMissingInputs, bool fRejectInsaneFee, bool isDSTX)
 {
 	AssertLockHeld(cs_main);
 
@@ -2368,52 +2368,52 @@ bool LoadBlockIndex(bool fAllowNew)
 
 void PrintBlockTree()
 {
-    AssertLockHeld(cs_main);
-	
-    // pre-compute tree structure
-    std::map<CBlockIndex*, std::vector<CBlockIndex*> > mapNext;
-    
-	for (std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
-    {
-        CBlockIndex* pindex = (*mi).second;
-        
-		mapNext[pindex->pprev].push_back(pindex);
-        // test
-        //while (rand() % 3 == 0)
-        //    mapNext[pindex->pprev].push_back(pindex);
-    }
+	AssertLockHeld(cs_main);
 
-    std::vector<std::pair<int, CBlockIndex*> > vStack;
-    int nPrevCol = 0;
-    
+	// pre-compute tree structure
+	std::map<CBlockIndex*, std::vector<CBlockIndex*> > mapNext;
+
+	for (std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
+	{
+		CBlockIndex* pindex = (*mi).second;
+		
+		mapNext[pindex->pprev].push_back(pindex);
+		// test
+		//while (rand() % 3 == 0)
+		//    mapNext[pindex->pprev].push_back(pindex);
+	}
+
+	std::vector<std::pair<int, CBlockIndex*> > vStack;
+	int nPrevCol = 0;
+
 	vStack.push_back(std::make_pair(0, pindexGenesisBlock));
 
-    while (!vStack.empty())
-    {
-        int nCol = vStack.back().first;
-        CBlockIndex* pindex = vStack.back().second;
-        
+	while (!vStack.empty())
+	{
+		int nCol = vStack.back().first;
+		CBlockIndex* pindex = vStack.back().second;
+		
 		vStack.pop_back();
 
-        // print split or gap
-        if (nCol > nPrevCol)
-        {
-            for (int i = 0; i < nCol-1; i++)
+		// print split or gap
+		if (nCol > nPrevCol)
+		{
+			for (int i = 0; i < nCol-1; i++)
 			{
-                LogPrintf("| ");
+				LogPrintf("| ");
 			}
 			
-            LogPrintf("|\\\n");
-        }
-        else if (nCol < nPrevCol)
-        {
-            for (int i = 0; i < nCol; i++)
+			LogPrintf("|\\\n");
+		}
+		else if (nCol < nPrevCol)
+		{
+			for (int i = 0; i < nCol; i++)
 			{
-                LogPrintf("| ");
+				LogPrintf("| ");
 			}
 			
-            LogPrintf("|\n");
-       }
+			LogPrintf("|\n");
+	   }
 
 		nPrevCol = nCol;
 
@@ -2456,7 +2456,7 @@ void PrintBlockTree()
 		{
 			vStack.push_back(std::make_pair(nCol+i, vNext[i]));
 		}
-    }
+	}
 }
 
 bool LoadExternalBlockFile(FILE* fileIn)
@@ -3790,24 +3790,24 @@ FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
 
 FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly)
 {
-    return OpenDiskFile(pos, "blk", fReadOnly);
+	return OpenDiskFile(pos, "blk", fReadOnly);
 }
 
 FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly)
 {
-    return OpenDiskFile(pos, "rev", fReadOnly);
+	return OpenDiskFile(pos, "rev", fReadOnly);
 }
 
 boost::filesystem::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix)
 {
-    return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, pos.nFile);
+	return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, pos.nFile);
 }
 
 // requires LOCK(cs_vRecvMsg)
 bool ProcessMessages(CNode* pfrom)
 {
 	//if (fDebug)
-	//    LogPrintf("ProcessMessages(%zu messages)\n", pfrom->vRecvMsg.size());
+	//	LogPrintf("ProcessMessages(%zu messages)\n", pfrom->vRecvMsg.size());
 
 	//
 	// Message format
@@ -3844,9 +3844,9 @@ bool ProcessMessages(CNode* pfrom)
 		CNetMessage& msg = *it;
 
 		//if (fDebug)
-		//    LogPrintf("ProcessMessages(message %u msgsz, %zu bytes, complete:%s)\n",
-		//            msg.hdr.nMessageSize, msg.vRecv.size(),
-		//            msg.complete() ? "Y" : "N");
+		//	LogPrintf("ProcessMessages(message %u msgsz, %zu bytes, complete:%s)\n",
+		//		msg.hdr.nMessageSize, msg.vRecv.size(),
+		//		msg.complete() ? "Y" : "N");
 
 		// end, if an incomplete message is found
 		if (!msg.complete())

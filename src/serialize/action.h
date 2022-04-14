@@ -8,7 +8,7 @@ class CSerActionGetSerializeSize
 
 struct CSerActionSerialize
 {
-    bool ForRead() const
+	bool ForRead() const
 	{
 		return false;
 	}
@@ -16,7 +16,7 @@ struct CSerActionSerialize
 
 struct CSerActionUnserialize
 {
-    bool ForRead() const
+	bool ForRead() const
 	{
 		return true;
 	}

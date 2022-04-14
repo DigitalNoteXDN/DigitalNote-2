@@ -15,16 +15,16 @@ CTxIn::CTxIn()
 
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, unsigned int nSequenceIn)
 {
-    prevout = prevoutIn;
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
+	prevout = prevoutIn;
+	scriptSig = scriptSigIn;
+	nSequence = nSequenceIn;
 }
 
 CTxIn::CTxIn(uint256 hashPrevTx, unsigned int nOut, CScript scriptSigIn, unsigned int nSequenceIn)
 {
-    prevout = COutPoint(hashPrevTx, nOut);
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
+	prevout = COutPoint(hashPrevTx, nOut);
+	scriptSig = scriptSigIn;
+	nSequence = nSequenceIn;
 }
 
 unsigned int CTxIn::GetSerializeSize(int nType, int nVersion) const
@@ -101,27 +101,27 @@ bool operator!=(const CTxIn& a, const CTxIn& b)
 
 std::string CTxIn::ToString() const
 {
-    std::string str;
-	
-    str += "CTxIn(";
-    str += prevout.ToString();
-    
+	std::string str;
+
+	str += "CTxIn(";
+	str += prevout.ToString();
+
 	if (prevout.IsNull())
 	{
-        str += strprintf(", coinbase %s", HexStr(scriptSig));
+		str += strprintf(", coinbase %s", HexStr(scriptSig));
 	}
-    else
+	else
 	{
-        str += strprintf(", scriptSig=%s", scriptSig.ToString().substr(0,24));
+		str += strprintf(", scriptSig=%s", scriptSig.ToString().substr(0,24));
 	}
-	
-    if (nSequence != std::numeric_limits<unsigned int>::max())
+
+	if (nSequence != std::numeric_limits<unsigned int>::max())
 	{
-        str += strprintf(", nSequence=%u", nSequence);
+		str += strprintf(", nSequence=%u", nSequence);
 	}
-	
-    str += ")";
-    
+
+	str += ")";
+
 	return str;
 }
 

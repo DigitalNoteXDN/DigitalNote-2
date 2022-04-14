@@ -81,9 +81,9 @@ bool CDiskTxPos::IsNull() const
 
 bool operator==(const CDiskTxPos& a, const CDiskTxPos& b)
 {
-	return (a.nFile     == b.nFile &&
+	return (a.nFile == b.nFile &&
 			a.nBlockPos == b.nBlockPos &&
-			a.nTxPos    == b.nTxPos);
+			a.nTxPos == b.nTxPos);
 }
 
 bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b)

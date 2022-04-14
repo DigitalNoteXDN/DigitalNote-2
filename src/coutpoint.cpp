@@ -95,11 +95,11 @@ bool operator!=(const COutPoint& a, const COutPoint& b)
 
 std::string COutPoint::ToString() const
 {
-    return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
+	return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
 }
 
 std::string COutPoint::ToStringShort() const
 {
-    return strprintf("%s-%u", hash.ToString().substr(0,64), n);
+	return strprintf("%s-%u", hash.ToString().substr(0,64), n);
 }
 

@@ -31,10 +31,12 @@
 // /usr/include/boost/program_options/detail/config_file.hpp:163:17: error: call to function 'to_internal' that is neither visible in the template definition nor found by argument-dependent lookup
 // See also: http://stackoverflow.com/questions/10020179/compilation-fail-in-boost-librairies-program-options
 //           http://clang.debian.net/status.php?version=3.0&key=CANNOT_FIND_FUNCTION
-namespace boost {
-    namespace program_options {
-        std::string to_internal(const std::string&);
-    }
+namespace boost
+{
+	namespace program_options
+	{
+		std::string to_internal(const std::string&);
+	}
 }
 
 #include <boost/program_options/detail/config_file.hpp>
@@ -48,34 +50,40 @@ namespace boost {
 #include <stdarg.h>
 
 #ifdef WIN32
-#ifdef _MSC_VER
-#pragma warning(disable:4786)
-#pragma warning(disable:4804)
-#pragma warning(disable:4805)
-#pragma warning(disable:4717)
-#endif
-#ifdef _WIN32_WINNT
-#undef _WIN32_WINNT
-#endif
-#define _WIN32_WINNT 0x0501
-#ifdef _WIN32_IE
-#undef _WIN32_IE
-#endif
-#define _WIN32_IE 0x0501
-#define WIN32_LEAN_AND_MEAN 1
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <io.h> /* for _commit */
-#include "shlobj.h"
+	#ifdef _MSC_VER
+		#pragma warning(disable:4786)
+		#pragma warning(disable:4804)
+		#pragma warning(disable:4805)
+		#pragma warning(disable:4717)
+	#endif
+	
+	#ifdef _WIN32_WINNT
+		#undef _WIN32_WINNT
+	#endif
+	
+	#define _WIN32_WINNT 0x0501
+	
+	#ifdef _WIN32_IE
+		#undef _WIN32_IE
+	#endif
+	
+	#define _WIN32_IE 0x0501
+	#define WIN32_LEAN_AND_MEAN 1
+	
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
+
+	#include <io.h> /* for _commit */
+	#include "shlobj.h"
 #elif defined(__linux__)
-# include <sys/prctl.h>
+	#include <sys/prctl.h>
 #endif
 
 static const char alphanum[] =
-      "0123456789"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz";
+	"0123456789"
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz";
 
 //Dark  features
 bool fMasterNode = false;
@@ -121,163 +129,212 @@ int maxBlockHeight = -1;
 void MilliSleep(int64_t n)
 {
 #if BOOST_VERSION >= 105000
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
+	boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
 #else
-    boost::this_thread::sleep(boost::posix_time::milliseconds(n));
+	boost::this_thread::sleep(boost::posix_time::milliseconds(n));
 #endif
 }
 
 int64_t GetTimeMillis()
 {
-    return (boost::posix_time::ptime(boost::posix_time::microsec_clock::universal_time()) -
-            boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_milliseconds();
+	return (boost::posix_time::ptime(boost::posix_time::microsec_clock::universal_time()) -
+			boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_milliseconds();
 }
 
 int64_t GetTimeMicros()
 {
-    return (boost::posix_time::ptime(boost::posix_time::microsec_clock::universal_time()) -
-            boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_microseconds();
+	return (boost::posix_time::ptime(boost::posix_time::microsec_clock::universal_time()) -
+			boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_microseconds();
 }
 
 // Init OpenSSL library multithreading support
 static CCriticalSection** ppmutexOpenSSL;
 void locking_callback(int mode, int i, const char* file, int line)
 {
-    if (mode & CRYPTO_LOCK) {
-        ENTER_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
-    } else {
-        LEAVE_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
-    }
+	if (mode & CRYPTO_LOCK)
+	{
+		ENTER_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+	}
+	else
+	{
+		LEAVE_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+	}
 }
 
 // Init
 class CInit
 {
 public:
-    CInit()
-    {
-        // Init OpenSSL library multithreading support
-        ppmutexOpenSSL = (CCriticalSection**)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(CCriticalSection*));
-        for (int i = 0; i < CRYPTO_num_locks(); i++)
-            ppmutexOpenSSL[i] = new CCriticalSection();
-        CRYPTO_set_locking_callback(locking_callback);
+	CInit()
+	{
+		// Init OpenSSL library multithreading support
+		ppmutexOpenSSL = (CCriticalSection**)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(CCriticalSection*));
+		
+		for (int i = 0; i < CRYPTO_num_locks(); i++)
+		{
+			ppmutexOpenSSL[i] = new CCriticalSection();
+		}
+		
+		CRYPTO_set_locking_callback(locking_callback);
 
 #ifdef WIN32
-        // Seed OpenSSL PRNG with current contents of the screen
-        RAND_screen();
+		// Seed OpenSSL PRNG with current contents of the screen
+		RAND_screen();
 #endif
 
-        // Seed OpenSSL PRNG with performance counter
-        RandAddSeed();
-    }
-    ~CInit()
-    {
-        // Shutdown OpenSSL library multithreading support
-        CRYPTO_set_locking_callback(NULL);
-        for (int i = 0; i < CRYPTO_num_locks(); i++)
-            delete ppmutexOpenSSL[i];
-        OPENSSL_free(ppmutexOpenSSL);
-    }
+		// Seed OpenSSL PRNG with performance counter
+		RandAddSeed();
+	}
+	
+	~CInit()
+	{
+		// Shutdown OpenSSL library multithreading support
+		CRYPTO_set_locking_callback(NULL);
+		
+		for (int i = 0; i < CRYPTO_num_locks(); i++)
+		{
+			delete ppmutexOpenSSL[i];
+		}
+		
+		OPENSSL_free(ppmutexOpenSSL);
+	}
 }
 instance_of_cinit;
 
 bool GetRandBytes(unsigned char *buf, int num)
 {
-    if (RAND_bytes(buf, num) == 0) {
-        LogPrint("rand", "%s : OpenSSL RAND_bytes() failed with error: %s\n", __func__, ERR_error_string(ERR_get_error(), NULL));
-        return false;
-    }
-    return true;
+	if (RAND_bytes(buf, num) == 0)
+	{
+		LogPrint("rand", "%s : OpenSSL RAND_bytes() failed with error: %s\n", __func__, ERR_error_string(ERR_get_error(), NULL));
+		
+		return false;
+	}
+	
+	return true;
 }
 
 void RandAddSeed()
 {
-    // Seed with CPU performance counter
-    int64_t nCounter = GetPerformanceCounter();
-    RAND_add(&nCounter, sizeof(nCounter), 1.5);
-    memset(&nCounter, 0, sizeof(nCounter));
+	// Seed with CPU performance counter
+	int64_t nCounter = GetPerformanceCounter();
+
+	RAND_add(&nCounter, sizeof(nCounter), 1.5);
+
+	memset(&nCounter, 0, sizeof(nCounter));
 }
 
 void RandAddSeedPerfmon()
 {
-    RandAddSeed();
+	RandAddSeed();
 
-    // This can take up to 2 seconds, so only do it every 10 minutes
-    static int64_t nLastPerfmon;
-    if (GetTime() < nLastPerfmon + 10 * 60)
-        return;
-    nLastPerfmon = GetTime();
+	// This can take up to 2 seconds, so only do it every 10 minutes
+	static int64_t nLastPerfmon;
+
+	if (GetTime() < nLastPerfmon + 10 * 60)
+	{
+		return;
+	}
+	nLastPerfmon = GetTime();
 
 #ifdef WIN32
-    // Don't need this on Linux, OpenSSL automatically uses /dev/urandom
-    // Seed with the entire set of perfmon data
-    unsigned char pdata[250000];
-    memset(pdata, 0, sizeof(pdata));
-    unsigned long nSize = sizeof(pdata);
-    long ret = RegQueryValueExA(HKEY_PERFORMANCE_DATA, "Global", NULL, NULL, pdata, &nSize);
-    RegCloseKey(HKEY_PERFORMANCE_DATA);
-    if (ret == ERROR_SUCCESS)
-    {
-        RAND_add(pdata, nSize, nSize/100.0);
-        OPENSSL_cleanse(pdata, nSize);
-        LogPrint("rand", "RandAddSeed() %lu bytes\n", nSize);
-    }
-#endif
+	// Don't need this on Linux, OpenSSL automatically uses /dev/urandom
+	// Seed with the entire set of perfmon data
+	unsigned char pdata[250000];
+	
+	memset(pdata, 0, sizeof(pdata));
+	
+	unsigned long nSize = sizeof(pdata);
+	long ret = RegQueryValueExA(HKEY_PERFORMANCE_DATA, "Global", NULL, NULL, pdata, &nSize);
+	
+	RegCloseKey(HKEY_PERFORMANCE_DATA);
+	
+	if (ret == ERROR_SUCCESS)
+	{
+		RAND_add(pdata, nSize, nSize/100.0);
+		
+		OPENSSL_cleanse(pdata, nSize);
+		
+		LogPrint("rand", "RandAddSeed() %lu bytes\n", nSize);
+	}
+#endif // WIN32
 }
 
 unsigned char static HexVal(unsigned char c)
 {
-    if ('0' <= c && c <= '9')
-        return c - '0';
-    else if ('a' <= c && c <= 'f')
-        return c - 'a' + 10;
-    else if ('A' <= c && c <= 'F')
-        return c - 'A' + 10;
-    else abort();
+	if ('0' <= c && c <= '9')
+	{
+		return c - '0';
+	}
+	else if ('a' <= c && c <= 'f')
+	{
+		return c - 'a' + 10;
+	}
+	else if ('A' <= c && c <= 'F')
+	{
+		return c - 'A' + 10;
+	}
+	else
+	{
+		abort();
+	}
 }
 
 std::string Hex2Ascii(const std::string& in)
 {
-    std::string out;
-    out.clear();
-    out.reserve(in.length() / 2);
-    for (std::string::const_iterator p = in.begin(); p != in.end(); p++)
-    {
-       unsigned char c = HexVal(*p);
-       p++;
-       if (p == in.end()) break; // incomplete last digit - should report error
-       c = (c << 4) + HexVal(*p); // + takes precedence over <<
-       out.push_back(c);
-    }
+	std::string out;
 
-    return out;
+	out.clear();
+	out.reserve(in.length() / 2);
+
+	for (std::string::const_iterator p = in.begin(); p != in.end(); p++)
+	{
+		unsigned char c = HexVal(*p);
+
+		p++;
+
+		if (p == in.end())
+		{
+			break; // incomplete last digit - should report error
+		}
+
+		c = (c << 4) + HexVal(*p); // + takes precedence over <<
+		out.push_back(c);
+	}
+
+	return out;
 }
 
 uint64_t GetRand(uint64_t nMax)
 {
-    if (nMax == 0)
-        return 0;
-
-    // The range of the random source must be a multiple of the modulus
-    // to give every possible output value an equal possibility
-    uint64_t nRange = (std::numeric_limits<uint64_t>::max() / nMax) * nMax;
-    uint64_t nRand = 0;
-    do {
-        GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
-    } while (nRand >= nRange);
-    return (nRand % nMax);
+	if (nMax == 0)
+	{
+		return 0;
+	}
+	
+	// The range of the random source must be a multiple of the modulus
+	// to give every possible output value an equal possibility
+	uint64_t nRange = (std::numeric_limits<uint64_t>::max() / nMax) * nMax;
+	uint64_t nRand = 0;
+	
+	do {
+		GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
+	} while (nRand >= nRange);
+	
+	return (nRand % nMax);
 }
 
 int GetRandInt(int nMax)
 {
-    return GetRand(nMax);
+	return GetRand(nMax);
 }
 
 uint256 GetRandHash()
 {
-    uint256 hash;
-    GetRandBytes((unsigned char*)&hash, sizeof(hash));
-    return hash;
+	uint256 hash;
+	
+	GetRandBytes((unsigned char*)&hash, sizeof(hash));
+	
+	return hash;
 }
 
 // LogPrintf() has been broken a couple of times now
@@ -297,839 +354,1079 @@ static boost::mutex* mutexDebugLog = NULL;
 
 static void DebugPrintInit()
 {
-    assert(fileout == NULL);
-    assert(mutexDebugLog == NULL);
+	assert(fileout == NULL);
+	assert(mutexDebugLog == NULL);
 
-    boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-    fileout = fopen(pathDebug.string().c_str(), "a");
-    if (fileout) setbuf(fileout, NULL); // unbuffered
+	boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
+	
+	fileout = fopen(pathDebug.string().c_str(), "a");
+	
+	if (fileout)
+	{
+		setbuf(fileout, NULL); // unbuffered
+	}
 
-    mutexDebugLog = new boost::mutex();
+	mutexDebugLog = new boost::mutex();
 }
 
 bool LogAcceptCategory(const char* category)
 {
-    if (category != NULL)
-    {
-        if (!fDebug)
-            return false;
+	if (category != NULL)
+	{
+		if (!fDebug)
+		{
+			return false;
+		}
+		
+		// Give each thread quick access to -debug settings.
+		// This helps prevent issues debugging global destructors,
+		// where mapMultiArgs might be deleted before another
+		// global destructor calls LogPrint()
+		static boost::thread_specific_ptr<std::set<std::string> > ptrCategory;
+		
+		if (ptrCategory.get() == NULL)
+		{
+			const std::vector<std::string>& categories = mapMultiArgs["-debug"];
+			
+			ptrCategory.reset(new std::set<std::string>(categories.begin(), categories.end()));
+			
+			// thread_specific_ptr automatically deletes the set when the thread ends.
+		}
+		const std::set<std::string>& setCategories = *ptrCategory.get();
 
-        // Give each thread quick access to -debug settings.
-        // This helps prevent issues debugging global destructors,
-        // where mapMultiArgs might be deleted before another
-        // global destructor calls LogPrint()
-        static boost::thread_specific_ptr<std::set<std::string> > ptrCategory;
-        if (ptrCategory.get() == NULL)
-        {
-            const std::vector<std::string>& categories = mapMultiArgs["-debug"];
-            ptrCategory.reset(new std::set<std::string>(categories.begin(), categories.end()));
-            // thread_specific_ptr automatically deletes the set when the thread ends.
-        }
-        const std::set<std::string>& setCategories = *ptrCategory.get();
-
-        // if not debugging everything and not debugging specific category, LogPrint does nothing.
-        if (setCategories.count(std::string("")) == 0 &&
-            setCategories.count(std::string(category)) == 0)
-            return false;
-    }
-    return true;
+		// if not debugging everything and not debugging specific category, LogPrint does nothing.
+		if (setCategories.count(std::string("")) == 0 &&
+			setCategories.count(std::string(category)) == 0)
+		{
+			return false;
+		}
+	}
+	
+	return true;
 }
 
 int LogPrintStr(const std::string &str)
 {
-    int ret = 0; // Returns total number of characters written
-    if (fPrintToConsole)
-    {
-        // print to console
-        ret = fwrite(str.data(), 1, str.size(), stdout);
-    }
-    else if (fPrintToDebugLog)
-    {
-        static bool fStartedNewLine = true;
-        boost::call_once(&DebugPrintInit, debugPrintInitFlag);
+	int ret = 0; // Returns total number of characters written
 
-        if (fileout == NULL)
-            return ret;
+	if (fPrintToConsole)
+	{
+		// print to console
+		ret = fwrite(str.data(), 1, str.size(), stdout);
+	}
+	else if (fPrintToDebugLog)
+	{
+		static bool fStartedNewLine = true;
+		
+		boost::call_once(&DebugPrintInit, debugPrintInitFlag);
 
-        boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
+		if (fileout == NULL)
+		{
+			return ret;
+		}
+		
+		boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
-        // reopen the log file, if requested
-        if (fReopenDebugLog) {
-            fReopenDebugLog = false;
-            boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-            if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
-                setbuf(fileout, NULL); // unbuffered
-        }
+		// reopen the log file, if requested
+		if (fReopenDebugLog)
+		{
+			fReopenDebugLog = false;
+			
+			boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
+			
+			if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
+			{
+				setbuf(fileout, NULL); // unbuffered
+			}
+		}
 
-        // Debug print useful for profiling
-        if (fLogTimestamps && fStartedNewLine)
-            ret += fprintf(fileout, "%s ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
-        if (!str.empty() && str[str.size()-1] == '\n')
-            fStartedNewLine = true;
-        else
-            fStartedNewLine = false;
+		// Debug print useful for profiling
+		if (fLogTimestamps && fStartedNewLine)
+		{
+			ret += fprintf(fileout, "%s ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+		}
+		
+		if (!str.empty() && str[str.size()-1] == '\n')
+		{
+			fStartedNewLine = true;
+		}
+		else
+		{
+			fStartedNewLine = false;
+		}
+		
+		ret = fwrite(str.data(), 1, str.size(), fileout);
+	}
 
-        ret = fwrite(str.data(), 1, str.size(), fileout);
-    }
-
-    return ret;
+	return ret;
 }
 
 void ParseString(const std::string& str, char c, std::vector<std::string>& v)
 {
-    if (str.empty())
-        return;
-    std::string::size_type i1 = 0;
-    std::string::size_type i2;
-    while (true)
-    {
-        i2 = str.find(c, i1);
-        if (i2 == str.npos)
-        {
-            v.push_back(str.substr(i1));
-            return;
-        }
-        v.push_back(str.substr(i1, i2-i1));
-        i1 = i2+1;
-    }
+	if (str.empty())
+	{
+		return;
+	}
+
+	std::string::size_type i1 = 0;
+	std::string::size_type i2;
+
+	while (true)
+	{
+		i2 = str.find(c, i1);
+		
+		if (i2 == str.npos)
+		{
+			v.push_back(str.substr(i1));
+			
+			return;
+		}
+		
+		v.push_back(str.substr(i1, i2-i1));
+		
+		i1 = i2+1;
+	}
 }
 
 
 std::string FormatMoney(int64_t n, bool fPlus)
 {
-    // Note: not using straight sprintf here because we do NOT want
-    // localized number formatting.
-    int64_t n_abs = (n > 0 ? n : -n);
-    int64_t quotient = n_abs/COIN;
-    int64_t remainder = n_abs%COIN;
-    std::string str = strprintf("%d.%08d", quotient, remainder);
+	// Note: not using straight sprintf here because we do NOT want
+	// localized number formatting.
+	int64_t n_abs = (n > 0 ? n : -n);
+	int64_t quotient = n_abs/COIN;
+	int64_t remainder = n_abs%COIN;
+	std::string str = strprintf("%d.%08d", quotient, remainder);
 
-    // Right-trim excess zeros before the decimal point:
-    int nTrim = 0;
-    for (int i = str.size()-1; (str[i] == '0' && isdigit(str[i-2])); --i)
-        ++nTrim;
-    if (nTrim)
-        str.erase(str.size()-nTrim, nTrim);
-
-    if (n < 0)
-        str.insert((unsigned int)0, 1, '-');
-    else if (fPlus && n > 0)
-        str.insert((unsigned int)0, 1, '+');
-    return str;
+	// Right-trim excess zeros before the decimal point:
+	int nTrim = 0;
+	
+	for (int i = str.size()-1; (str[i] == '0' && isdigit(str[i-2])); --i)
+	{
+		++nTrim;
+	}
+	
+	if (nTrim)
+	{
+		str.erase(str.size()-nTrim, nTrim);
+	}
+	
+	if (n < 0)
+	{
+		str.insert((unsigned int)0, 1, '-');
+	}
+	else if (fPlus && n > 0)
+	{
+		str.insert((unsigned int)0, 1, '+');
+	}
+	
+	return str;
 }
 
 
 bool ParseMoney(const std::string& str, int64_t& nRet)
 {
-    return ParseMoney(str.c_str(), nRet);
+	return ParseMoney(str.c_str(), nRet);
 }
 
 bool ParseMoney(const char* pszIn, int64_t& nRet)
 {
-    std::string strWhole;
-    int64_t nUnits = 0;
-    const char* p = pszIn;
-    while (isspace(*p))
-        p++;
-    for (; *p; p++)
-    {
-        if (*p == '.')
-        {
-            p++;
-            int64_t nMult = CENT*10;
-            while (isdigit(*p) && (nMult > 0))
-            {
-                nUnits += nMult * (*p++ - '0');
-                nMult /= 10;
-            }
-            break;
-        }
-        if (isspace(*p))
-            break;
-        if (!isdigit(*p))
-            return false;
-        strWhole.insert(strWhole.end(), *p);
-    }
-    for (; *p; p++)
-        if (!isspace(*p))
-            return false;
-    if (strWhole.size() > 10) // guard against 63 bit overflow
-        return false;
-    if (nUnits < 0 || nUnits > COIN)
-        return false;
-    int64_t nWhole = atoi64(strWhole);
-    int64_t nValue = nWhole*COIN + nUnits;
+	std::string strWhole;
+	int64_t nUnits = 0;
+	const char* p = pszIn;
+	
+	while (isspace(*p))
+	{
+		p++;
+	}
+	
+	for (; *p; p++)
+	{
+		if (*p == '.')
+		{
+			p++;
+			int64_t nMult = CENT*10;
+			
+			while (isdigit(*p) && (nMult > 0))
+			{
+				nUnits += nMult * (*p++ - '0');
+				nMult /= 10;
+			}
+			
+			break;
+		}
+		
+		if (isspace(*p))
+		{
+			break;
+		}
+		
+		if (!isdigit(*p))
+		{
+			return false;
+		}
+		
+		strWhole.insert(strWhole.end(), *p);
+	}
+	
+	for (; *p; p++)
+	{
+		if (!isspace(*p))
+		{
+			return false;
+		}
+	}
+	
+	if (strWhole.size() > 10) // guard against 63 bit overflow
+	{
+		return false;
+	}
+	
+	if (nUnits < 0 || nUnits > COIN)
+	{
+		return false;
+	}
+	
+	int64_t nWhole = atoi64(strWhole);
+	int64_t nValue = nWhole*COIN + nUnits;
 
-    nRet = nValue;
-    return true;
+	nRet = nValue;
+	
+	return true;
 }
 
 // safeChars chosen to allow simple messages/URLs/email addresses, but avoid anything
 // even possibly remotely dangerous like & or >
 static std::string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@");
+
 std::string SanitizeString(const std::string& str)
 {
-    std::string strResult;
-    for (std::string::size_type i = 0; i < str.size(); i++)
-    {
-        if (safeChars.find(str[i]) != std::string::npos)
-            strResult.push_back(str[i]);
-    }
-    return strResult;
+	std::string strResult;
+	for (std::string::size_type i = 0; i < str.size(); i++)
+	{
+		if (safeChars.find(str[i]) != std::string::npos)
+		{
+			strResult.push_back(str[i]);
+		}
+	}
+	return strResult;
 }
 
 bool IsHex(const std::string& str)
 {
-    for(char c : str)
-    {
-        if (HexDigit(c) < 0)
+	for(char c : str)
+	{
+		if (HexDigit(c) < 0)
 		{
-            return false;
+			return false;
 		}
-    }
-	
-    return (str.size() > 0) && (str.size()%2 == 0);
+	}
+
+	return (str.size() > 0) && (str.size()%2 == 0);
 }
 
 std::vector<unsigned char> ParseHex(const char* psz)
 {
-    // convert hex dump to vector
-    std::vector<unsigned char> vch;
-    while (true)
-    {
-        while (isspace(*psz))
-            psz++;
-        signed char c = HexDigit(*psz++);
-        if (c == (signed char)-1)
-            break;
-        unsigned char n = (c << 4);
-        c = HexDigit(*psz++);
-        if (c == (signed char)-1)
-            break;
-        n |= c;
-        vch.push_back(n);
-    }
-    return vch;
+	// convert hex dump to vector
+	std::vector<unsigned char> vch;
+	
+	while (true)
+	{
+		while (isspace(*psz))
+		{
+			psz++;
+		}
+		
+		signed char c = HexDigit(*psz++);
+		
+		if (c == (signed char)-1)
+		{
+			break;
+		}
+		
+		unsigned char n = (c << 4);
+		
+		c = HexDigit(*psz++);
+		
+		if (c == (signed char)-1)
+		{
+			break;
+		}
+		
+		n |= c;
+		
+		vch.push_back(n);
+	}
+	
+	return vch;
 }
 
 std::vector<unsigned char> ParseHex(const std::string& str)
 {
-    return ParseHex(str.c_str());
+	return ParseHex(str.c_str());
 }
 
 static void InterpretNegativeSetting(const std::string &name, std::map<std::string, std::string>& mapSettingsRet)
 {
-    // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
-    if (name.find("-no") == 0)
-    {
-        std::string positive("-");
-        positive.append(name.begin()+3, name.end());
-        if (mapSettingsRet.count(positive) == 0)
-        {
-            bool value = !GetBoolArg(name, false);
-            mapSettingsRet[positive] = (value ? "1" : "0");
-        }
-    }
+	// interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
+	if (name.find("-no") == 0)
+	{
+		std::string positive("-");
+		
+		positive.append(name.begin()+3, name.end());
+		
+		if (mapSettingsRet.count(positive) == 0)
+		{
+			bool value = !GetBoolArg(name, false);
+			
+			mapSettingsRet[positive] = (value ? "1" : "0");
+		}
+	}
 }
 
 void ParseParameters(int argc, const char* const argv[])
 {
-    mapArgs.clear();
-    mapMultiArgs.clear();
-    for (int i = 1; i < argc; i++)
-    {
-        std::string str(argv[i]);
-        std::string strValue;
-        size_t is_index = str.find('=');
-        if (is_index != std::string::npos)
-        {
-            strValue = str.substr(is_index+1);
-            str = str.substr(0, is_index);
-        }
+	mapArgs.clear();
+	mapMultiArgs.clear();
+	
+	for (int i = 1; i < argc; i++)
+	{
+		std::string str(argv[i]);
+		std::string strValue;
+		size_t is_index = str.find('=');
+		
+		if (is_index != std::string::npos)
+		{
+			strValue = str.substr(is_index+1);
+			str = str.substr(0, is_index);
+		}
+
 #ifdef WIN32
-        boost::to_lower(str);
-        if (boost::algorithm::starts_with(str, "/"))
-            str = "-" + str.substr(1);
+		boost::to_lower(str);
+		if (boost::algorithm::starts_with(str, "/"))
+		{
+			str = "-" + str.substr(1);
+		}
 #endif
-        if (str[0] != '-')
-            break;
 
-        mapArgs[str] = strValue;
-        mapMultiArgs[str].push_back(strValue);
-    }
+		if (str[0] != '-')
+		{
+			break;
+		}
+		
+		mapArgs[str] = strValue;
+		mapMultiArgs[str].push_back(strValue);
+	}
 
-    // New 0.6 features:
-    for(const std::pair<std::string, std::string>& entry : mapArgs)
-    {
-        std::string name = entry.first;
+	// New 0.6 features:
+	for(const std::pair<std::string, std::string>& entry : mapArgs)
+	{
+		std::string name = entry.first;
 
-        //  interpret --foo as -foo (as long as both are not set)
-        if (name.find("--") == 0)
-        {
-            std::string singleDash(name.begin()+1, name.end());
-            if (mapArgs.count(singleDash) == 0)
-                mapArgs[singleDash] = entry.second;
-            name = singleDash;
-        }
+		//  interpret --foo as -foo (as long as both are not set)
+		if (name.find("--") == 0)
+		{
+			std::string singleDash(name.begin()+1, name.end());
+			
+			if (mapArgs.count(singleDash) == 0)
+			{
+				mapArgs[singleDash] = entry.second;
+			}
+			
+			name = singleDash;
+		}
 
-        // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
-        InterpretNegativeSetting(name, mapArgs);
-    }
+		// interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
+		InterpretNegativeSetting(name, mapArgs);
+	}
 }
 
 std::string GetArg(const std::string& strArg, const std::string& strDefault)
 {
-    if (mapArgs.count(strArg))
-        return mapArgs[strArg];
-    return strDefault;
+	if (mapArgs.count(strArg))
+	{
+		return mapArgs[strArg];
+	}
+	
+	return strDefault;
 }
 
 int64_t GetArg(const std::string& strArg, int64_t nDefault)
 {
-    if (mapArgs.count(strArg))
-        return atoi64(mapArgs[strArg]);
-    return nDefault;
+	if (mapArgs.count(strArg))
+	{
+		return atoi64(mapArgs[strArg]);
+	}
+	
+	return nDefault;
 }
 
 bool GetBoolArg(const std::string& strArg, bool fDefault)
 {
-    if (mapArgs.count(strArg))
-    {
-        if (mapArgs[strArg].empty())
-            return true;
-        return (atoi(mapArgs[strArg]) != 0);
-    }
-    return fDefault;
+	if (mapArgs.count(strArg))
+	{
+		if (mapArgs[strArg].empty())
+		{
+			return true;
+		}
+		
+		return (atoi(mapArgs[strArg]) != 0);
+	}
+	
+	return fDefault;
 }
 
 bool SoftSetArg(const std::string& strArg, const std::string& strValue)
 {
-    if (mapArgs.count(strArg))
-        return false;
-    mapArgs[strArg] = strValue;
-    return true;
+	if (mapArgs.count(strArg))
+	{
+		return false;
+	}
+	
+	mapArgs[strArg] = strValue;
+	
+	return true;
 }
 
 bool SoftSetBoolArg(const std::string& strArg, bool fValue)
 {
-    if (fValue)
-        return SoftSetArg(strArg, std::string("1"));
-    else
-        return SoftSetArg(strArg, std::string("0"));
+	if (fValue)
+	{
+		return SoftSetArg(strArg, std::string("1"));
+	}
+	else
+	{
+		return SoftSetArg(strArg, std::string("0"));
+	}
 }
 
 
 std::string EncodeBase64(const unsigned char* pch, size_t len)
 {
-    static const char *pbase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	static const char *pbase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    std::string strRet="";
-    strRet.reserve((len+2)/3*4);
+	std::string strRet="";
+	strRet.reserve((len + 2) / 3 * 4);
 
-    int mode=0, left=0;
-    const unsigned char *pchEnd = pch+len;
+	int mode = 0, left = 0;
+	const unsigned char *pchEnd = pch+len;
 
-    while (pch<pchEnd)
-    {
-        int enc = *(pch++);
-        switch (mode)
-        {
-            case 0: // we have no bits
-                strRet += pbase64[enc >> 2];
-                left = (enc & 3) << 4;
-                mode = 1;
-                break;
+	while (pch < pchEnd)
+	{
+		int enc = *(pch++);
+		
+		switch (mode)
+		{
+			case 0: // we have no bits
+				strRet += pbase64[enc >> 2];
+				
+				left = (enc & 3) << 4;
+				mode = 1;
+				
+				break;
 
-            case 1: // we have two bits
-                strRet += pbase64[left | (enc >> 4)];
-                left = (enc & 15) << 2;
-                mode = 2;
-                break;
+			case 1: // we have two bits
+				strRet += pbase64[left | (enc >> 4)];
+				
+				left = (enc & 15) << 2;
+				mode = 2;
+				
+				break;
 
-            case 2: // we have four bits
-                strRet += pbase64[left | (enc >> 6)];
-                strRet += pbase64[enc & 63];
-                mode = 0;
-                break;
-        }
-    }
+			case 2: // we have four bits
+				strRet += pbase64[left | (enc >> 6)];
+				strRet += pbase64[enc & 63];
+				
+				mode = 0;
+				
+				break;
+		}
+	}
 
-    if (mode)
-    {
-        strRet += pbase64[left];
-        strRet += '=';
-        if (mode == 1)
-            strRet += '=';
-    }
+	if (mode)
+	{
+		strRet += pbase64[left];
+		strRet += '=';
+		
+		if (mode == 1)
+		{
+			strRet += '=';
+		}
+	}
 
-    return strRet;
+	return strRet;
 }
 
 std::string EncodeBase64(const std::string& str)
 {
-    return EncodeBase64((const unsigned char*)str.c_str(), str.size());
+	return EncodeBase64((const unsigned char*)str.c_str(), str.size());
 }
 
 std::vector<unsigned char> DecodeBase64(const char* p, bool* pfInvalid)
 {
-    static const int decode64_table[256] =
-    {
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1,
-        -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
-        29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-        49, 50, 51, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
-    };
+	static const int decode64_table[256] =
+	{
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1,
+		-1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+		15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
+		29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+		49, 50, 51, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+	};
 
-    if (pfInvalid)
-        *pfInvalid = false;
+	if (pfInvalid)
+	{
+		*pfInvalid = false;
+	}
+	
+	std::vector<unsigned char> vchRet;
+	vchRet.reserve(strlen(p) * 3 / 4);
 
-    std::vector<unsigned char> vchRet;
-    vchRet.reserve(strlen(p)*3/4);
+	int mode = 0;
+	int left = 0;
 
-    int mode = 0;
-    int left = 0;
+	while (1)
+	{
+		int dec = decode64_table[(unsigned char)*p];
+		
+		if (dec == -1)
+		{
+			break;
+		}
+		
+		p++;
+		
+		switch (mode)
+		{
+			case 0: // we have no bits and get 6
+				left = dec;
+				mode = 1;
+				
+				break;
 
-    while (1)
-    {
-         int dec = decode64_table[(unsigned char)*p];
-         if (dec == -1) break;
-         p++;
-         switch (mode)
-         {
-             case 0: // we have no bits and get 6
-                 left = dec;
-                 mode = 1;
-                 break;
+			case 1: // we have 6 bits and keep 4
+				vchRet.push_back((left<<2) | (dec>>4));
+				
+				left = dec & 15;
+				mode = 2;
+				
+				break;
 
-              case 1: // we have 6 bits and keep 4
-                  vchRet.push_back((left<<2) | (dec>>4));
-                  left = dec & 15;
-                  mode = 2;
-                  break;
+			case 2: // we have 4 bits and get 6, we keep 2
+				vchRet.push_back((left<<4) | (dec>>2));
+				
+				left = dec & 3;
+				mode = 3;
+				
+				break;
 
-             case 2: // we have 4 bits and get 6, we keep 2
-                 vchRet.push_back((left<<4) | (dec>>2));
-                 left = dec & 3;
-                 mode = 3;
-                 break;
+			case 3: // we have 2 bits and get 6
+				vchRet.push_back((left<<6) | dec);
+				
+				mode = 0;
+				
+				break;
+		 }
+	}
 
-             case 3: // we have 2 bits and get 6
-                 vchRet.push_back((left<<6) | dec);
-                 mode = 0;
-                 break;
-         }
-    }
+	if (pfInvalid)
+		switch (mode)
+		{
+			case 0: // 4n base64 characters processed: ok
+				break;
 
-    if (pfInvalid)
-        switch (mode)
-        {
-            case 0: // 4n base64 characters processed: ok
-                break;
+			case 1: // 4n+1 base64 character processed: impossible
+				*pfInvalid = true;
+				break;
 
-            case 1: // 4n+1 base64 character processed: impossible
-                *pfInvalid = true;
-                break;
+			case 2: // 4n+2 base64 characters processed: require '=='
+				if (left || p[0] != '=' || p[1] != '=' || decode64_table[(unsigned char)p[2]] != -1)
+					*pfInvalid = true;
+				break;
 
-            case 2: // 4n+2 base64 characters processed: require '=='
-                if (left || p[0] != '=' || p[1] != '=' || decode64_table[(unsigned char)p[2]] != -1)
-                    *pfInvalid = true;
-                break;
+			case 3: // 4n+3 base64 characters processed: require '='
+				if (left || p[0] != '=' || decode64_table[(unsigned char)p[1]] != -1)
+					*pfInvalid = true;
+				break;
+		}
 
-            case 3: // 4n+3 base64 characters processed: require '='
-                if (left || p[0] != '=' || decode64_table[(unsigned char)p[1]] != -1)
-                    *pfInvalid = true;
-                break;
-        }
-
-    return vchRet;
+	return vchRet;
 }
 
 std::string DecodeBase64(const std::string& str)
 {
-    std::vector<unsigned char> vchRet = DecodeBase64(str.c_str());
-    return std::string((const char*)&vchRet[0], vchRet.size());
+	std::vector<unsigned char> vchRet = DecodeBase64(str.c_str());
+	
+	return std::string((const char*)&vchRet[0], vchRet.size());
 }
 
 // Base64 encoding with secure memory allocation
 SecureString EncodeBase64Secure(const SecureString& input)
 {
-    // Init openssl BIO with base64 filter and memory output
-    BIO *b64, *mem;
-    b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // No newlines in output
-    mem = BIO_new(BIO_s_mem());
-    BIO_push(b64, mem);
+	// Init openssl BIO with base64 filter and memory output
+	BIO *b64, *mem;
+	
+	b64 = BIO_new(BIO_f_base64());
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // No newlines in output
+	mem = BIO_new(BIO_s_mem());
+	BIO_push(b64, mem);
 
-    // Decode the string
-    BIO_write(b64, &input[0], input.size());
-    (void) BIO_flush(b64);
+	// Decode the string
+	BIO_write(b64, &input[0], input.size());
+	
+	(void) BIO_flush(b64);
 
-    // Create output variable from buffer mem ptr
-    BUF_MEM *bptr;
-    BIO_get_mem_ptr(b64, &bptr);
-    SecureString output(bptr->data, bptr->length);
+	// Create output variable from buffer mem ptr
+	BUF_MEM *bptr;
+	BIO_get_mem_ptr(b64, &bptr);
+	
+	SecureString output(bptr->data, bptr->length);
 
-    // Cleanse secure data buffer from memory
-    OPENSSL_cleanse((void *) bptr->data, bptr->length);
+	// Cleanse secure data buffer from memory
+	OPENSSL_cleanse((void *) bptr->data, bptr->length);
 
-    // Free memory
-    BIO_free_all(b64);
-    return output;
+	// Free memory
+	BIO_free_all(b64);
+	
+	return output;
 }
 
 // Base64 decoding with secure memory allocation
 SecureString DecodeBase64Secure(const SecureString& input)
 {
-    SecureString output;
+	SecureString output;
 
-    // Init openssl BIO with base64 filter and memory input
-    BIO *b64, *mem;
-    b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
-    mem = BIO_new_mem_buf((void *) &input[0], input.size());
-    BIO_push(b64, mem);
+	// Init openssl BIO with base64 filter and memory input
+	BIO *b64, *mem;
+	
+	b64 = BIO_new(BIO_f_base64());
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
+	mem = BIO_new_mem_buf((void *) &input[0], input.size());
+	BIO_push(b64, mem);
 
-    // Prepare buffer to receive decoded data
-    if(input.size() % 4 != 0) {
-        throw std::runtime_error("Input length should be a multiple of 4");
-    }
-    size_t nMaxLen = input.size() / 4 * 3; // upper bound, guaranteed divisible by 4
-    output.resize(nMaxLen);
+	// Prepare buffer to receive decoded data
+	if(input.size() % 4 != 0)
+	{
+		throw std::runtime_error("Input length should be a multiple of 4");
+	}
+	
+	size_t nMaxLen = input.size() / 4 * 3; // upper bound, guaranteed divisible by 4
+	output.resize(nMaxLen);
 
-    // Decode the string
-    size_t nLen;
-    nLen = BIO_read(b64, (void *) &output[0], input.size());
-    output.resize(nLen);
+	// Decode the string
+	size_t nLen;
+	nLen = BIO_read(b64, (void *) &output[0], input.size());
+	output.resize(nLen);
 
-    // Free memory
-    BIO_free_all(b64);
-    return output;
+	// Free memory
+	BIO_free_all(b64);
+	
+	return output;
 }
 
 
 std::string EncodeBase32(const unsigned char* pch, size_t len)
 {
-    static const char *pbase32 = "abcdefghijklmnopqrstuvwxyz234567";
+	static const char *pbase32 = "abcdefghijklmnopqrstuvwxyz234567";
 
-    std::string strRet="";
-    strRet.reserve((len+4)/5*8);
+	std::string strRet="";
+	strRet.reserve((len+4)/5*8);
 
-    int mode=0, left=0;
-    const unsigned char *pchEnd = pch+len;
+	int mode = 0, left = 0;
+	const unsigned char *pchEnd = pch+len;
 
-    while (pch<pchEnd)
-    {
-        int enc = *(pch++);
-        switch (mode)
-        {
-            case 0: // we have no bits
-                strRet += pbase32[enc >> 3];
-                left = (enc & 7) << 2;
-                mode = 1;
-                break;
+	while (pch<pchEnd)
+	{
+		int enc = *(pch++);
+		
+		switch (mode)
+		{
+			case 0: // we have no bits
+				strRet += pbase32[enc >> 3];
+				
+				left = (enc & 7) << 2;
+				mode = 1;
+				
+				break;
 
-            case 1: // we have three bits
-                strRet += pbase32[left | (enc >> 6)];
-                strRet += pbase32[(enc >> 1) & 31];
-                left = (enc & 1) << 4;
-                mode = 2;
-                break;
+			case 1: // we have three bits
+				strRet += pbase32[left | (enc >> 6)];
+				strRet += pbase32[(enc >> 1) & 31];
+				
+				left = (enc & 1) << 4;
+				mode = 2;
+				
+				break;
 
-            case 2: // we have one bit
-                strRet += pbase32[left | (enc >> 4)];
-                left = (enc & 15) << 1;
-                mode = 3;
-                break;
+			case 2: // we have one bit
+				strRet += pbase32[left | (enc >> 4)];
+				
+				left = (enc & 15) << 1;
+				mode = 3;
+				
+				break;
 
-            case 3: // we have four bits
-                strRet += pbase32[left | (enc >> 7)];
-                strRet += pbase32[(enc >> 2) & 31];
-                left = (enc & 3) << 3;
-                mode = 4;
-                break;
+			case 3: // we have four bits
+				strRet += pbase32[left | (enc >> 7)];
+				strRet += pbase32[(enc >> 2) & 31];
+				
+				left = (enc & 3) << 3;
+				mode = 4;
+				
+				break;
 
-            case 4: // we have two bits
-                strRet += pbase32[left | (enc >> 5)];
-                strRet += pbase32[enc & 31];
-                mode = 0;
-        }
-    }
+			case 4: // we have two bits
+				strRet += pbase32[left | (enc >> 5)];
+				strRet += pbase32[enc & 31];
+				
+				mode = 0;
+		}
+	}
 
-    static const int nPadding[5] = {0, 6, 4, 3, 1};
-    if (mode)
-    {
-        strRet += pbase32[left];
-        for (int n=0; n<nPadding[mode]; n++)
-             strRet += '=';
-    }
+	static const int nPadding[5] = {0, 6, 4, 3, 1};
+	
+	if (mode)
+	{
+		strRet += pbase32[left];
+		
+		for (int n=0; n<nPadding[mode]; n++)
+		{
+			 strRet += '=';
+		}
+	}
 
-    return strRet;
+	return strRet;
 }
 
 std::string EncodeBase32(const std::string& str)
 {
-    return EncodeBase32((const unsigned char*)str.c_str(), str.size());
+	return EncodeBase32((const unsigned char*)str.c_str(), str.size());
 }
 
 std::vector<unsigned char> DecodeBase32(const char* p, bool* pfInvalid)
 {
-    static const int decode32_table[256] =
-    {
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1,  0,  1,  2,
-         3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-        23, 24, 25, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
-    };
+	static const int decode32_table[256] =
+	{
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+		15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1,  0,  1,  2,
+		 3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+		23, 24, 25, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+	};
 
-    if (pfInvalid)
-        *pfInvalid = false;
+	if (pfInvalid)
+	{
+		*pfInvalid = false;
+	}
+	
+	std::vector<unsigned char> vchRet;
+	vchRet.reserve((strlen(p))*5/8);
 
-    std::vector<unsigned char> vchRet;
-    vchRet.reserve((strlen(p))*5/8);
+	int mode = 0;
+	int left = 0;
 
-    int mode = 0;
-    int left = 0;
+	while (1)
+	{
+		 int dec = decode32_table[(unsigned char)*p];
+		 
+		 if (dec == -1)
+		 {
+			 break;
+		 }
+		 
+		 p++;
+		 
+		 switch (mode)
+		 {
+			case 0: // we have no bits and get 5
+				left = dec;
+				mode = 1;
+				
+				break;
 
-    while (1)
-    {
-         int dec = decode32_table[(unsigned char)*p];
-         if (dec == -1) break;
-         p++;
-         switch (mode)
-         {
-             case 0: // we have no bits and get 5
-                 left = dec;
-                 mode = 1;
-                 break;
+			case 1: // we have 5 bits and keep 2
+				vchRet.push_back((left<<3) | (dec>>2));
+				
+				left = dec & 3;
+				mode = 2;
+				
+				break;
 
-              case 1: // we have 5 bits and keep 2
-                  vchRet.push_back((left<<3) | (dec>>2));
-                  left = dec & 3;
-                  mode = 2;
-                  break;
+			case 2: // we have 2 bits and keep 7
+				left = left << 5 | dec;
+				mode = 3;
+				
+				break;
 
-             case 2: // we have 2 bits and keep 7
-                 left = left << 5 | dec;
-                 mode = 3;
-                 break;
+			case 3: // we have 7 bits and keep 4
+				vchRet.push_back((left<<1) | (dec>>4));
+				
+				left = dec & 15;
+				mode = 4;
+				
+				break;
 
-             case 3: // we have 7 bits and keep 4
-                 vchRet.push_back((left<<1) | (dec>>4));
-                 left = dec & 15;
-                 mode = 4;
-                 break;
+			case 4: // we have 4 bits, and keep 1
+				vchRet.push_back((left<<4) | (dec>>1));
+				
+				left = dec & 1;
+				mode = 5;
+				
+				break;
 
-             case 4: // we have 4 bits, and keep 1
-                 vchRet.push_back((left<<4) | (dec>>1));
-                 left = dec & 1;
-                 mode = 5;
-                 break;
+			case 5: // we have 1 bit, and keep 6
+				left = left << 5 | dec;
+				mode = 6;
+				
+				break;
 
-             case 5: // we have 1 bit, and keep 6
-                 left = left << 5 | dec;
-                 mode = 6;
-                 break;
+			case 6: // we have 6 bits, and keep 3
+				vchRet.push_back((left<<2) | (dec>>3));
+				
+				left = dec & 7;
+				mode = 7;
+				
+				break;
 
-             case 6: // we have 6 bits, and keep 3
-                 vchRet.push_back((left<<2) | (dec>>3));
-                 left = dec & 7;
-                 mode = 7;
-                 break;
+			 case 7: // we have 3 bits, and keep 0
+				 vchRet.push_back((left<<5) | dec);
+				 
+				 mode = 0;
+				 
+				 break;
+		 }
+	}
 
-             case 7: // we have 3 bits, and keep 0
-                 vchRet.push_back((left<<5) | dec);
-                 mode = 0;
-                 break;
-         }
-    }
+	if (pfInvalid)
+	{
+		switch (mode)
+		{
+			case 0: // 8n base32 characters processed: ok
+				break;
 
-    if (pfInvalid)
-        switch (mode)
-        {
-            case 0: // 8n base32 characters processed: ok
-                break;
+			case 1: // 8n+1 base32 characters processed: impossible
+			case 3: //   +3
+			case 6: //   +6
+				*pfInvalid = true;
+				
+				break;
 
-            case 1: // 8n+1 base32 characters processed: impossible
-            case 3: //   +3
-            case 6: //   +6
-                *pfInvalid = true;
-                break;
+			case 2: // 8n+2 base32 characters processed: require '======'
+				if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || p[3] != '=' || p[4] != '=' || p[5] != '=' || decode32_table[(unsigned char)p[6]] != -1)
+				{
+					*pfInvalid = true;
+				}
+				
+				break;
 
-            case 2: // 8n+2 base32 characters processed: require '======'
-                if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || p[3] != '=' || p[4] != '=' || p[5] != '=' || decode32_table[(unsigned char)p[6]] != -1)
-                    *pfInvalid = true;
-                break;
+			case 4: // 8n+4 base32 characters processed: require '===='
+				if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || p[3] != '=' || decode32_table[(unsigned char)p[4]] != -1)
+				{
+					*pfInvalid = true;
+				}
+				
+				break;
 
-            case 4: // 8n+4 base32 characters processed: require '===='
-                if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || p[3] != '=' || decode32_table[(unsigned char)p[4]] != -1)
-                    *pfInvalid = true;
-                break;
+			case 5: // 8n+5 base32 characters processed: require '==='
+				if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || decode32_table[(unsigned char)p[3]] != -1)
+				{
+					*pfInvalid = true;
+				}
+				
+				break;
 
-            case 5: // 8n+5 base32 characters processed: require '==='
-                if (left || p[0] != '=' || p[1] != '=' || p[2] != '=' || decode32_table[(unsigned char)p[3]] != -1)
-                    *pfInvalid = true;
-                break;
+			case 7: // 8n+7 base32 characters processed: require '='
+				if (left || p[0] != '=' || decode32_table[(unsigned char)p[1]] != -1)
+				{
+					*pfInvalid = true;
+				}
+				
+				break;
+		}
+	}
 
-            case 7: // 8n+7 base32 characters processed: require '='
-                if (left || p[0] != '=' || decode32_table[(unsigned char)p[1]] != -1)
-                    *pfInvalid = true;
-                break;
-        }
-
-    return vchRet;
+	return vchRet;
 }
 
 std::string DecodeBase32(const std::string& str)
 {
-    std::vector<unsigned char> vchRet = DecodeBase32(str.c_str());
-    return std::string((const char*)&vchRet[0], vchRet.size());
+	std::vector<unsigned char> vchRet = DecodeBase32(str.c_str());
+	
+	return std::string((const char*)&vchRet[0], vchRet.size());
 }
 
 
 bool WildcardMatch(const char* psz, const char* mask)
 {
-    while (true)
-    {
-        switch (*mask)
-        {
-        case '\0':
-            return (*psz == '\0');
-        case '*':
-            return WildcardMatch(psz, mask+1) || (*psz && WildcardMatch(psz+1, mask));
-        case '?':
-            if (*psz == '\0')
-                return false;
-            break;
-        default:
-            if (*psz != *mask)
-                return false;
-            break;
-        }
-        psz++;
-        mask++;
-    }
+	while (true)
+	{
+		switch (*mask)
+		{
+			case '\0':
+				return (*psz == '\0');
+			
+			case '*':
+				return WildcardMatch(psz, mask+1) || (*psz && WildcardMatch(psz+1, mask));
+			
+			case '?':
+				if (*psz == '\0')
+				{
+					return false;
+				}
+				break;
+			
+			default:
+				if (*psz != *mask)
+				{
+					return false;
+				}
+				break;
+		}
+		
+		psz++;
+		mask++;
+	}
 }
 
 bool WildcardMatch(const std::string& str, const std::string& mask)
 {
-    return WildcardMatch(str.c_str(), mask.c_str());
+	return WildcardMatch(str.c_str(), mask.c_str());
 }
 
 
 bool ParseInt32(const std::string& str, int32_t *out)
 {
-    char *endp = NULL;
-    errno = 0; // strtol will not set errno if valid
-    long int n = strtol(str.c_str(), &endp, 10);
-    if(out) *out = (int)n;
-    // Note that strtol returns a *long int*, so even if strtol doesn't report a over/underflow
-    // we still have to check that the returned value is within the range of an *int32_t*. On 64-bit
-    // platforms the size of these types may be different.
-    return endp && *endp == 0 && !errno &&
-        n >= std::numeric_limits<int32_t>::min() &&
-        n <= std::numeric_limits<int32_t>::max();
+	char *endp = NULL;
+	errno = 0; // strtol will not set errno if valid
+	long int n = strtol(str.c_str(), &endp, 10);
+	
+	if(out)
+	{
+		*out = (int)n;
+	}
+	
+	// Note that strtol returns a *long int*, so even if strtol doesn't report a over/underflow
+	// we still have to check that the returned value is within the range of an *int32_t*. On 64-bit
+	// platforms the size of these types may be different.
+	return endp && *endp == 0 && !errno &&
+		n >= std::numeric_limits<int32_t>::min() &&
+		n <= std::numeric_limits<int32_t>::max();
 }
 
-const signed char p_util_hexdigit[256] =
-{ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  0,1,2,3,4,5,6,7,8,9,-1,-1,-1,-1,-1,-1,
-  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, };
+const signed char p_util_hexdigit[256] = {
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	0,1,2,3,4,5,6,7,8,9,-1,-1,-1,-1,-1,-1,
+	-1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
 
 signed char HexDigit(char c)
 {
-    return p_util_hexdigit[(unsigned char)c];
+	return p_util_hexdigit[(unsigned char)c];
 }
 
 static std::string FormatException(std::exception* pex, const char* pszThread)
 {
 #ifdef WIN32
-    char pszModule[MAX_PATH] = "";
-    GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
-#else
-    const char* pszModule = "DigitalNote";
-#endif
-    if (pex)
-        return strprintf(
-            "EXCEPTION: %s       \n%s       \n%s in %s       \n", typeid(*pex).name(), pex->what(), pszModule, pszThread);
-    else
-        return strprintf(
-            "UNKNOWN EXCEPTION       \n%s in %s       \n", pszModule, pszThread);
+	char pszModule[MAX_PATH] = "";
+	GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
+#else // WIN32
+	const char* pszModule = "DigitalNote";
+#endif // WIN32
+
+	if (pex)
+	{
+		return strprintf("EXCEPTION: %s       \n%s       \n%s in %s       \n", typeid(*pex).name(), pex->what(), pszModule, pszThread);
+	}
+	else
+	{
+		return strprintf("UNKNOWN EXCEPTION       \n%s in %s       \n", pszModule, pszThread);
+	}
 }
 
 void PrintException(std::exception* pex, const char* pszThread)
 {
-    std::string message = FormatException(pex, pszThread);
-    LogPrintf("\n\n************************\n%s\n", message);
-    fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
-    strMiscWarning = message;
-    throw;
+	std::string message = FormatException(pex, pszThread);
+	
+	LogPrintf("\n\n************************\n%s\n", message);
+	fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
+	
+	strMiscWarning = message;
+	
+	throw;
 }
 
 void PrintExceptionContinue(std::exception* pex, const char* pszThread)
 {
-    std::string message = FormatException(pex, pszThread);
-    LogPrintf("\n\n************************\n%s\n", message);
-    fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
-    strMiscWarning = message;
+	std::string message = FormatException(pex, pszThread);
+	
+	LogPrintf("\n\n************************\n%s\n", message);
+	fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
+	
+	strMiscWarning = message;
 }
 
 boost::filesystem::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\XDN
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\XDN
-    // Mac: ~/Library/Application Support/XDN
-    // Unix: ~/.XDN
+	// Windows < Vista: C:\Documents and Settings\Username\Application Data\XDN
+	// Windows >= Vista: C:\Users\Username\AppData\Roaming\XDN
+	// Mac: ~/Library/Application Support/XDN
+	// Unix: ~/.XDN
 #ifdef WIN32
-    // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "XDN";
-#else
-    boost::filesystem::path pathRet;
-    char* pszHome = getenv("HOME");
-    if (pszHome == NULL || strlen(pszHome) == 0)
-        pathRet = boost::filesystem::path("/");
-    else
-        pathRet = boost::filesystem::path(pszHome);
+	// Windows
+	return GetSpecialFolderPath(CSIDL_APPDATA) / "XDN";
+#else // WIN32
+	boost::filesystem::path pathRet;
+
+	char* pszHome = getenv("HOME");
+
+	if (pszHome == NULL || strlen(pszHome) == 0)
+	{
+		pathRet = boost::filesystem::path("/");
+	}
+	else
+	{
+		pathRet = boost::filesystem::path(pszHome);
+	}
 #ifdef MAC_OSX
-    // Mac
-    pathRet /= "Library/Application Support";
-    boost::filesystem::create_directory(pathRet);
-    return pathRet / "XDN";
-#else
-    // Unix
-    return pathRet / ".XDN";
-#endif
-#endif
+	// Mac
+	pathRet /= "Library/Application Support";
+
+	boost::filesystem::create_directory(pathRet);
+
+	return pathRet / "XDN";
+#else // MAC_OSX
+	// Unix
+	return pathRet / ".XDN";
+#endif // MAC_OSX
+#endif // WIN32
 }
 
 static boost::filesystem::path pathCached[CChainParams_Network::MAX_NETWORK_TYPES+1];
@@ -1137,57 +1434,81 @@ static CCriticalSection csPathCached;
 
 const boost::filesystem::path &GetDataDir(bool fNetSpecific)
 {
-    LOCK(csPathCached);
+	LOCK(csPathCached);
 
-    int nNet = CChainParams_Network::MAX_NETWORK_TYPES;
-    if (fNetSpecific) nNet = Params().NetworkID();
+	int nNet = CChainParams_Network::MAX_NETWORK_TYPES;
+	if (fNetSpecific)
+	{
+		nNet = Params().NetworkID();
+	}
+	
+	boost::filesystem::path &path = pathCached[nNet];
 
-    boost::filesystem::path &path = pathCached[nNet];
+	// This can be called during exceptions by LogPrintf(), so we cache the
+	// value so we don't have to do memory allocations after that.
+	if (!path.empty())
+	{
+		return path;
+	}
+	
+	if (mapArgs.count("-datadir"))
+	{
+		path = boost::filesystem::system_complete(mapArgs["-datadir"]);
+		
+		if (!boost::filesystem::is_directory(path))
+		{
+			path = "";
+			
+			return path;
+		}
+	}
+	else
+	{
+		path = GetDefaultDataDir();
+	}
+	
+	if (fNetSpecific)
+	{
+		path /= Params().DataDir();
+	}
+	
+	boost::filesystem::create_directory(path);
 
-    // This can be called during exceptions by LogPrintf(), so we cache the
-    // value so we don't have to do memory allocations after that.
-    if (!path.empty())
-        return path;
-
-    if (mapArgs.count("-datadir")) {
-        path = boost::filesystem::system_complete(mapArgs["-datadir"]);
-        if (!boost::filesystem::is_directory(path)) {
-            path = "";
-            return path;
-        }
-    } else {
-        path = GetDefaultDataDir();
-    }
-    if (fNetSpecific)
-        path /= Params().DataDir();
-
-    boost::filesystem::create_directory(path);
-
-    return path;
+	return path;
 }
 
 void ClearDatadirCache()
 {
-    std::fill(&pathCached[0], &pathCached[CChainParams_Network::MAX_NETWORK_TYPES+1],
-              boost::filesystem::path());
+	std::fill(&pathCached[0], &pathCached[CChainParams_Network::MAX_NETWORK_TYPES+1],
+			  boost::filesystem::path());
 }
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "DigitalNote.conf"));
-    if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir(false) / pathConfigFile;
-    return pathConfigFile;
+	boost::filesystem::path pathConfigFile(GetArg("-conf", "DigitalNote.conf"));
+	
+	if (!pathConfigFile.is_complete())
+	{
+		pathConfigFile = GetDataDir(false) / pathConfigFile;
+	}
+	
+	return pathConfigFile;
 }
 
 boost::filesystem::path GetMasternodeConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-mnconf", "masternode.conf"));
-    if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir() / pathConfigFile;
-    return pathConfigFile;
+	boost::filesystem::path pathConfigFile(GetArg("-mnconf", "masternode.conf"));
+	
+	if (!pathConfigFile.is_complete())
+	{
+		pathConfigFile = GetDataDir() / pathConfigFile;
+	}
+	
+	return pathConfigFile;
 }
 
 void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet,
-                    std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet)
+		std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet)
 {
 	int confLoop = 0;
 	injectConfig:
@@ -1272,91 +1593,121 @@ void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet,
 
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "DigitalNoted.pid"));
-    if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
-    return pathPidFile;
+	boost::filesystem::path pathPidFile(GetArg("-pid", "DigitalNoted.pid"));
+
+	if (!pathPidFile.is_complete())
+	{
+		pathPidFile = GetDataDir() / pathPidFile;
+	}
+
+	return pathPidFile;
 }
 
 #ifndef WIN32
 void CreatePidFile(const boost::filesystem::path &path, pid_t pid)
 {
-    FILE* file = fopen(path.string().c_str(), "w");
-    if (file)
-    {
-        fprintf(file, "%d\n", pid);
-        fclose(file);
-    }
+	FILE* file = fopen(path.string().c_str(), "w");
+	
+	if (file)
+	{
+		fprintf(file, "%d\n", pid);
+		
+		fclose(file);
+	}
 }
-#endif
+#endif // WIN32
 
 bool RenameOver(boost::filesystem::path src, boost::filesystem::path dest)
 {
 #ifdef WIN32
-    return MoveFileExA(src.string().c_str(), dest.string().c_str(),
-                      MOVEFILE_REPLACE_EXISTING);
-#else
-    int rc = std::rename(src.string().c_str(), dest.string().c_str());
-    return (rc == 0);
-#endif /* WIN32 */
+	return MoveFileExA(src.string().c_str(), dest.string().c_str(),
+					  MOVEFILE_REPLACE_EXISTING);
+#else // WIN32
+	int rc = std::rename(src.string().c_str(), dest.string().c_str());
+
+	return (rc == 0);
+#endif // WIN32
 }
 
 void FileCommit(FILE *fileout)
 {
-    fflush(fileout); // harmless if redundantly called
+	fflush(fileout); // harmless if redundantly called
 #ifdef WIN32
-    HANDLE hFile = (HANDLE)_get_osfhandle(_fileno(fileout));
-    FlushFileBuffers(hFile);
-#else
-    fsync(fileno(fileout));
-#endif
+	HANDLE hFile = (HANDLE)_get_osfhandle(_fileno(fileout));
+	FlushFileBuffers(hFile);
+#else // WIN32
+	fsync(fileno(fileout));
+#endif // WIN32
 }
 
 std::string getTimeString(int64_t timestamp, char *buffer, size_t nBuffer)
 {
-    struct tm* dt;
-    time_t t = timestamp;
-    dt = localtime(&t);
+	struct tm* dt;
+	time_t t = timestamp;
+	
+	dt = localtime(&t);
 
-    strftime(buffer, nBuffer, "%Y-%m-%d %H:%M:%S %z", dt); // %Z shows long strings on windows
-    return std::string(buffer); // copies the null-terminated character sequence
-};
+	strftime(buffer, nBuffer, "%Y-%m-%d %H:%M:%S %z", dt); // %Z shows long strings on windows
+	
+	return std::string(buffer); // copies the null-terminated character sequence
+}
 
 std::string bytesReadable(uint64_t nBytes)
 {
-    if (nBytes >= 1024ll*1024ll*1024ll*1024ll)
-        return strprintf("%.2f TB", nBytes/1024.0/1024.0/1024.0/1024.0);
-    if (nBytes >= 1024*1024*1024)
-        return strprintf("%.2f GB", nBytes/1024.0/1024.0/1024.0);
-    if (nBytes >= 1024*1024)
-        return strprintf("%.2f MB", nBytes/1024.0/1024.0);
-    if (nBytes >= 1024)
-        return strprintf("%.2f KB", nBytes/1024.0);
+	if (nBytes >= 1024ll*1024ll*1024ll*1024ll)
+	{
+		return strprintf("%.2f TB", nBytes/1024.0/1024.0/1024.0/1024.0);
+	}
+	
+	if (nBytes >= 1024*1024*1024)
+	{
+		return strprintf("%.2f GB", nBytes/1024.0/1024.0/1024.0);
+	}
+	
+	if (nBytes >= 1024*1024)
+	{
+		return strprintf("%.2f MB", nBytes/1024.0/1024.0);
+	}
+	
+	if (nBytes >= 1024)
+	{
+		return strprintf("%.2f KB", nBytes/1024.0);
+	}
 
-    return strprintf("%d B", nBytes);
-};
+	return strprintf("%d B", nBytes);
+}
 
 void ShrinkDebugFile()
 {
-    // Scroll debug.log if it's getting too big
-    boost::filesystem::path pathLog = GetDataDir() / "debug.log";
-    FILE* file = fopen(pathLog.string().c_str(), "r");
-    if (file && boost::filesystem::file_size(pathLog) > 10 * 1000000)
-    {
-        // Restart the file with some of the end
-        char pch[200000];
-        fseek(file, -sizeof(pch), SEEK_END);
-        int nBytes = fread(pch, 1, sizeof(pch), file);
-        fclose(file);
+	// Scroll debug.log if it's getting too big
+	boost::filesystem::path pathLog = GetDataDir() / "debug.log";
+	
+	FILE* file = fopen(pathLog.string().c_str(), "r");
+	
+	if (file && boost::filesystem::file_size(pathLog) > 10 * 1000000)
+	{
+		// Restart the file with some of the end
+		char pch[200000];
+		
+		fseek(file, -sizeof(pch), SEEK_END);
+		
+		int nBytes = fread(pch, 1, sizeof(pch), file);
+		
+		fclose(file);
 
-        file = fopen(pathLog.string().c_str(), "w");
-        if (file)
-        {
-            fwrite(pch, 1, nBytes, file);
-            fclose(file);
-        }
-    }
-    else if (file != NULL)
-        fclose(file);
+		file = fopen(pathLog.string().c_str(), "w");
+		
+		if (file)
+		{
+			fwrite(pch, 1, nBytes, file);
+			
+			fclose(file);
+		}
+	}
+	else if (file != NULL)
+	{
+		fclose(file);
+	}
 }
 
 //
@@ -1370,14 +1721,17 @@ static int64_t nMockTime = 0;  // For unit testing
 
 int64_t GetTime()
 {
-    if (nMockTime) return nMockTime;
+	if (nMockTime)
+	{
+		return nMockTime;
+	}
 
-    return time(NULL);
+	return time(NULL);
 }
 
 void SetMockTime(int64_t nMockTimeIn)
 {
-    nMockTime = nMockTimeIn;
+	nMockTime = nMockTimeIn;
 }
 
 static CCriticalSection cs_nTimeOffset;
@@ -1469,207 +1823,229 @@ void AddTimeData(const CNetAddr& ip, int64_t nTime)
 
 uint32_t insecure_rand_Rz = 11;
 uint32_t insecure_rand_Rw = 11;
+
 void seed_insecure_rand(bool fDeterministic)
 {
-    //The seed values have some unlikely fixed points which we avoid.
-    if(fDeterministic)
-    {
-        insecure_rand_Rz = insecure_rand_Rw = 11;
-    } else {
-        uint32_t tmp;
-        do{
-            GetRandBytes((unsigned char*)&tmp,4);
-        }while(tmp==0 || tmp==0x9068ffffU);
-        insecure_rand_Rz=tmp;
-        do{
-            GetRandBytes((unsigned char*)&tmp,4);
-        }while(tmp==0 || tmp==0x464fffffU);
-        insecure_rand_Rw=tmp;
-    }
+	//The seed values have some unlikely fixed points which we avoid.
+	if(fDeterministic)
+	{
+		insecure_rand_Rz = insecure_rand_Rw = 11;
+	}
+	else
+	{
+		uint32_t tmp;
+		
+		do
+		{
+			GetRandBytes((unsigned char*)&tmp,4);
+		} while(tmp==0 || tmp==0x9068ffffU);
+		
+		insecure_rand_Rz = tmp;
+		
+		do
+		{
+			GetRandBytes((unsigned char*)&tmp,4);
+		} while(tmp==0 || tmp==0x464fffffU);
+		
+		insecure_rand_Rw = tmp;
+	}
 }
 
 std::string FormatVersion(int nVersion)
 {
-    if (nVersion%100 == 0)
-        return strprintf("%d.%d.%d", nVersion/1000000, (nVersion/10000)%100, (nVersion/100)%100);
-    else
-        return strprintf("%d.%d.%d.%d", nVersion/1000000, (nVersion/10000)%100, (nVersion/100)%100, nVersion%100);
+	if (nVersion%100 == 0)
+	{
+		return strprintf("%d.%d.%d", nVersion/1000000, (nVersion/10000)%100, (nVersion/100)%100);
+	}
+	else
+	{
+		return strprintf("%d.%d.%d.%d", nVersion/1000000, (nVersion/10000)%100, (nVersion/100)%100, nVersion%100);
+	}
 }
 
 std::string FormatFullVersion()
 {
-    return CLIENT_BUILD;
+	return CLIENT_BUILD;
 }
 
 // Format the subversion field according to BIP 14 spec (https://en.bitcoin.it/wiki/BIP_0014)
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments)
 {
-    std::ostringstream ss;
-    ss << "/";
-    ss << name << ":" << FormatVersion(nClientVersion);
-    if (!comments.empty())
-        ss << "(" << boost::algorithm::join(comments, "; ") << ")";
-    ss << "/";
-    return ss.str();
+	std::ostringstream ss;
+
+	ss << "/";
+	ss << name << ":" << FormatVersion(nClientVersion);
+
+	if (!comments.empty())
+	{
+		ss << "(" << boost::algorithm::join(comments, "; ") << ")";
+	}
+
+	ss << "/";
+
+	return ss.str();
 }
 
 #ifdef WIN32
 boost::filesystem::path GetSpecialFolderPath(int nFolder, bool fCreate)
 {
-    char pszPath[MAX_PATH] = "";
+	char pszPath[MAX_PATH] = "";
 
-    if(SHGetSpecialFolderPathA(NULL, pszPath, nFolder, fCreate))
-    {
-        return boost::filesystem::path(pszPath);
-    }
+	if(SHGetSpecialFolderPathA(NULL, pszPath, nFolder, fCreate))
+	{
+		return boost::filesystem::path(pszPath);
+	}
 
-    LogPrintf("SHGetSpecialFolderPathA() failed, could not obtain requested path.\n");
-    return boost::filesystem::path("");
+	LogPrintf("SHGetSpecialFolderPathA() failed, could not obtain requested path.\n");
+
+	return boost::filesystem::path("");
 }
-#endif
+#endif // WIN32
 
 void runCommand(std::string strCommand)
 {
-    int nErr = ::system(strCommand.c_str());
-    if (nErr)
-        LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
+	int nErr = ::system(strCommand.c_str());
+	
+	if (nErr)
+	{
+		LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
+	}
 }
 
 void SetThreadPriority(int nPriority)
 {
 #ifdef WIN32
-    SetThreadPriority(GetCurrentThread(), nPriority);
+	SetThreadPriority(GetCurrentThread(), nPriority);
 #else // WIN32
-
-#ifdef PRIO_THREAD
-    setpriority(PRIO_THREAD, 0, nPriority);
-#else // PRIO_THREAD
-    setpriority(PRIO_PROCESS, 0, nPriority);
-#endif // PRIO_THREAD
-
+	#ifdef PRIO_THREAD
+	setpriority(PRIO_THREAD, 0, nPriority);
+	#else // PRIO_THREAD
+	setpriority(PRIO_PROCESS, 0, nPriority);
+	#endif // PRIO_THREAD
 #endif // WIN32
 }
 
 void RenameThread(const char* name)
 {
 #if defined(PR_SET_NAME)
-    // Only the first 15 characters are used (16 - NUL terminator)
-    ::prctl(PR_SET_NAME, name, 0, 0, 0);
+	// Only the first 15 characters are used (16 - NUL terminator)
+	::prctl(PR_SET_NAME, name, 0, 0, 0);
 #elif 0 && (defined(__FreeBSD__) || defined(__OpenBSD__))
-    // TODO: This is currently disabled because it needs to be verified to work
-    //       on FreeBSD or OpenBSD first. When verified the '0 &&' part can be
-    //       removed.
-    pthread_set_name_np(pthread_self(), name);
-
+	// TODO: This is currently disabled because it needs to be verified to work
+	// on FreeBSD or OpenBSD first. When verified the '0 &&' part can be
+	// removed.
+	pthread_set_name_np(pthread_self(), name);
 #elif defined(MAC_OSX) && defined(__MAC_OS_X_VERSION_MAX_ALLOWED)
-
-// pthread_setname_np is XCode 10.6-and-later
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
-    pthread_setname_np(name);
-#endif
-
+	// pthread_setname_np is XCode 10.6-and-later
+	#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
+	pthread_setname_np(name);
+	#endif
 #else
-    // Prevent warnings for unused parameters...
-    (void)name;
+	// Prevent warnings for unused parameters...
+	(void)name;
 #endif
 }
 
 std::string DateTimeStrFormat(const char* pszFormat, int64_t nTime)
 {
-    // std::locale takes ownership of the pointer
-    std::locale loc(std::locale::classic(), new boost::posix_time::time_facet(pszFormat));
-    std::stringstream ss;
-    ss.imbue(loc);
-    ss << boost::posix_time::from_time_t(nTime);
-    return ss.str();
+	// std::locale takes ownership of the pointer
+	std::locale loc(std::locale::classic(), new boost::posix_time::time_facet(pszFormat));
+	std::stringstream ss;
+	
+	ss.imbue(loc);
+	
+	ss << boost::posix_time::from_time_t(nTime);
+	
+	return ss.str();
 }
 
 static const long hextable[] =
 {
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 10-19
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 30-39
-    -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,
-     2,  3,  4,  5,  6,  7,  8,  9, -1, -1,		// 50-59
-    -1, -1, -1, -1, -1, 10, 11, 12, 13, 14,
-    15, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 70-79
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, 10, 11, 12,		// 90-99
-    13, 14, 15, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 110-109
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 130-139
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 150-159
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 170-179
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 190-199
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 210-219
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 230-239
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 10-19
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 30-39
+	-1, -1, -1, -1, -1, -1, -1, -1,  0,  1,
+	 2,  3,  4,  5,  6,  7,  8,  9, -1, -1,		// 50-59
+	-1, -1, -1, -1, -1, 10, 11, 12, 13, 14,
+	15, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 70-79
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, 10, 11, 12,		// 90-99
+	13, 14, 15, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 110-109
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 130-139
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 150-159
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 170-179
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 190-199
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 210-219
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,		// 230-239
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1
 };
 
 long hex2long(const char* hexString)
 {
-    long ret = 0;
+	long ret = 0;
 
-    while (*hexString && ret >= 0)
-    {
-        ret = (ret << 4) | hextable[*hexString++];
-    }
+	while (*hexString && ret >= 0)
+	{
+		ret = (ret << 4) | hextable[*hexString++];
+	}
 
-    return ret;
+	return ret;
 }
 
 uint32_t ByteReverse(uint32_t value)
 {
-    value = ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8);
-    return (value<<16) | (value>>16);
+	value = ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8);
+	
+	return (value<<16) | (value>>16);
 }
 
 // Standard wrapper for do-something-forever thread functions.
 // "Forever" really means until the thread is interrupted.
 // Use it like:
-//   new boost::thread(boost::bind(&LoopForever<void (*)()>, "dumpaddr", &DumpAddresses, 900000));
+//	new boost::thread(boost::bind(&LoopForever<void (*)()>, "dumpaddr", &DumpAddresses, 900000));
 // or maybe:
-//    boost::function<void()> f = boost::bind(&FunctionWithArg, argument);
-//    threadGroup.create_thread(boost::bind(&LoopForever<boost::function<void()> >, "nothing", f, milliseconds));
+//	boost::function<void()> f = boost::bind(&FunctionWithArg, argument);
+//	threadGroup.create_thread(boost::bind(&LoopForever<boost::function<void()> >, "nothing", f, milliseconds));
 template <typename Callable>
 void LoopForever(const char* name, Callable func, int64_t msecs)
 {
-    std::string s = strprintf("DigitalNote-%s", name);
-    RenameThread(s.c_str());
-    
+	std::string s = strprintf("DigitalNote-%s", name);
+	RenameThread(s.c_str());
+
 	LogPrintf("%s thread start\n", name);
-    
+
 	try
-    {
-        while (1)
-        {
-            MilliSleep(msecs);
-            
+	{
+		while (1)
+		{
+			MilliSleep(msecs);
+			
 			func();
-        }
-    }
-    catch (boost::thread_interrupted)
-    {
-        LogPrintf("%s thread stop\n", name);
-        
+		}
+	}
+	catch (boost::thread_interrupted)
+	{
+		LogPrintf("%s thread stop\n", name);
+		
 		throw;
-    }
-    catch (std::exception& e)
+	}
+	catch (std::exception& e)
 	{
-        PrintException(&e, name);
-    }
-    catch (...)
+		PrintException(&e, name);
+	}
+	catch (...)
 	{
-        PrintException(NULL, name);
-    }
+		PrintException(NULL, name);
+	}
 }
 
 template void LoopForever<void (*)()>(const char*, void (*)(), int64_t);
@@ -1678,46 +2054,48 @@ template void LoopForever<void (*)()>(const char*, void (*)(), int64_t);
 template <typename Callable>
 void TraceThread(const char* name,  Callable func)
 {
-    std::string s = strprintf("DigitalNote-%s", name);
-	
-    RenameThread(s.c_str());
-    
+	std::string s = strprintf("DigitalNote-%s", name);
+
+	RenameThread(s.c_str());
+
 	try
-    {
-        LogPrintf("%s thread start\n", name);
-        
+	{
+		LogPrintf("%s thread start\n", name);
+		
 		func();
-        
+		
 		LogPrintf("%s thread exit\n", name);
-    }
-    catch (boost::thread_interrupted)
-    {
-        LogPrintf("%s thread interrupt\n", name);
-        
+	}
+	catch (boost::thread_interrupted)
+	{
+		LogPrintf("%s thread interrupt\n", name);
+		
 		throw;
-    }
-    catch (std::exception& e)
+	}
+	catch (std::exception& e)
 	{
-        PrintException(&e, name);
-    }
-    catch (...)
+		PrintException(&e, name);
+	}
+	catch (...)
 	{
-        PrintException(NULL, name);
-    }
+		PrintException(NULL, name);
+	}
 }
 
 template void TraceThread<void (*)()>(const char*, void (*)());
 
 int64_t GetPerformanceCounter()
 {
-    int64_t nCounter = 0;
+	int64_t nCounter = 0;
+
 #ifdef WIN32
-    QueryPerformanceCounter((LARGE_INTEGER*)&nCounter);
-#else
-    timeval t;
-    gettimeofday(&t, NULL);
-    nCounter = (int64_t) t.tv_sec * 1000000 + t.tv_usec;
-#endif
-    return nCounter;
+	QueryPerformanceCounter((LARGE_INTEGER*)&nCounter);
+#else // WIN32
+	timeval t;
+	gettimeofday(&t, NULL);
+	nCounter = (int64_t) t.tv_sec * 1000000 + t.tv_usec;
+#endif // WIN32
+
+	return nCounter;
 }
 

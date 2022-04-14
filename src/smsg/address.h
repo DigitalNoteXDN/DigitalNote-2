@@ -11,18 +11,18 @@ namespace SMSG {
 class Address
 {
 public:
-    std::string     sAddress;
-    bool            fReceiveEnabled;
-    bool            fReceiveAnon;
-    
+	std::string sAddress;
+	bool fReceiveEnabled;
+	bool fReceiveAnon;
+
 	Address();
-    Address(std::string sAddr, bool receiveOn, bool receiveAnon);
-    
-    unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	Address(std::string sAddr, bool receiveOn, bool receiveAnon);
+
+	unsigned int GetSerializeSize(int nType, int nVersion) const;
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 } // namespace SMSG

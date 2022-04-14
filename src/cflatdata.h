@@ -1,6 +1,8 @@
 #ifndef CFLATDATA_H
 #define CFLATDATA_H
 
+#include "serialize/base.h"
+
 #define FLATDATA(obj)  REF(CFlatData((char*)&(obj), (char*)&(obj) + sizeof(obj)))
 
 /** Wrapper for serializing arrays and POD.
@@ -13,7 +15,7 @@ protected:
 
 public:
 	CFlatData(void* pbeginIn, void* pendIn);
-	
+
 	char* begin();
 	const char* begin() const;
 	char* end();

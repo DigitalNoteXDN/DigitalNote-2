@@ -8,14 +8,14 @@
 class CHash160
 {
 private:
-    CSHA256 sha;
-	
-public:
-    static const size_t OUTPUT_SIZE = CRIPEMD160::OUTPUT_SIZE;
+	CSHA256 sha;
 
-    void Finalize(unsigned char hash[OUTPUT_SIZE]);
-    CHash160& Write(const unsigned char *data, size_t len);
-    CHash160& Reset();
+public:
+	static const size_t OUTPUT_SIZE = CRIPEMD160::OUTPUT_SIZE;
+
+	void Finalize(unsigned char hash[OUTPUT_SIZE]);
+	CHash160& Write(const unsigned char *data, size_t len);
+	CHash160& Reset();
 };
 
 #endif // CHASH160_H

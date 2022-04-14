@@ -22,8 +22,8 @@ bool operator!=(const CMasternode& a, const CMasternode& b);
 class CMasternode
 {
 private:
-    // critical section to protect the inner data structures
-    mutable CCriticalSection cs;
+	// critical section to protect the inner data structures
+	mutable CCriticalSection cs;
 
 public:
 	enum state
@@ -79,17 +79,17 @@ public:
 	void ChangeNodeStatus(bool status);
 	uint64_t SliceHash(uint256& hash, int slice);
 	void Check();
-    bool UpdatedWithin(int seconds);
-    void Disable();
-    bool IsEnabled();
-    int GetMasternodeInputAge();
-    std::string Status();
-	
+	bool UpdatedWithin(int seconds);
+	void Disable();
+	bool IsEnabled();
+	int GetMasternodeInputAge();
+	std::string Status();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CMASTERNODE_H

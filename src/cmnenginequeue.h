@@ -13,25 +13,25 @@ class CService;
 class CMNengineQueue
 {
 public:
-    CTxIn vin;
-    int64_t time;
-    bool ready; //ready for submit
-    std::vector<unsigned char> vchSig;
+	CTxIn vin;
+	int64_t time;
+	bool ready; //ready for submit
+	std::vector<unsigned char> vchSig;
 
-    CMNengineQueue();
-	
-    bool GetAddress(CService &addr);
-    bool GetProtocolVersion(int &protocolVersion);
-    bool Sign();
-    bool Relay();
+	CMNengineQueue();
+
+	bool GetAddress(CService &addr);
+	bool GetProtocolVersion(int &protocolVersion);
+	bool Sign();
+	bool Relay();
 	bool IsExpired();
-    bool CheckSignature();
-	
+	bool CheckSignature();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CMNENGINEQUEUE_H

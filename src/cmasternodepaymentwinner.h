@@ -12,21 +12,21 @@ class uint256;
 class CMasternodePaymentWinner
 {
 public:
-    int nBlockHeight;
-    CTxIn vin;
-    CScript payee;
-    std::vector<unsigned char> vchSig;
-    uint64_t score;
+	int nBlockHeight;
+	CTxIn vin;
+	CScript payee;
+	std::vector<unsigned char> vchSig;
+	uint64_t score;
 
-    CMasternodePaymentWinner();
-	
-    uint256 GetHash();
-	
+	CMasternodePaymentWinner();
+
+	uint256 GetHash();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CMASTERNODEPAYMENTWINNER_H

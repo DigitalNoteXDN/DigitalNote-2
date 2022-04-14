@@ -105,13 +105,13 @@ CScript::CScript(int b)
 	operator<<(b);
 }
 
-CScript::CScript(long b)               { operator<<(b); }
-CScript::CScript(long long b)          { operator<<(b); }
-CScript::CScript(unsigned char b)      { operator<<(b); }
-CScript::CScript(unsigned int b)       { operator<<(b); }
-CScript::CScript(unsigned short b)     { operator<<(b); }
-CScript::CScript(unsigned long b)      { operator<<(b); }
-CScript::CScript(unsigned long long b) { operator<<(b); }
+CScript::CScript(long b)				{ operator<<(b); }
+CScript::CScript(long long b)			{ operator<<(b); }
+CScript::CScript(unsigned char b)		{ operator<<(b); }
+CScript::CScript(unsigned int b)		{ operator<<(b); }
+CScript::CScript(unsigned short b)		{ operator<<(b); }
+CScript::CScript(unsigned long b)		{ operator<<(b); }
+CScript::CScript(unsigned long long b)	{ operator<<(b); }
 
 CScript::CScript(opcodetype b)							{ operator<<(b); }
 CScript::CScript(const uint256& b)						{ operator<<(b); }
@@ -436,36 +436,36 @@ unsigned int CScript::GetSigOpCount(bool fAccurate) const
 // pay-to-script-hash transactions:
 unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 {
-    if (!IsPayToScriptHash())
+	if (!IsPayToScriptHash())
 	{
-        return GetSigOpCount(true);
+		return GetSigOpCount(true);
 	}
-	
-    // This is a pay-to-script-hash scriptPubKey;
-    // get the last item that the scriptSig
-    // pushes onto the stack:
-    const_iterator pc = scriptSig.begin();
-    std::vector<unsigned char> data;
-	
-    while (pc < scriptSig.end())
-    {
-        opcodetype opcode;
-        
+
+	// This is a pay-to-script-hash scriptPubKey;
+	// get the last item that the scriptSig
+	// pushes onto the stack:
+	const_iterator pc = scriptSig.begin();
+	std::vector<unsigned char> data;
+
+	while (pc < scriptSig.end())
+	{
+		opcodetype opcode;
+		
 		if (!scriptSig.GetOp(pc, opcode, data))
 		{
-            return 0;
+			return 0;
 		}
 		
-        if (opcode > OP_16)
+		if (opcode > OP_16)
 		{
-            return 0;
+			return 0;
 		}
-    }
+	}
 
-    /// ... and return its opcount:
-    CScript subscript(data.begin(), data.end());
-	
-    return subscript.GetSigOpCount(true);
+	/// ... and return its opcount:
+	CScript subscript(data.begin(), data.end());
+
+	return subscript.GetSigOpCount(true);
 }
 
 bool CScript::IsNormalPaymentScript() const

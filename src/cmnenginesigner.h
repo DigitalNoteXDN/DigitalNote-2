@@ -13,14 +13,14 @@ class CKey;
 class CMNengineSigner
 {
 public:
-    /// Is the inputs associated with this public key? (and there is 10000 XDN - checking if valid masternode)
-    bool IsVinAssociatedWithPubkey(CTxIn& vin, CPubKey& pubkey);
-    /// Set the private/public key values, returns true if successful
-    bool SetKey(const std::string &strSecret, std::string& errorMessage, CKey& key, CPubKey& pubkey);
-    /// Sign the message, returns true if successful
-    bool SignMessage(const std::string &strMessage, std::string& errorMessage, std::vector<unsigned char>& vchSig, CKey key);
-    /// Verify the message, returns true if succcessful
-    bool VerifyMessage(CPubKey pubkey, std::vector<unsigned char>& vchSig, const std::string &strMessage, std::string& errorMessage);
+	/// Is the inputs associated with this public key? (and there is 10000 XDN - checking if valid masternode)
+	bool IsVinAssociatedWithPubkey(CTxIn& vin, CPubKey& pubkey);
+	/// Set the private/public key values, returns true if successful
+	bool SetKey(const std::string &strSecret, std::string& errorMessage, CKey& key, CPubKey& pubkey);
+	/// Sign the message, returns true if successful
+	bool SignMessage(const std::string &strMessage, std::string& errorMessage, std::vector<unsigned char>& vchSig, CKey key);
+	/// Verify the message, returns true if succcessful
+	bool VerifyMessage(CPubKey pubkey, std::vector<unsigned char>& vchSig, const std::string &strMessage, std::string& errorMessage);
 };
 
 #endif // CMNENGINESIGNER_H

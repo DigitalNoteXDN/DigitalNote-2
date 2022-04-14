@@ -8,7 +8,7 @@
 /** nServices flags */
 enum
 {
-    NODE_NETWORK = (1 << 0),
+	NODE_NETWORK = (1 << 0),
 };
 
 #endif // PROTOCOL_H

@@ -116,7 +116,7 @@ json_spirit::Value validateaddress(const json_spirit::Array& params, bool fHelp)
 	ret.push_back(json_spirit::Pair("isvalid", isValid));
 
 	if (isValid)
-    {
+	{
 		CTxDestination dest = address.Get();
 		std::string currentAddress = address.ToString();
 		
@@ -169,7 +169,7 @@ json_spirit::Value validatepubkey(const json_spirit::Array& params, bool fHelp)
 	ret.push_back(json_spirit::Pair("isvalid", isValid));
 
 	if (isValid)
-    {
+	{
 		CTxDestination dest = address.Get();
 		std::string currentAddress = address.ToString();
 		
@@ -210,9 +210,9 @@ json_spirit::Value verifymessage(const json_spirit::Array& params, bool fHelp)
 		);
 	}
 
-	std::string strAddress  = params[0].get_str();
-	std::string strSign     = params[1].get_str();
-	std::string strMessage  = params[2].get_str();
+	std::string strAddress = params[0].get_str();
+	std::string strSign = params[1].get_str();
+	std::string strMessage = params[2].get_str();
 
 	CDigitalNoteAddress addr(strAddress);
 	if (!addr.IsValid())
@@ -248,7 +248,7 @@ json_spirit::Value verifymessage(const json_spirit::Array& params, bool fHelp)
 }
 
 /*
-    Used for updating/reading spork settings on the network
+	Used for updating/reading spork settings on the network
 */
 json_spirit::Value spork(const json_spirit::Array& params, bool fHelp)
 {

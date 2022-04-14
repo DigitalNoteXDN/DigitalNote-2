@@ -141,32 +141,32 @@ bool CStealthAddress::SetEncoded(const std::string& encodedAddress)
 
 std::string CStealthAddress::Encoded() const
 {
-    // https://wiki.unsystem.net/index.php/DarkWallet/Stealth#Address_format
-    // [version] [options] [scan_key] [N] ... [Nsigs] [prefix_length] ...
-    
-    data_chunk raw;
-    raw.push_back(stealth_version_byte);
-    
-    raw.push_back(options);
-    
-    raw.insert(raw.end(), scan_pubkey.begin(), scan_pubkey.end());
-    raw.push_back(1); // number of spend pubkeys
-    raw.insert(raw.end(), spend_pubkey.begin(), spend_pubkey.end());
-    raw.push_back(0); // number of signatures
-    raw.push_back(0); // ?
-    
-    AppendChecksum(raw);
-    
-    return EncodeBase58(raw);
+	// https://wiki.unsystem.net/index.php/DarkWallet/Stealth#Address_format
+	// [version] [options] [scan_key] [N] ... [Nsigs] [prefix_length] ...
+
+	data_chunk raw;
+	raw.push_back(stealth_version_byte);
+
+	raw.push_back(options);
+
+	raw.insert(raw.end(), scan_pubkey.begin(), scan_pubkey.end());
+	raw.push_back(1); // number of spend pubkeys
+	raw.insert(raw.end(), spend_pubkey.begin(), spend_pubkey.end());
+	raw.push_back(0); // number of signatures
+	raw.push_back(0); // ?
+
+	AppendChecksum(raw);
+
+	return EncodeBase58(raw);
 };
 
 int CStealthAddress::SetScanPubKey(CPubKey pk)
 {
-    scan_pubkey.resize(pk.size());
-    
+	scan_pubkey.resize(pk.size());
+
 	memcpy(&scan_pubkey[0], pk.begin(), pk.size());
-	
-    return 0;
+
+	return 0;
 }
 
 bool CStealthAddress::operator<(const CStealthAddress& y) const

@@ -378,16 +378,16 @@ void CWallet::SetNull()
 
 const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
 {
-    LOCK(cs_wallet);
-	
-    mapWallet_t::const_iterator it = mapWallet.find(hash);
-	
-    if (it == mapWallet.end())
+	LOCK(cs_wallet);
+
+	mapWallet_t::const_iterator it = mapWallet.find(hash);
+
+	if (it == mapWallet.end())
 	{
-        return NULL;
+		return NULL;
 	}
 
-    return &(it->second);
+	return &(it->second);
 }
 
 // check whether we are allowed to upgrade (or already support) to the named feature
@@ -2612,56 +2612,56 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey, std:
 
 bool CWallet::AddAccountingEntry(const CAccountingEntry& acentry, CWalletDB & pwalletdb)
 {
-    if (!pwalletdb.WriteAccountingEntry_Backend(acentry))
+	if (!pwalletdb.WriteAccountingEntry_Backend(acentry))
 	{
-        return false;
+		return false;
 	}
-	
-    laccentries.push_back(acentry);
-    CAccountingEntry & entry = laccentries.back();
-    wtxOrdered.insert(std::make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
 
-    return true;
+	laccentries.push_back(acentry);
+	CAccountingEntry & entry = laccentries.back();
+	wtxOrdered.insert(std::make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
+
+	return true;
 }
 
 uint64_t CWallet::GetStakeWeight() const
 {
-    // Choose coins to use
-    int64_t nBalance = GetBalance();
+	// Choose coins to use
+	int64_t nBalance = GetBalance();
 
-    if (nBalance <= nReserveBalance)
+	if (nBalance <= nReserveBalance)
 	{
-        return 0;
+		return 0;
 	}
-	
-    std::vector<const CWalletTx*> vwtxPrev;
 
-    setCoins_t setCoins;
-    int64_t nValueIn = 0;
+	std::vector<const CWalletTx*> vwtxPrev;
 
-    if (!SelectCoinsForStaking(nBalance - nReserveBalance, GetTime(), setCoins, nValueIn))
+	setCoins_t setCoins;
+	int64_t nValueIn = 0;
+
+	if (!SelectCoinsForStaking(nBalance - nReserveBalance, GetTime(), setCoins, nValueIn))
 	{
-        return 0;
+		return 0;
 	}
-	
-    if (setCoins.empty())
-	{
-        return 0;
-	}
-	
-    uint64_t nWeight = 0;
 
-    LOCK2(cs_main, cs_wallet);
-	
-    for(pairCoin_t pcoin : setCoins)
-    {
-        if (pcoin.first->GetDepthInMainChain() >= nStakeMinConfirmations)
+	if (setCoins.empty())
+	{
+		return 0;
+	}
+
+	uint64_t nWeight = 0;
+
+	LOCK2(cs_main, cs_wallet);
+
+	for(pairCoin_t pcoin : setCoins)
+	{
+		if (pcoin.first->GetDepthInMainChain() >= nStakeMinConfirmations)
 		{
-            nWeight += pcoin.first->vout[pcoin.second].nValue;
+			nWeight += pcoin.first->vout[pcoin.second].nValue;
 		}
-    }
+	}
 
-    return nWeight;
+	return nWeight;
 }
 
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees,

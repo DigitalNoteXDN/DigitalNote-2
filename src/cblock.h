@@ -44,72 +44,72 @@ typedef std::unique_ptr<CBlock> CBlockPtr;
 class CBlock
 {
 public:
-    // header
-    static const int CURRENT_VERSION = 7;
-    int nVersion;
-    uint256 hashPrevBlock;
-    uint256 hashMerkleRoot;
-    unsigned int nTime;
-    unsigned int nBits;
-    unsigned int nNonce;
+	// header
+	static const int CURRENT_VERSION = 7;
+	int nVersion;
+	uint256 hashPrevBlock;
+	uint256 hashMerkleRoot;
+	unsigned int nTime;
+	unsigned int nBits;
+	unsigned int nNonce;
 
-    // network and disk
-    std::vector<CTransaction> vtx;
+	// network and disk
+	std::vector<CTransaction> vtx;
 
-    // ppcoin: block signature - signed by one of the coin base txout[N]'s owner
-    std::vector<unsigned char> vchBlockSig;
+	// ppcoin: block signature - signed by one of the coin base txout[N]'s owner
+	std::vector<unsigned char> vchBlockSig;
 
-    // memory only
-    mutable std::vector<uint256> vMerkleTree;
+	// memory only
+	mutable std::vector<uint256> vMerkleTree;
 
-    // Denial-of-service detection:
-    mutable int nDoS;
-    bool DoS(int nDoSIn, bool fIn) const;
+	// Denial-of-service detection:
+	mutable int nDoS;
+	bool DoS(int nDoSIn, bool fIn) const;
 
-    CBlock();
-	
+	CBlock();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
-	
-    void SetNull();
-    bool IsNull() const;
-    uint256 GetHash() const;
-    uint256 GetPoWHash() const;
-    int64_t GetBlockTime() const;
-    void UpdateTime(const CBlockIndex* pindexPrev);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    // entropy bit for stake modifier if chosen by modifier
-    unsigned int GetStakeEntropyBit() const;
-    // ppcoin: two types of block: proof-of-work or proof-of-stake
-    bool IsProofOfStake() const;
-    bool IsProofOfWork() const;
-    std::pair<COutPoint, unsigned int> GetProofOfStake() const;
-    // ppcoin: get max transaction timestamp
-    int64_t GetMaxTransactionTime() const;
-    uint256 BuildMerkleTree() const;
-    std::vector<uint256> GetMerkleBranch(int nIndex) const;
-    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
-	
-    bool WriteToDisk(unsigned int& nFileRet, unsigned int& nBlockPosRet);
-    bool ReadFromDisk(unsigned int nFile, unsigned int nBlockPos, bool fReadTransactions=true);
-    std::string ToString() const;
+	void SetNull();
+	bool IsNull() const;
+	uint256 GetHash() const;
+	uint256 GetPoWHash() const;
+	int64_t GetBlockTime() const;
+	void UpdateTime(const CBlockIndex* pindexPrev);
 
-    bool DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex);
-    bool ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck=false);
-    bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
-    bool SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew);
-    bool AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const uint256& hashProof);
-    bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true, bool fCheckSig=true) const;
-    bool AcceptBlock();
-    bool SignBlock(CWallet& keystore, int64_t nFees);
-    bool CheckBlockSignature() const;
-    void RebuildAddressIndex(CTxDB& txdb);
+	// entropy bit for stake modifier if chosen by modifier
+	unsigned int GetStakeEntropyBit() const;
+	// ppcoin: two types of block: proof-of-work or proof-of-stake
+	bool IsProofOfStake() const;
+	bool IsProofOfWork() const;
+	std::pair<COutPoint, unsigned int> GetProofOfStake() const;
+	// ppcoin: get max transaction timestamp
+	int64_t GetMaxTransactionTime() const;
+	uint256 BuildMerkleTree() const;
+	std::vector<uint256> GetMerkleBranch(int nIndex) const;
+	static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
+
+	bool WriteToDisk(unsigned int& nFileRet, unsigned int& nBlockPosRet);
+	bool ReadFromDisk(unsigned int nFile, unsigned int nBlockPos, bool fReadTransactions=true);
+	std::string ToString() const;
+
+	bool DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex);
+	bool ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck=false);
+	bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
+	bool SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew);
+	bool AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const uint256& hashProof);
+	bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true, bool fCheckSig=true) const;
+	bool AcceptBlock();
+	bool SignBlock(CWallet& keystore, int64_t nFees);
+	bool CheckBlockSignature() const;
+	void RebuildAddressIndex(CTxDB& txdb);
 
 private:
-    bool SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew);
+	bool SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew);
 };
 
 #endif // CBLOCK_H

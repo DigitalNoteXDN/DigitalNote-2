@@ -9,8 +9,8 @@ class CMasternodeMan;
 class CMasternodeDB
 {
 private:
-    boost::filesystem::path pathMN;
-    std::string strMagicMessage;
+	boost::filesystem::path pathMN;
+	std::string strMagicMessage;
 
 public:
 	enum ReadResult
@@ -24,10 +24,10 @@ public:
 		IncorrectFormat
 	};
 
-    CMasternodeDB();
-    
+	CMasternodeDB();
+
 	bool Write(const CMasternodeMan &mnodemanToSave);
-    ReadResult Read(CMasternodeMan& mnodemanToLoad);
+	ReadResult Read(CMasternodeMan& mnodemanToLoad);
 };
 
 #endif // MASTERNODEDB_H

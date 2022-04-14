@@ -32,7 +32,7 @@ bool CTransaction::DoS(int nDoSIn, bool fIn) const
 
 CTransaction::CTransaction(int nVersion, unsigned int nTime, const std::vector<CTxIn>& vin,
 		const std::vector<CTxOut>& vout, unsigned int nLockTime)
-        : nVersion(nVersion), nTime(nTime), vin(vin), vout(vout), nLockTime(nLockTime), nDoS(0)
+		: nVersion(nVersion), nTime(nTime), vin(vin), vout(vout), nLockTime(nLockTime), nDoS(0)
 {
 	
 }
@@ -203,10 +203,10 @@ int64_t CTransaction::GetValueMapIn(const mapPrevTx_t& inputs) const
 
 bool operator==(const CTransaction& a, const CTransaction& b)
 {
-	return (a.nVersion  == b.nVersion &&
-			a.nTime     == b.nTime &&
-			a.vin       == b.vin &&
-			a.vout      == b.vout &&
+	return (a.nVersion == b.nVersion &&
+			a.nTime == b.nTime &&
+			a.vin == b.vin &&
+			a.vout == b.vout &&
 			a.nLockTime == b.nLockTime);
 }
 
@@ -372,7 +372,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 }
 
 bool CTransaction::FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
-                               bool fBlock, bool fMiner, mapPrevTx_t& inputsRet, bool& fInvalid) const
+		bool fBlock, bool fMiner, mapPrevTx_t& inputsRet, bool& fInvalid) const
 {
 	// FetchInputs can return false either because we just haven't seen some inputs
 	// (in which case the transaction should be stored as an orphan)
@@ -461,7 +461,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& m
 }
 
 bool CTransaction::ConnectInputs(CTxDB& txdb, mapPrevTx_t inputs, std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
-    const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags, bool fValidateSig)
+		const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags, bool fValidateSig)
 {
 	// Take over previous transactions' spent pointers
 	// fBlock is true when this is called from AcceptBlock when a new best-block is added to the blockchain
@@ -711,49 +711,49 @@ bool CTransaction::CheckTransaction() const
 // age (trust score) of competing branches.
 bool CTransaction::GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const
 {
-    CBigNum bnCentSecond = 0;  // coin age in the unit of cent-seconds
-    nCoinAge = 0;
+	CBigNum bnCentSecond = 0;  // coin age in the unit of cent-seconds
+	nCoinAge = 0;
 
-    if (IsCoinBase())
+	if (IsCoinBase())
 	{
-        return true;
+		return true;
 	}
-	
-    for(const CTxIn& txin : vin)
-    {
-        // First try finding the previous transaction in database
-        CTransaction txPrev;
-        CTxIndex txindex;
+
+	for(const CTxIn& txin : vin)
+	{
+		// First try finding the previous transaction in database
+		CTransaction txPrev;
+		CTxIndex txindex;
 		
-        if (!txPrev.ReadFromDisk(txdb, txin.prevout, txindex))
+		if (!txPrev.ReadFromDisk(txdb, txin.prevout, txindex))
 		{
-            continue;  // previous transaction not in main chain
+			continue;  // previous transaction not in main chain
 		}
 		
-        if (nTime < txPrev.nTime)
+		if (nTime < txPrev.nTime)
 		{
-            return false;  // Transaction timestamp violation
+			return false;  // Transaction timestamp violation
 		}
 		
-        int nSpendDepth;
-        if (IsConfirmedInNPrevBlocks(txindex, pindexPrev, nStakeMinConfirmations - 1, nSpendDepth))
-        {
-            LogPrint("coinage", "coin age skip nSpendDepth=%d\n", nSpendDepth + 1);
-            
+		int nSpendDepth;
+		if (IsConfirmedInNPrevBlocks(txindex, pindexPrev, nStakeMinConfirmations - 1, nSpendDepth))
+		{
+			LogPrint("coinage", "coin age skip nSpendDepth=%d\n", nSpendDepth + 1);
+			
 			continue; // only count coins meeting min confirmations requirement
-        }
+		}
 
-        int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
-        bnCentSecond += CBigNum(nValueIn) * (nTime-txPrev.nTime) / CENT;
+		int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
+		bnCentSecond += CBigNum(nValueIn) * (nTime-txPrev.nTime) / CENT;
 
-        LogPrint("coinage", "coin age nValueIn=%d nTimeDiff=%d bnCentSecond=%s\n", nValueIn, nTime - txPrev.nTime, bnCentSecond.ToString());
-    }
+		LogPrint("coinage", "coin age nValueIn=%d nTimeDiff=%d bnCentSecond=%s\n", nValueIn, nTime - txPrev.nTime, bnCentSecond.ToString());
+	}
 
-    CBigNum bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
-    nCoinAge = bnCoinDay.getuint64();
-	
-    LogPrint("coinage", "coin age bnCoinDay=%s\n", bnCoinDay.ToString());
-    
+	CBigNum bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
+	nCoinAge = bnCoinDay.getuint64();
+
+	LogPrint("coinage", "coin age bnCoinDay=%s\n", bnCoinDay.ToString());
+
 	return true;
 }
 

@@ -27,36 +27,37 @@ const std::string CLIENT_NAME("DigitalNoteoshi");
 
 // First, include build.h if requested
 #ifdef HAVE_BUILD_INFO
-#    include "../build/build.h"
-#endif
+#include "../build/build.h"
+#endif // HAVE_BUILD_INFO
 
 // git will put "#define GIT_ARCHIVE 1" on the next line inside archives. 
 #define GIT_ARCHIVE 1
+
 #ifdef GIT_ARCHIVE
-#    define GIT_COMMIT_ID "XDN-"
-#endif
+#define GIT_COMMIT_ID "XDN-"
+#endif // GIT_ARCHIVE
 
 #define BUILD_DESC_FROM_COMMIT(maj,min,rev,build,commit) \
-    "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-" commit
+	"v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-" commit
 
 #define BUILD_DESC_FROM_UNKNOWN(maj,min,rev,build) \
-    "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-"
+	"v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-"
 
 #ifndef BUILD_DESC
-#    ifdef GIT_COMMIT_ID
-#        define BUILD_DESC BUILD_DESC_FROM_COMMIT(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, GIT_COMMIT_ID)
-#    else
-#        define BUILD_DESC BUILD_DESC_FROM_UNKNOWN(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD)
-#    endif
-#endif
+	#ifdef GIT_COMMIT_ID
+		#define BUILD_DESC BUILD_DESC_FROM_COMMIT(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, GIT_COMMIT_ID)
+	#else // GIT_COMMIT_ID
+		#define BUILD_DESC BUILD_DESC_FROM_UNKNOWN(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD)
+	#endif // GIT_COMMIT_ID
+#endif // BUILD_DESC
 
 #ifndef BUILD_DATE
-#    ifdef GIT_COMMIT_DATE
-#        define BUILD_DATE GIT_COMMIT_DATE
-#    else
-#        define BUILD_DATE __DATE__ ", " __TIME__
-#    endif
-#endif
+	#ifdef GIT_COMMIT_DATE
+		#define BUILD_DATE GIT_COMMIT_DATE
+	#else // GIT_COMMIT_DATE
+		#define BUILD_DATE __DATE__ ", " __TIME__
+	#endif // GIT_COMMIT_DATE
+#endif // BUILD_DATE
 
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
 const std::string CLIENT_DATE(BUILD_DATE);

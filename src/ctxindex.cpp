@@ -103,7 +103,7 @@ bool CTxIndex::IsNull()
 
 bool operator==(const CTxIndex& a, const CTxIndex& b)
 {
-	return (a.pos    == b.pos &&
+	return (a.pos == b.pos &&
 			a.vSpent == b.vSpent);
 }
 

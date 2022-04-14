@@ -17,23 +17,23 @@ typedef std::map<std::string, const CRPCCommand*> mapCommands_t;
 class CRPCTable
 {
 private:
-    mapCommands_t mapCommands;
-	
+	mapCommands_t mapCommands;
+
 public:
-    CRPCTable();
+	CRPCTable();
 
-    const CRPCCommand* operator[](std::string name) const;
-    std::string help(const std::string &name) const;
+	const CRPCCommand* operator[](std::string name) const;
+	std::string help(const std::string &name) const;
 
-    /**
-     * Execute a method.
-     * @param method   Method to execute
-     * @param params   Array of arguments (JSON objects)
-     * @returns Result of the call.
-     * @throws an exception (json_spirit::Value) when an error happens.
-     */
-    json_spirit::Value execute(const std::string &method, const json_spirit::Array &params) const;
-    std::vector<std::string> listCommands() const;
+	/**
+	 * Execute a method.
+	 * @param method   Method to execute
+	 * @param params   Array of arguments (JSON objects)
+	 * @returns Result of the call.
+	 * @throws an exception (json_spirit::Value) when an error happens.
+	 */
+	json_spirit::Value execute(const std::string &method, const json_spirit::Array &params) const;
+	std::vector<std::string> listCommands() const;
 };
 
 #endif // CRPCTABLE_H

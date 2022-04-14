@@ -1,7 +1,7 @@
 #ifndef CVARINT_H
 #define CVARINT_H
 
-#define VARINT(obj)    REF(WrapVarInt(REF(obj)))
+#define VARINT(obj)		REF(WrapVarInt(REF(obj)))
 
 template<typename I>
 class CVarInt

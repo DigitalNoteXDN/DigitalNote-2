@@ -44,7 +44,7 @@ unsigned int CAlert::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	READWRITE(vchMsg);
-    READWRITE(vchSig);
+	READWRITE(vchSig);
 	
 	return nSerSize;
 }
@@ -60,7 +60,7 @@ void CAlert::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(vchMsg);
-    READWRITE(vchSig);
+	READWRITE(vchSig);
 }
 
 template<typename Stream>
@@ -74,7 +74,7 @@ void CAlert::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(vchMsg);
-    READWRITE(vchSig);
+	READWRITE(vchSig);
 }
 
 template void CAlert::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
@@ -82,152 +82,152 @@ template void CAlert::Unserialize<CDataStream>(CDataStream& s, int nType, int nV
 
 void CAlert::SetNull()
 {
-    CUnsignedAlert::SetNull();
-    vchMsg.clear();
-    vchSig.clear();
+	CUnsignedAlert::SetNull();
+	vchMsg.clear();
+	vchSig.clear();
 }
 
 bool CAlert::IsNull() const
 {
-    return (nExpiration == 0);
+	return (nExpiration == 0);
 }
 
 uint256 CAlert::GetHash() const
 {
-    return Hash_bmw512(this->vchMsg.begin(), this->vchMsg.end());
+	return Hash_bmw512(this->vchMsg.begin(), this->vchMsg.end());
 }
 
 bool CAlert::IsInEffect() const
 {
-    return (GetAdjustedTime() < nExpiration);
+	return (GetAdjustedTime() < nExpiration);
 }
 
 bool CAlert::Cancels(const CAlert& alert) const
 {
-    if (!IsInEffect())
+	if (!IsInEffect())
 	{
-        return false; // this was a no-op before 31403
+		return false; // this was a no-op before 31403
 	}
-	
-    return (alert.nID <= nCancel || setCancel.count(alert.nID));
+
+	return (alert.nID <= nCancel || setCancel.count(alert.nID));
 }
 
 bool CAlert::AppliesTo(int nVersion, const std::string &strSubVerIn) const
 {
-    // TODO: rework for client-version-embedded-in-strSubVer ?
-    return (IsInEffect() &&
-            nMinVer <= nVersion && nVersion <= nMaxVer &&
-            (setSubVer.empty() || setSubVer.count(strSubVerIn)));
+	// TODO: rework for client-version-embedded-in-strSubVer ?
+	return (IsInEffect() &&
+			nMinVer <= nVersion && nVersion <= nMaxVer &&
+			(setSubVer.empty() || setSubVer.count(strSubVerIn)));
 }
 
 bool CAlert::AppliesToMe() const
 {
-    return AppliesTo(PROTOCOL_VERSION, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<std::string>()));
+	return AppliesTo(PROTOCOL_VERSION, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<std::string>()));
 }
 
 bool CAlert::RelayTo(CNode* pnode) const
 {
-    if (!IsInEffect())
+	if (!IsInEffect())
 	{
-        return false;
+		return false;
 	}
-	
-    // don't relay to nodes which haven't sent their version message
-    if (pnode->nVersion == 0)
+
+	// don't relay to nodes which haven't sent their version message
+	if (pnode->nVersion == 0)
 	{
-        return false;
+		return false;
 	}
-	
-    // returns true if wasn't already contained in the set
-    if (pnode->setKnown.insert(GetHash()).second)
-    {
-        if (AppliesTo(pnode->nVersion, pnode->strSubVer) ||
-            AppliesToMe() ||
-            GetAdjustedTime() < nRelayUntil)
-        {
-            pnode->PushMessage("alert", *this);
+
+	// returns true if wasn't already contained in the set
+	if (pnode->setKnown.insert(GetHash()).second)
+	{
+		if (AppliesTo(pnode->nVersion, pnode->strSubVer) ||
+			AppliesToMe() ||
+			GetAdjustedTime() < nRelayUntil)
+		{
+			pnode->PushMessage("alert", *this);
 			
-            return true;
-        }
-    }
-	
-    return false;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool CAlert::CheckSignature() const
 {
-    CPubKey key(Params().AlertKey());
-	
-    if (!key.Verify(Hash_bmw512(vchMsg.begin(), vchMsg.end()), vchSig))
+	CPubKey key(Params().AlertKey());
+
+	if (!key.Verify(Hash_bmw512(vchMsg.begin(), vchMsg.end()), vchSig))
 	{
-        return error("CAlert::CheckSignature() : verify signature failed");
+		return error("CAlert::CheckSignature() : verify signature failed");
 	}
-	
-    // Now unserialize the data
-    CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
-    
+
+	// Now unserialize the data
+	CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
+
 	sMsg >> *(CUnsignedAlert*)this;
-    
+
 	return true;
 }
 
 CAlert CAlert::getAlertByHash(const uint256 &hash)
 {
-    CAlert retval;
-    
+	CAlert retval;
+
 	LOCK(cs_mapAlerts);
-	
+
 	std::map<uint256, CAlert>::iterator mi = mapAlerts.find(hash);
-	
+
 	if(mi != mapAlerts.end())
 	{
 		retval = mi->second;
 	}
-    
-    return retval;
+
+	return retval;
 }
 
 bool CAlert::ProcessAlert(bool fThread)
 {
-    if (!CheckSignature())
+	if (!CheckSignature())
 	{
-        return false;
+		return false;
 	}
-	
-    if (!IsInEffect())
+
+	if (!IsInEffect())
 	{
-        return false;
+		return false;
 	}
-	
-    // alert.nID=max is reserved for if the alert key is
-    // compromised. It must have a pre-defined message,
-    // must never expire, must apply to all versions,
-    // and must cancel all previous
-    // alerts or it will be ignored (so an attacker can't
-    // send an "everything is OK, don't panic" version that
-    // cannot be overridden):
-    int maxInt = std::numeric_limits<int>::max();
-	
-    if (nID == maxInt)
-    {
-        if (!(
-                nExpiration != maxInt &&
-                nCancel != (maxInt-1) &&
-                nMinVer != 0 &&
-                nMaxVer != maxInt &&
-                setSubVer.empty() == false &&
-                nPriority != maxInt &&
-                strStatusBar != "URGENT: Alert key compromised, upgrade required"
-                )
+
+	// alert.nID=max is reserved for if the alert key is
+	// compromised. It must have a pre-defined message,
+	// must never expire, must apply to all versions,
+	// and must cancel all previous
+	// alerts or it will be ignored (so an attacker can't
+	// send an "everything is OK, don't panic" version that
+	// cannot be overridden):
+	int maxInt = std::numeric_limits<int>::max();
+
+	if (nID == maxInt)
+	{
+		if (!(
+				nExpiration != maxInt &&
+				nCancel != (maxInt-1) &&
+				nMinVer != 0 &&
+				nMaxVer != maxInt &&
+				setSubVer.empty() == false &&
+				nPriority != maxInt &&
+				strStatusBar != "URGENT: Alert key compromised, upgrade required"
+				)
 			)
 		{
-            return false;
+			return false;
 		}
-    }
+	}
 
-    
+
 	LOCK(cs_mapAlerts);
-	
+
 	// Cancel previous alerts
 	for (std::map<uint256, CAlert>::iterator mi = mapAlerts.begin(); mi != mapAlerts.end();)
 	{
@@ -268,7 +268,7 @@ bool CAlert::ProcessAlert(bool fThread)
 
 	// Add to mapAlerts
 	mapAlerts.insert(std::make_pair(GetHash(), *this));
-	
+
 	// Notify UI and -alertnotify if it applies to me
 	if(AppliesToMe())
 	{
@@ -296,7 +296,8 @@ bool CAlert::ProcessAlert(bool fThread)
 		}
 	}
 
-    LogPrint("alert", "accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
-	
-    return true;
+	LogPrint("alert", "accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
+
+	return true;
 }
+

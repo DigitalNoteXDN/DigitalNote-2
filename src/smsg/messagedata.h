@@ -11,10 +11,10 @@ class Message
 {
 // -- Decrypted DigitalNote::SMSG::MessageSecure data
 public:
-    int64_t               timestamp;
-    std::string           sToAddress;
-    std::string           sFromAddress;
-    std::vector<uint8_t>  vchMessage;         // null terminated plaintext
+	int64_t timestamp;
+	std::string sToAddress;
+	std::string sFromAddress;
+	std::vector<uint8_t> vchMessage;	// null terminated plaintext
 };
 
 } // namespace SMSG

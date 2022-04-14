@@ -22,8 +22,8 @@ typedef uint32_t stealth_bitfield;
 
 struct stealth_prefix
 {
-    uint8_t number_bits;
-    stealth_bitfield bitfield;
+	uint8_t number_bits;
+	stealth_bitfield bitfield;
 };
 
 template <typename T, typename Iterator>

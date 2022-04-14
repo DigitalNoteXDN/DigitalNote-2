@@ -13,27 +13,27 @@ class CBlockIndex;
 class CBlockLocator
 {
 protected:
-    std::vector<uint256> vHave;
+	std::vector<uint256> vHave;
 
 public:
-    CBlockLocator();
+	CBlockLocator();
 	explicit CBlockLocator(const CBlockIndex* pindex);
 	explicit CBlockLocator(uint256 hashBlock);
 	CBlockLocator(const std::vector<uint256>& vHaveIn);
-	
-	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
 
-    void SetNull();
-    bool IsNull();
-    void Set(const CBlockIndex* pindex);
-    int GetDistanceBack();
-    CBlockIndex* GetBlockIndex();
-    uint256 GetBlockHash();
-    int GetHeight();
+	unsigned int GetSerializeSize(int nType, int nVersion) const;
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
+
+	void SetNull();
+	bool IsNull();
+	void Set(const CBlockIndex* pindex);
+	int GetDistanceBack();
+	CBlockIndex* GetBlockIndex();
+	uint256 GetBlockHash();
+	int GetHeight();
 };
 
 #endif // CBLOCKLOCATOR_H

@@ -1,28 +1,28 @@
 /*
 Notes:
-    Running with -debug could leave to and from address hashes and public keys in the log.
+	Running with -debug could leave to and from address hashes and public keys in the log.
 
 
-    parameters:
-        -nosmsg             Disable secure messaging (fNoSmsg)
-        -debugsmsg          Show extra debug messages (fDebugSmsg)
-        -smsgscanchain      Scan the block chain for public key addresses on startup
+	parameters:
+		-nosmsg             Disable secure messaging (fNoSmsg)
+		-debugsmsg          Show extra debug messages (fDebugSmsg)
+		-smsgscanchain      Scan the block chain for public key addresses on startup
 
 
-    Wallet Locked
-        A copy of each incoming message is stored in bucket files ending in _wl.dat
-        wl (wallet locked) bucket files are deleted if they expire, like normal buckets
-        When the wallet is unlocked all the messages in wl files are scanned.
+	Wallet Locked
+		A copy of each incoming message is stored in bucket files ending in _wl.dat
+		wl (wallet locked) bucket files are deleted if they expire, like normal buckets
+		When the wallet is unlocked all the messages in wl files are scanned.
 
 
-    Address Whitelist
-        Owned Addresses are stored in DigitalNote::SMSG::ext_addresses vector
-        Saved to smsg.ini
-        Modify options using the smsglocalkeys rpc command or edit the smsg.ini file (with client closed)
-    
-    
-    TODO:
-        For buckets older than current, only need to store no. messages and hash in memory
+	Address Whitelist
+		Owned Addresses are stored in DigitalNote::SMSG::ext_addresses vector
+		Saved to smsg.ini
+		Modify options using the smsglocalkeys rpc command or edit the smsg.ini file (with client closed)
+
+
+	TODO:
+		For buckets older than current, only need to store no. messages and hash in memory
 
 */
 #include "compat.h"
@@ -125,7 +125,7 @@ void Thread()
 			for (it = DigitalNote::SMSG::ext_buckets.begin(); it != DigitalNote::SMSG::ext_buckets.end(); )
 			{
 				//if (fDebugSmsg)
-				//    LogPrint("smsg", "Checking bucket %d", size %u \n", it->first, it->second.setTokens.size());
+				//	LogPrint("smsg", "Checking bucket %d", size %u \n", it->first, it->second.setTokens.size());
 				if (it->first < cutoffTime)
 				{
 					if (fDebugSmsg)
@@ -175,7 +175,7 @@ void Thread()
 					{
 						it->second.nLockCount--;
 
-						if (it->second.nLockCount == 0)     // lock timed out
+						if (it->second.nLockCount == 0) // lock timed out
 						{
 							vTimedOutLocks.push_back(std::make_pair(it->first, it->second.nLockPeerId)); // cs_vNodes
 
@@ -421,11 +421,11 @@ static bool _ScanBlock(CBlock& block, CTxDB& txdb, DigitalNote::SMSG::DB& addrpk
 					{
 						case 0:
 							nPubkeys++;
-						break;      // added key
+						break; // added key
 						
 						case 4:
 							nDuplicates++;
-						break;   // duplicate key
+						break; // duplicate key
 					}
 					
 					break;
@@ -509,9 +509,9 @@ int BuildBucketSet()
 		LogPrint("smsg", "DigitalNote::SMSG::BuildBucketSet()\n");
 	}
 
-	int64_t  now            = GetTime();
-	uint32_t nFiles         = 0;
-	uint32_t nMessages      = 0;
+	int64_t  now = GetTime();
+	uint32_t nFiles = 0;
+	uint32_t nMessages = 0;
 
 	boost::filesystem::path pathSmsgDir = GetDataDir() / "smsgStore";
 	boost::filesystem::directory_iterator itend;
@@ -1178,9 +1178,9 @@ bool ReceiveData(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv
 			}
 		}
 		
-		uint32_t nBuckets       = DigitalNote::SMSG::ext_buckets.size();
-		uint32_t nLocked        = 0;    // no. of locked buckets on this node
-		uint32_t nInvBuckets;           // no. of bucket headers sent by peer in smsgInv
+		uint32_t nBuckets = DigitalNote::SMSG::ext_buckets.size();
+		uint32_t nLocked = 0; // no. of locked buckets on this node
+		uint32_t nInvBuckets; // no. of bucket headers sent by peer in smsgInv
 		
 		memcpy(&nInvBuckets, &vchData[0], 4);
 		
@@ -1293,8 +1293,8 @@ bool ReceiveData(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv
 					continue;
 				}
 
-				// -- if this node has more than the peer node, peer node will pull from this
-				//    if then peer node has more this node will pull fom peer
+				// if this node has more than the peer node, peer node will pull from this
+				//	if then peer node has more this node will pull fom peer
 				if (DigitalNote::SMSG::ext_buckets[time].setTokens.size() < ncontent
 					|| (DigitalNote::SMSG::ext_buckets[time].setTokens.size() == ncontent
 						&& DigitalNote::SMSG::ext_buckets[time].hash != hash)) // if same amount in buckets check hash
@@ -1322,8 +1322,8 @@ bool ReceiveData(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv
 		}
 		else if (nLocked < 1) // Don't report buckets as matched if any are locked
 		{
-			// -- peer has no buckets we want, don't send them again until something changes
-			//    peer will still request buckets from this node if needed (< ncontent)
+			// peer has no buckets we want, don't send them again until something changes
+			// peer will still request buckets from this node if needed (< ncontent)
 			vchDataOut.resize(8);
 			
 			memcpy(&vchDataOut[0], &now, 8);
@@ -1723,8 +1723,8 @@ bool ReceiveData(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv
 	}
 	else if (strCommand == "smsgIgnore")
 	{
-		// -- peer is reporting that it will ignore this node until time.
-		//    Ignore peer too
+		// peer is reporting that it will ignore this node until time.
+		// Ignore peer too
 		std::vector<uint8_t> vchData;
 		vRecv >> vchData;
 
@@ -1829,8 +1829,8 @@ bool SendData(CNode* pto, bool fSendTrickle)
 
 				uint32_t nMessages = bkt.setTokens.size();
 
-				if (bkt.timeChanged < pto->smsgData.lastMatched     // peer has this bucket
-					|| nMessages < 1)                               // this bucket is empty
+				if (bkt.timeChanged < pto->smsgData.lastMatched		// peer has this bucket
+					|| nMessages < 1)								// this bucket is empty
 				{
 					continue;
 				}
@@ -1856,7 +1856,7 @@ bool SendData(CNode* pto, bool fSendTrickle)
 				nBucketsShown++;
 				
 				//if (fDebug)
-				//    LogPrint("smsg", "Sending bucket %d, size %d \n", it->first, it->second.size());
+				//	LogPrint("smsg", "Sending bucket %d, size %d \n", it->first, it->second.size());
 			}
 
 			if (vchData.size() > 4)
@@ -1911,10 +1911,10 @@ bool ScanBlock(CBlock& block)
 		LogPrint("smsg", "DigitalNote::SMSG::ScanBlock().\n");
 	}
 	
-	uint32_t nTransactions  = 0;
-	uint32_t nElements      = 0;
-	uint32_t nPubkeys       = 0;
-	uint32_t nDuplicates    = 0;
+	uint32_t nTransactions = 0;
+	uint32_t nElements = 0;
+	uint32_t nPubkeys = 0;
+	uint32_t nDuplicates = 0;
 
 	{
 		LOCK(DigitalNote::SMSG::ext_cs_db);
@@ -1951,14 +1951,14 @@ bool ScanChainForPublicKeys(CBlockIndex* pindexStart)
 		LogPrint("smsg", "From height %u.\n", pindexStart->nHeight);
 	}
 	
-	// -- public keys are in txin.scriptSig
-	//    matching addresses are in scriptPubKey of txin's referenced output
+	// public keys are in txin.scriptSig
+	// matching addresses are in scriptPubKey of txin's referenced output
 
-	uint32_t nBlocks        = 0;
-	uint32_t nTransactions  = 0;
-	uint32_t nInputs        = 0;
-	uint32_t nPubkeys       = 0;
-	uint32_t nDuplicates    = 0;
+	uint32_t nBlocks = 0;
+	uint32_t nTransactions = 0;
+	uint32_t nInputs = 0;
+	uint32_t nPubkeys = 0;
+	uint32_t nDuplicates = 0;
 
 	{
 		LOCK(DigitalNote::SMSG::ext_cs_db);
@@ -2046,10 +2046,10 @@ bool ScanBuckets()
 		return false;
 	}
 
-	int64_t  mStart         = GetTimeMillis();
-	int64_t  now            = GetTime();
-	uint32_t nFiles         = 0;
-	uint32_t nMessages      = 0;
+	int64_t  mStart = GetTimeMillis();
+	int64_t  now = GetTime();
+	uint32_t nFiles = 0;
+	uint32_t nMessages = 0;
 	uint32_t nFoundMessages = 0;
 
 	boost::filesystem::path pathSmsgDir = GetDataDir() / "smsgStore";
@@ -2222,9 +2222,9 @@ int WalletUnlocked()
 		return 1;
 	}
 
-	int64_t  now            = GetTime();
-	uint32_t nFiles         = 0;
-	uint32_t nMessages      = 0;
+	int64_t  now = GetTime();
+	uint32_t nFiles = 0;
+	uint32_t nMessages = 0;
 	uint32_t nFoundMessages = 0;
 
 	boost::filesystem::path pathSmsgDir = GetDataDir() / "smsgStore";
@@ -2518,15 +2518,15 @@ int ScanMessage(uint8_t *pHeader, uint8_t *pPayload, uint32_t nPayload, bool rep
 		std::string sPrefix("im");
 		
 		uint8_t chKey[18];
-		memcpy(&chKey[0],  sPrefix.data(),    2);
-		memcpy(&chKey[2],  &psmsg->timestamp, 8);
-		memcpy(&chKey[10], pPayload,          8);
+		memcpy(&chKey[0], sPrefix.data(), 2);
+		memcpy(&chKey[2], &psmsg->timestamp, 8);
+		memcpy(&chKey[10], pPayload, 8);
 
 		DigitalNote::SMSG::Stored smsgInbox;
 		
-		smsgInbox.timeReceived  = GetTime();
-		smsgInbox.status        = (SMSG_MASK_UNREAD) & 0xFF;
-		smsgInbox.sAddrTo       = addressTo;
+		smsgInbox.timeReceived = GetTime();
+		smsgInbox.status = (SMSG_MASK_UNREAD) & 0xFF;
+		smsgInbox.sAddrTo = addressTo;
 
 		// -- data may not be contiguous
 		try
@@ -2848,8 +2848,8 @@ int Receive(CNode* pfrom, std::vector<uint8_t>& vchData)
 	memcpy(&nBunch, &vchData[0], 4);
 	memcpy(&bktTime, &vchData[4], 8);
 	
-	// -- check bktTime ()
-	//    bucket may not exist yet - will be created when messages are added
+	// check bktTime ()
+	// bucket may not exist yet - will be created when messages are added
 	int64_t now = GetTime();
 	if (bktTime > now + SMSG_TIME_LEEWAY)
 	{
@@ -3351,13 +3351,13 @@ int SetHash(uint8_t *pHeader, uint8_t *pPayload, uint32_t nPayload)
 		if (sha256Hash[31] == 0
 			&& sha256Hash[30] == 0
 			&& (~(sha256Hash[29]) & ((1<<0) | (1<<1) | (1<<2)) ))
-		//    && sha256Hash[29] == 0)
+		//	&& sha256Hash[29] == 0)
 		{
 			found = true;
 			
 			//if (fDebugSmsg)
 			//{
-			//    LogPrint("smsg", "Match %u\n", nonse);
+			//	LogPrint("smsg", "Match %u\n", nonse);
 			//}
 			
 			break;
@@ -3554,8 +3554,8 @@ int Encrypt(DigitalNote::SMSG::SecureMessage &smsg, const std::string &addressFr
 
 	memcpy(smsg.cpkR, cpkR.begin(), 33);
 
-	// -- Use public key P and calculate the SHA512 hash H.
-	//    The first 32 bytes of H are called key_e and the last 32 bytes are called key_m.
+	// Use public key P and calculate the SHA512 hash H.
+	// The first 32 bytes of H are called key_e and the last 32 bytes are called key_m.
 	std::vector<uint8_t> vchHashed;
 	vchHashed.resize(64); // 512
 	SHA512(&vchP[0], vchP.size(), (uint8_t*)&vchHashed[0]);
@@ -3673,8 +3673,8 @@ int Encrypt(DigitalNote::SMSG::SecureMessage &smsg, const std::string &addressFr
 	
 	smsg.nPayload = vchCiphertext.size();
 
-	// -- Calculate a 32 byte MAC with HMACSHA256, using key_m as salt
-	//    Message authentication code, (hash of timestamp + destination + payload)
+	// Calculate a 32 byte MAC with HMACSHA256, using key_m as salt
+	// Message authentication code, (hash of timestamp + destination + payload)
 	bool fHmacOk = true;
 	uint32_t nBytes = 32;
 
@@ -3753,17 +3753,17 @@ int Send(std::string &addressFrom, std::string &addressTo, std::string &message,
 
 		switch(rv)
 		{
-			case 2:  sError = "Message is too long.";                       break;
-			case 3:  sError = "Invalid addressFrom.";                       break;
-			case 4:  sError = "Invalid addressTo.";                         break;
-			case 5:  sError = "Could not get public key for addressTo.";    break;
-			case 6:  sError = "ECDH_compute_key failed.";                   break;
-			case 7:  sError = "Could not get private key for addressFrom."; break;
-			case 8:  sError = "Could not allocate memory.";                 break;
-			case 9:  sError = "Could not compress message data.";           break;
-			case 10: sError = "Could not generate MAC.";                    break;
-			case 11: sError = "Encrypt failed.";                            break;
-			default: sError = "Unspecified Error.";                         break;
+			case 2:  sError = "Message is too long.";						break;
+			case 3:  sError = "Invalid addressFrom.";						break;
+			case 4:  sError = "Invalid addressTo.";							break;
+			case 5:  sError = "Could not get public key for addressTo.";	break;
+			case 6:  sError = "ECDH_compute_key failed.";					break;
+			case 7:  sError = "Could not get private key for addressFrom.";	break;
+			case 8:  sError = "Could not allocate memory.";					break;
+			case 9:  sError = "Could not compress message data.";			break;
+			case 10: sError = "Could not generate MAC.";					break;
+			case 11: sError = "Encrypt failed.";							break;
+			default: sError = "Unspecified Error.";							break;
 		}
 
 		return rv;
@@ -3786,8 +3786,8 @@ int Send(std::string &addressFrom, std::string &addressTo, std::string &message,
 
 	DigitalNote::SMSG::Stored smsgSQ;
 
-	smsgSQ.timeReceived  = GetTime();
-	smsgSQ.sAddrTo       = addressTo;
+	smsgSQ.timeReceived = GetTime();
+	smsgSQ.sAddrTo	= addressTo;
 
 	try
 	{
@@ -3819,8 +3819,8 @@ int Send(std::string &addressFrom, std::string &addressTo, std::string &message,
 
 	// TODO: only update outbox when proof of work thread is done.
 
-	//  -- for outbox create a copy encrypted for owned address
-	//     if the wallet is encrypted private key needed to decrypt will be unavailable
+	// for outbox create a copy encrypted for owned address
+	// if the wallet is encrypted private key needed to decrypt will be unavailable
 	
 	if (fDebugSmsg)
 	{
@@ -3871,15 +3871,15 @@ int Send(std::string &addressFrom, std::string &addressTo, std::string &message,
 			std::string sPrefix("sm");
 			
 			uint8_t chKey[18];
-			memcpy(&chKey[0],  sPrefix.data(),           2);
-			memcpy(&chKey[2],  &smsgForOutbox.timestamp, 8);
-			memcpy(&chKey[10], &smsgForOutbox.pPayload,  8);   // sample
+			memcpy(&chKey[0], sPrefix.data(), 2);
+			memcpy(&chKey[2], &smsgForOutbox.timestamp, 8);
+			memcpy(&chKey[10], &smsgForOutbox.pPayload, 8);   // sample
 
 			DigitalNote::SMSG::Stored smsgOutbox;
 
-			smsgOutbox.timeReceived  = GetTime();
-			smsgOutbox.sAddrTo       = addressTo;
-			smsgOutbox.sAddrOutbox   = addressOutbox;
+			smsgOutbox.timeReceived = GetTime();
+			smsgOutbox.sAddrTo = addressTo;
+			smsgOutbox.sAddrOutbox = addressOutbox;
 
 			try
 			{
@@ -4025,10 +4025,10 @@ int Decrypt(bool fTestOnly, std::string &address, uint8_t *pHeader, uint8_t *pPa
 		return errorN(1, "%s: ECDH_compute_key failed, lenPdec: %d.", __func__, lenPdec);
 	}
 
-	// -- Use public key P to calculate the SHA512 hash H.
-	//    The first 32 bytes of H are called key_e and the last 32 bytes are called key_m.
+	// Use public key P to calculate the SHA512 hash H.
+	// The first 32 bytes of H are called key_e and the last 32 bytes are called key_m.
 	std::vector<uint8_t> vchHashedDec;
-	vchHashedDec.resize(64);    // 512 bits
+	vchHashedDec.resize(64); // 512 bits
 
 	SHA512(&vchP[0], vchP.size(), (uint8_t*)&vchHashedDec[0]);
 

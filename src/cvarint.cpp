@@ -30,21 +30,21 @@
 template<typename I>
 inline unsigned int GetSizeOfVarInt(I n)
 {
-    int nRet = 0;
-	
-    while(true)
+	int nRet = 0;
+
+	while(true)
 	{
-        nRet++;
-        
+		nRet++;
+		
 		if (n <= 0x7F)
 		{
-            break;
+			break;
 		}
 		
-        n = (n >> 7) - 1;
-    }
-	
-    return nRet;
+		n = (n >> 7) - 1;
+	}
+
+	return nRet;
 }
 
 template<typename Stream, typename I>

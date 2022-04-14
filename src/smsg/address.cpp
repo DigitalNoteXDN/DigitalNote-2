@@ -15,9 +15,9 @@ Address::Address()
 
 Address::Address(std::string sAddr, bool receiveOn, bool receiveAnon)
 {
-	sAddress            = sAddr;
-	fReceiveEnabled     = receiveOn;
-	fReceiveAnon        = receiveAnon;
+	sAddress = sAddr;
+	fReceiveEnabled = receiveOn;
+	fReceiveAnon = receiveAnon;
 }
 
 unsigned int Address::GetSerializeSize(int nType, int nVersion) const

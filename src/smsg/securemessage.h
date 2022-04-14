@@ -10,19 +10,19 @@ namespace SMSG {
 class SecureMessage
 {
 public:
-    uint8_t   hash[4];
-    uint8_t   version[2];
-    uint8_t   flags;
-    int64_t   timestamp;
-    uint8_t   iv[16];
-    uint8_t   cpkR[33];
-    uint8_t   mac[32];
-    uint8_t   nonse[4];
-    uint32_t  nPayload;
-    uint8_t*  pPayload;
+	uint8_t   hash[4];
+	uint8_t   version[2];
+	uint8_t   flags;
+	int64_t   timestamp;
+	uint8_t   iv[16];
+	uint8_t   cpkR[33];
+	uint8_t   mac[32];
+	uint8_t   nonse[4];
+	uint32_t  nPayload;
+	uint8_t*  pPayload;
 
 	SecureMessage();
-    ~SecureMessage();
+	~SecureMessage();
 };
 #pragma pack(pop)
 

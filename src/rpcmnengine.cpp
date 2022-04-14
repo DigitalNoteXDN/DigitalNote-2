@@ -126,7 +126,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			strCommand != "vote"
 		)
 	)
-	{    
+	{
 		throw std::runtime_error(
 			"masternode \"command\"... ( \"passphrase\" )\n"
 			"Set of commands to execute masternode related actions\n"
@@ -628,11 +628,11 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			ExtractDestination(pubkey, address1);
 			CDigitalNoteAddress address2(address1);
 
-			obj.push_back(json_spirit::Pair("IP:port",       winner->addr.ToString().c_str()));
-			obj.push_back(json_spirit::Pair("protocol",      (int64_t)winner->protocolVersion));
-			obj.push_back(json_spirit::Pair("vin",           winner->vin.prevout.hash.ToString().c_str()));
-			obj.push_back(json_spirit::Pair("pubkey",        address2.ToString().c_str()));
-			obj.push_back(json_spirit::Pair("lastseen",      (int64_t)winner->lastTimeSeen));
+			obj.push_back(json_spirit::Pair("IP:port", winner->addr.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("protocol", (int64_t)winner->protocolVersion));
+			obj.push_back(json_spirit::Pair("vin", winner->vin.prevout.hash.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("pubkey", address2.ToString().c_str()));
+			obj.push_back(json_spirit::Pair("lastseen", (int64_t)winner->lastTimeSeen));
 			obj.push_back(json_spirit::Pair("activeseconds", (int64_t)(winner->lastTimeSeen - winner->sigTime)));
 			
 			return obj;
@@ -933,6 +933,8 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		CMasternode *pmn = mnodeman.Find(activeMasternode.vin);
 
 		mnObj.push_back(json_spirit::Pair("vin", activeMasternode.vin.ToString().c_str()));
+		//mnObj.push_back(json_spirit::Pair("vin->prevout->hash", activeMasternode.vin.prevout.hash.ToString().c_str()));
+		//mnObj.push_back(json_spirit::Pair("vin->prevout->n", (int64_t)(activeMasternode.vin.prevout.n)));
 		mnObj.push_back(json_spirit::Pair("service", activeMasternode.service.ToString().c_str()));
 		mnObj.push_back(json_spirit::Pair("status", activeMasternode.status));
 		//mnObj.push_back(json_spirit::Pair("pubKeyMasternode", address2.ToString().c_str()));
@@ -1017,7 +1019,7 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 				continue;
 			}
 			
-			obj.push_back(json_spirit::Pair(strVin,       s.first));
+			obj.push_back(json_spirit::Pair(strVin, s.first));
 		}
 	}
 	else
@@ -1060,7 +1062,7 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 					strOut += boost::lexical_cast<std::string>(mn.donationPercentage);
 				}
 				
-				obj.push_back(json_spirit::Pair(strVin,       strOut.c_str()));
+				obj.push_back(json_spirit::Pair(strVin, strOut.c_str()));
 			}
 			else if (strMode == "full")
 			{
@@ -1134,7 +1136,7 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 					continue;
 				}
 				
-				obj.push_back(json_spirit::Pair(strVin,       address2.ToString().c_str()));
+				obj.push_back(json_spirit::Pair(strVin, address2.ToString().c_str()));
 			}
 			else if(strMode == "status")
 			{
@@ -1148,7 +1150,7 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 					continue;
 				}
 				
-				obj.push_back(json_spirit::Pair(strVin,       strStatus.c_str()));
+				obj.push_back(json_spirit::Pair(strVin, strStatus.c_str()));
 			}
 			else if (strMode == "addr")
 			{
@@ -1191,10 +1193,10 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 					continue;
 				}
 				
-				obj.push_back(json_spirit::Pair(strVin,       strStatus.c_str()));
+				obj.push_back(json_spirit::Pair(strVin, strStatus.c_str()));
 			}
 			else if(strMode == "lastpaid")
-			{    
+			{
 				if(strFilter !="" &&
 					mn.vin.prevout.hash.ToString().find(strFilter) == std::string::npos &&
 					strVin.find(strFilter) == std::string::npos
@@ -1203,7 +1205,7 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 					continue;
 				}
 				
-				obj.push_back(json_spirit::Pair(strVin,      (int64_t)mn.nLastPaid));
+				obj.push_back(json_spirit::Pair(strVin, (int64_t)mn.nLastPaid));
 			}
 		}
 	}

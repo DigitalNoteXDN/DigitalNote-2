@@ -4,49 +4,47 @@
 #include "types/ccriticalblock.h"
 
 ////////////////////////////////////////////////
-//                                            //
 // THE SIMPLE DEFINITON, EXCLUDING DEBUG CODE //
-//                                            //
 ////////////////////////////////////////////////
 
 /*
 CCriticalSection mutex;
-    boost::recursive_mutex mutex;
+	boost::recursive_mutex mutex;
 
 LOCK(mutex);
-    boost::unique_lock<boost::recursive_mutex> criticalblock(mutex);
+	boost::unique_lock<boost::recursive_mutex> criticalblock(mutex);
 
 LOCK2(mutex1, mutex2);
-    boost::unique_lock<boost::recursive_mutex> criticalblock1(mutex1);
-    boost::unique_lock<boost::recursive_mutex> criticalblock2(mutex2);
+	boost::unique_lock<boost::recursive_mutex> criticalblock1(mutex1);
+	boost::unique_lock<boost::recursive_mutex> criticalblock2(mutex2);
 
 TRY_LOCK(mutex, name);
-    boost::unique_lock<boost::recursive_mutex> name(mutex, boost::try_to_lock_t);
+	boost::unique_lock<boost::recursive_mutex> name(mutex, boost::try_to_lock_t);
 
 ENTER_CRITICAL_SECTION(mutex); // no RAII
-    mutex.lock();
+	mutex.lock();
 
 LEAVE_CRITICAL_SECTION(mutex); // no RAII
-    mutex.unlock();
+	mutex.unlock();
  */
 
-#define LOCK(cs) CCriticalBlock criticalblock(cs, #cs, __FILE__, __LINE__)
-#define LOCK2(cs1,cs2) CCriticalBlock criticalblock1(cs1, #cs1, __FILE__, __LINE__),criticalblock2(cs2, #cs2, __FILE__, __LINE__)
-#define TRY_LOCK(cs,name) CCriticalBlock name(cs, #cs, __FILE__, __LINE__, true)
+#define LOCK(cs)			CCriticalBlock criticalblock(cs, #cs, __FILE__, __LINE__)
+#define LOCK2(cs1,cs2)		CCriticalBlock criticalblock1(cs1, #cs1, __FILE__, __LINE__),criticalblock2(cs2, #cs2, __FILE__, __LINE__)
+#define TRY_LOCK(cs,name)	CCriticalBlock name(cs, #cs, __FILE__, __LINE__, true)
 
 #define ENTER_CRITICAL_SECTION(cs) \
-    { \
-        EnterCritical(#cs, __FILE__, __LINE__, (void*)(&cs)); \
-        (cs).lock(); \
-    }
+	{ \
+		EnterCritical(#cs, __FILE__, __LINE__, (void*)(&cs)); \
+		(cs).lock(); \
+	}
 
 #define LEAVE_CRITICAL_SECTION(cs) \
-    { \
-        (cs).unlock(); \
-        LeaveCritical(); \
-    }
+	{ \
+		(cs).unlock(); \
+		LeaveCritical(); \
+	}
 
-#define AssertLockHeld(cs) AssertLockHeldInternal(#cs, __FILE__, __LINE__, &cs)
+#define AssertLockHeld(cs)	AssertLockHeldInternal(#cs, __FILE__, __LINE__, &cs)
 
 #ifdef DEBUG_LOCKORDER
 	void EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false);

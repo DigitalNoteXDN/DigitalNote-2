@@ -1226,7 +1226,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						// something like n != 1 and have some wiseguy pass in 1 with extra
 						// zero bytes after it (numerically, 0x01 == 0x0001 == 0x000001)
 						//if (opcode == OP_NOTEQUAL)
-						//    fEqual = !fEqual;
+						//	fEqual = !fEqual;
 						popstack(stack);
 						popstack(stack);
 						
@@ -1703,7 +1703,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						
 						while (fSuccess && nSigsCount > 0)
 						{
-							valtype& vchSig    = stacktop(-isig);
+							valtype& vchSig = stacktop(-isig);
 							valtype& vchPubKey = stacktop(-ikey);
 
 							if ((flags & SCRIPT_VERIFY_STRICTENC) && (!CheckSignatureEncoding(vchSig) || !CheckPubKeyEncoding(vchPubKey)))
@@ -2385,7 +2385,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						// something like n != 1 and have some wiseguy pass in 1 with extra
 						// zero bytes after it (numerically, 0x01 == 0x0001 == 0x000001)
 						//if (opcode == OP_NOTEQUAL)
-						//    fEqual = !fEqual;
+						//	fEqual = !fEqual;
 						popstack(stack);
 						popstack(stack);
 						
@@ -2691,7 +2691,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 							return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 						}
 						
-						valtype& vchSig    = stacktop(-2);
+						valtype& vchSig = stacktop(-2);
 						valtype& vchPubKey = stacktop(-1);
 
 						// Subset of script starting at the most recent codeseparator
@@ -2788,7 +2788,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						
 						while (fSuccess && nSigsCount > 0)
 						{
-							valtype& vchSig    = stacktop(-isig);
+							valtype& vchSig = stacktop(-isig);
 							valtype& vchPubKey = stacktop(-ikey);
 
 							// Note how this makes the exact order of pubkey/signature evaluation
@@ -3679,7 +3679,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 	{
 		if (!scriptSig.IsPushOnly()) // scriptSig must be literals-only
 		{
-			return false;            // or validation fails
+			return false; // or validation fails
 		}
 		
 		const valtype& pubKeySerialized = stackCopy.back();

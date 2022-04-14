@@ -14,7 +14,7 @@ class CBlockIndex;
 class CKeyID;
 class CPubKey;
 
-#define SMSG_MASK_UNREAD            (1 << 0)
+#define SMSG_MASK_UNREAD		(1 << 0)
 
 namespace DigitalNote
 {

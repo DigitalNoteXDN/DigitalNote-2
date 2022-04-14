@@ -9,16 +9,16 @@ template <typename T>
 class mruset
 {
 public:
-    typedef T key_type;
-    typedef T value_type;
-    typedef typename std::set<T>::iterator iterator;
-    typedef typename std::set<T>::const_iterator const_iterator;
-    typedef typename std::set<T>::size_type size_type;
+	typedef T key_type;
+	typedef T value_type;
+	typedef typename std::set<T>::iterator iterator;
+	typedef typename std::set<T>::const_iterator const_iterator;
+	typedef typename std::set<T>::size_type size_type;
 
 protected:
-    std::set<T> set;
-    std::deque<T> queue;
-    size_type nMaxSize;
+	std::set<T> set;
+	std::deque<T> queue;
+	size_type nMaxSize;
 
 public:
 	mruset(size_type nMaxSizeIn = 0);

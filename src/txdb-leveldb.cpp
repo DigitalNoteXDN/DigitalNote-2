@@ -52,7 +52,8 @@ public:
 
 	virtual void Delete(const leveldb::Slice& key)
 	{
-		if (key.ToString() == needle) {
+		if (key.ToString() == needle)
+		{
 			foundEntry = true;
 			*deleted = true;
 		}
@@ -120,14 +121,14 @@ static CBlockIndex* InsertBlockIndex(uint256 hash)
 	{
 		return (*mi).second;
 	}
-	
+
 	// Create new
 	CBlockIndex* pindexNew = new CBlockIndex();
 	if (!pindexNew)
 	{
 		throw std::runtime_error("LoadBlockIndex() : new CBlockIndex failed");
 	}
-	
+
 	mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
 	pindexNew->phashBlock = &((*mi).first);
 
@@ -204,14 +205,14 @@ CTxDB::~CTxDB()
 
 void CTxDB::Close()
 {
-    delete txdb;
-    txdb = pdb = NULL;
-    delete options.filter_policy;
-    options.filter_policy = NULL;
-    delete options.block_cache;
-    options.block_cache = NULL;
-    delete activeBatch;
-    activeBatch = NULL;
+	delete txdb;
+	txdb = pdb = NULL;
+	delete options.filter_policy;
+	options.filter_policy = NULL;
+	delete options.block_cache;
+	options.block_cache = NULL;
+	delete activeBatch;
+	activeBatch = NULL;
 }
 
 // When performing a read, if we have an active batch we need to check it first
@@ -221,21 +222,22 @@ void CTxDB::Close()
 // practice it does not appear to be large.
 bool CTxDB::ScanBatch(const CDataStream &key, std::string *value, bool *deleted) const
 {
-    assert(activeBatch);
-    
+	assert(activeBatch);
+
 	*deleted = false;
-    CBatchScanner scanner;
-    scanner.needle = key.str();
-    scanner.deleted = deleted;
-    scanner.foundValue = value;
-    
+	CBatchScanner scanner;
+	scanner.needle = key.str();
+	scanner.deleted = deleted;
+	scanner.foundValue = value;
+
 	leveldb::Status status = activeBatch->Iterate(&scanner);
-    if (!status.ok())
-	{
-        throw std::runtime_error(status.ToString());
-    }
 	
-    return scanner.foundEntry;
+	if (!status.ok())
+	{
+		throw std::runtime_error(status.ToString());
+	}
+
+	return scanner.foundEntry;
 }
 
 template<typename K, typename T>
@@ -247,35 +249,49 @@ bool CTxDB::Read(const K& key, T& value)
 	std::string strValue;
 
 	bool readFromDb = true;
-	if (activeBatch) {
+	
+	if (activeBatch)
+	{
 		// First we must search for it in the currently pending set of
 		// changes to the db. If not found in the batch, go on to read disk.
 		bool deleted = false;
 		readFromDb = ScanBatch(ssKey, &strValue, &deleted) == false;
-		if (deleted) {
+		
+		if (deleted)
+		{
 			return false;
 		}
 	}
-	if (readFromDb) {
-		leveldb::Status status = pdb->Get(leveldb::ReadOptions(),
-										  ssKey.str(), &strValue);
-		if (!status.ok()) {
+	
+	if (readFromDb)
+	{
+		leveldb::Status status = pdb->Get(leveldb::ReadOptions(), ssKey.str(), &strValue);
+		
+		if (!status.ok())
+		{
 			if (status.IsNotFound())
+			{
 				return false;
+			}
+			
 			// Some unexpected error.
 			LogPrintf("LevelDB read failure: %s\n", status.ToString());
+			
 			return false;
 		}
 	}
+	
 	// Unserialize value
-	try {
-		CDataStream ssValue(strValue.data(), strValue.data() + strValue.size(),
-							SER_DISK, CLIENT_VERSION);
+	try
+	{
+		CDataStream ssValue(strValue.data(), strValue.data() + strValue.size(), SER_DISK, CLIENT_VERSION);
 		ssValue >> value;
 	}
-	catch (std::exception &e) {
+	catch (std::exception &e)
+	{
 		return false;
 	}
+	
 	return true;
 }
 
@@ -283,24 +299,34 @@ template<typename K, typename T>
 bool CTxDB::Write(const K& key, const T& value)
 {
 	if (fReadOnly)
+	{
 		assert(!"Write called on database in read-only mode");
+	}
 
 	CDataStream ssKey(SER_DISK, CLIENT_VERSION);
 	ssKey.reserve(1000);
 	ssKey << key;
+
 	CDataStream ssValue(SER_DISK, CLIENT_VERSION);
 	ssValue.reserve(10000);
 	ssValue << value;
 
-	if (activeBatch) {
+	if (activeBatch)
+	{
 		activeBatch->Put(ssKey.str(), ssValue.str());
+		
 		return true;
 	}
+
 	leveldb::Status status = pdb->Put(leveldb::WriteOptions(), ssKey.str(), ssValue.str());
-	if (!status.ok()) {
+
+	if (!status.ok())
+	{
 		LogPrintf("LevelDB write failure: %s\n", status.ToString());
+		
 		return false;
 	}
+
 	return true;
 }
 
@@ -308,18 +334,28 @@ template<typename K>
 bool CTxDB::Erase(const K& key)
 {
 	if (!pdb)
+	{
 		return false;
+	}
+
 	if (fReadOnly)
+	{
 		assert(!"Erase called on database in read-only mode");
+	}
 
 	CDataStream ssKey(SER_DISK, CLIENT_VERSION);
 	ssKey.reserve(1000);
 	ssKey << key;
-	if (activeBatch) {
+
+	if (activeBatch)
+	{
 		activeBatch->Delete(ssKey.str());
+		
 		return true;
 	}
+
 	leveldb::Status status = pdb->Delete(leveldb::WriteOptions(), ssKey.str());
+
 	return (status.ok() || status.IsNotFound());
 }
 
@@ -329,17 +365,21 @@ bool CTxDB::Exists(const K& key)
 	CDataStream ssKey(SER_DISK, CLIENT_VERSION);
 	ssKey.reserve(1000);
 	ssKey << key;
+
 	std::string unused;
 
-	if (activeBatch) {
+	if (activeBatch)
+	{
 		bool deleted;
-		if (ScanBatch(ssKey, &unused, &deleted) && !deleted) {
+		
+		if (ScanBatch(ssKey, &unused, &deleted) && !deleted)
+		{
 			return true;
 		}
 	}
 
-
 	leveldb::Status status = pdb->Get(leveldb::ReadOptions(), ssKey.str(), &unused);
+
 	return status.IsNotFound() == false;
 }
 
@@ -357,9 +397,9 @@ bool CTxDB::TxnCommit()
 	assert(activeBatch);
 
 	leveldb::Status status = pdb->Write(leveldb::WriteOptions(), activeBatch);
-	
+
 	delete activeBatch;
-	
+
 	activeBatch = NULL;
 
 	if (!status.ok())
@@ -384,7 +424,7 @@ bool CTxDB::TxnAbort()
 bool CTxDB::ReadVersion(int& nVersion)
 {
 	nVersion = 0;
-	
+
 	return Read(std::string("version"), nVersion);
 }
 
@@ -396,6 +436,7 @@ bool CTxDB::WriteVersion(int nVersion)
 bool CTxDB::WriteAddrIndex(uint160 addrHash, uint256 txHash)
 {
 	std::vector<uint256> txHashes;
+
 	if(!ReadAddrIndex(addrHash, txHashes))
 	{
 		txHashes.push_back(txHash);
@@ -424,7 +465,7 @@ bool CTxDB::ReadAddrIndex(uint160 addrHash, std::vector<uint256>& txHashes)
 bool CTxDB::ReadTxIndex(uint256 hash, CTxIndex& txindex)
 {
 	txindex.SetNull();
-	
+
 	return Read(std::make_pair(std::string("tx"), hash), txindex);
 }
 
@@ -458,19 +499,19 @@ bool CTxDB::ContainsTx(uint256 hash)
 bool CTxDB::ReadDiskTx(uint256 hash, CTransaction& tx, CTxIndex& txindex)
 {
 	tx.SetNull();
-	
+
 	if (!ReadTxIndex(hash, txindex))
 	{
 		return false;
 	}
-	
+
 	return (tx.ReadFromDisk(txindex.pos));
 }
 
 bool CTxDB::ReadDiskTx(uint256 hash, CTransaction& tx)
 {
 	CTxIndex txindex;
-	
+
 	return ReadDiskTx(hash, tx, txindex);
 }
 
@@ -482,7 +523,7 @@ bool CTxDB::ReadDiskTx(COutPoint outpoint, CTransaction& tx, CTxIndex& txindex)
 bool CTxDB::ReadDiskTx(COutPoint outpoint, CTransaction& tx)
 {
 	CTxIndex txindex;
-	
+
 	return ReadDiskTx(outpoint.hash, tx, txindex);
 }
 
@@ -519,14 +560,14 @@ bool CTxDB::LoadBlockIndex()
 		// from BDB.
 		return true;
 	}
-	
+
 	// The block index is an in-memory structure that maps hashes to on-disk
 	// locations where the contents of the block can be found. Here, we scan it
 	// out of the DB and into mapBlockIndex.
 	leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
 	// Seek to start key.
 	CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
-	
+
 	ssStartKey << std::make_pair(std::string("blockindex"), uint256(0));
 	iterator->Seek(ssStartKey.str());
 	
@@ -557,25 +598,25 @@ bool CTxDB::LoadBlockIndex()
 		uint256 blockHash = diskindex.GetBlockHash();
 
 		// Construct block index object
-		CBlockIndex* pindexNew    = InsertBlockIndex(blockHash);
-		pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
-		pindexNew->pnext          = InsertBlockIndex(diskindex.hashNext);
-		pindexNew->nFile          = diskindex.nFile;
-		pindexNew->nBlockPos      = diskindex.nBlockPos;
-		pindexNew->nHeight        = diskindex.nHeight;
-		pindexNew->nMint          = diskindex.nMint;
-		pindexNew->nMoneySupply   = diskindex.nMoneySupply;
-		pindexNew->nFlags         = diskindex.nFlags;
+		CBlockIndex* pindexNew = InsertBlockIndex(blockHash);
+		pindexNew->pprev = InsertBlockIndex(diskindex.hashPrev);
+		pindexNew->pnext = InsertBlockIndex(diskindex.hashNext);
+		pindexNew->nFile = diskindex.nFile;
+		pindexNew->nBlockPos = diskindex.nBlockPos;
+		pindexNew->nHeight = diskindex.nHeight;
+		pindexNew->nMint = diskindex.nMint;
+		pindexNew->nMoneySupply = diskindex.nMoneySupply;
+		pindexNew->nFlags = diskindex.nFlags;
 		pindexNew->nStakeModifier = diskindex.nStakeModifier;
 		pindexNew->bnStakeModifierV2 = diskindex.bnStakeModifierV2;
-		pindexNew->prevoutStake   = diskindex.prevoutStake;
-		pindexNew->nStakeTime     = diskindex.nStakeTime;
-		pindexNew->hashProof      = diskindex.hashProof;
-		pindexNew->nVersion       = diskindex.nVersion;
+		pindexNew->prevoutStake = diskindex.prevoutStake;
+		pindexNew->nStakeTime = diskindex.nStakeTime;
+		pindexNew->hashProof = diskindex.hashProof;
+		pindexNew->nVersion = diskindex.nVersion;
 		pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
-		pindexNew->nTime          = diskindex.nTime;
-		pindexNew->nBits          = diskindex.nBits;
-		pindexNew->nNonce         = diskindex.nNonce;
+		pindexNew->nTime = diskindex.nTime;
+		pindexNew->nBits = diskindex.nBits;
+		pindexNew->nNonce = diskindex.nNonce;
 
 		// Watch for genesis block
 		if (pindexGenesisBlock == NULL && blockHash == Params().HashGenesisBlock())
@@ -606,7 +647,7 @@ bool CTxDB::LoadBlockIndex()
 	// Calculate nChainTrust
 	std::vector<std::pair<int, CBlockIndex*> > vSortedByHeight;
 	vSortedByHeight.reserve(mapBlockIndex.size());
-	
+
 	for(const std::pair<uint256, CBlockIndex*>& item : mapBlockIndex)
 	{
 		CBlockIndex* pindex = item.second;
@@ -614,7 +655,7 @@ bool CTxDB::LoadBlockIndex()
 	}
 	
 	sort(vSortedByHeight.begin(), vSortedByHeight.end());
-	
+
 	for(const std::pair<int, CBlockIndex*>& item : vSortedByHeight)
 	{
 		CBlockIndex* pindex = item.second;
@@ -636,7 +677,7 @@ bool CTxDB::LoadBlockIndex()
 	{
 		return error("CTxDB::LoadBlockIndex() : hashBestChain not found in the block index");
 	}
-	
+
 	pindexBest = mapBlockIndex[hashBestChain];
 	nBestHeight = pindexBest->nHeight;
 	nBestChainTrust = pindexBest->nChainTrust;
@@ -654,22 +695,22 @@ bool CTxDB::LoadBlockIndex()
 	// Verify blocks in the best chain
 	int nCheckLevel = GetArg("-checklevel", 1);
 	int nCheckDepth = GetArg( "-checkblocks", 500);
-	
+
 	if (nCheckDepth == 0)
 	{
 		nCheckDepth = 1000000000; // suffices until the year 19000
 	}
-	
+
 	if (nCheckDepth > nBestHeight)
 	{
 		nCheckDepth = nBestHeight;
 	}
-	
+
 	LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
-	
+
 	CBlockIndex* pindexFork = NULL;
 	std::map<std::pair<unsigned int, unsigned int>, CBlockIndex*> mapBlockPos;
-	
+
 	for (CBlockIndex* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev)
 	{
 		boost::this_thread::interruption_point();

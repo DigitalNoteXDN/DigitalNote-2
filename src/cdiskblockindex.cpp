@@ -184,12 +184,12 @@ uint256 CDiskBlockIndex::GetBlockHash() const
 	}
 	
 	CBlock block;
-	block.nVersion        = nVersion;
-	block.hashPrevBlock   = hashPrev;
-	block.hashMerkleRoot  = hashMerkleRoot;
-	block.nTime           = nTime;
-	block.nBits           = nBits;
-	block.nNonce          = nNonce;
+	block.nVersion = nVersion;
+	block.hashPrevBlock = hashPrev;
+	block.hashMerkleRoot = hashMerkleRoot;
+	block.nTime = nTime;
+	block.nBits = nBits;
+	block.nNonce = nNonce;
 
 	const_cast<CDiskBlockIndex*>(this)->blockHash = block.GetHash();
 
@@ -205,7 +205,7 @@ std::string CDiskBlockIndex::ToString() const
 		GetBlockHash().ToString(),
 		hashPrev.ToString(),
 		hashNext.ToString());
-		
+	
 	return str;
 }
 

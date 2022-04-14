@@ -7,10 +7,10 @@ namespace SMSG {
 class Options
 {
 public:
-    bool fNewAddressRecv;
-    bool fNewAddressAnon;
-    bool fScanIncoming;
-    
+	bool fNewAddressRecv;
+	bool fNewAddressAnon;
+	bool fScanIncoming;
+
 	Options();
 };
 

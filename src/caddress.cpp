@@ -11,20 +11,20 @@
 
 CAddress::CAddress() : CService()
 {
-    Init();
+	Init();
 }
 
 CAddress::CAddress(CService ipIn, uint64_t nServicesIn) : CService(ipIn)
 {
-    Init();
-    nServices = nServicesIn;
+	Init();
+	nServices = nServicesIn;
 }
 
 void CAddress::Init()
 {
-    nServices = NODE_NETWORK;
-    nTime = 100000000;
-    nLastTry = 0;
+	nServices = NODE_NETWORK;
+	nTime = 100000000;
+	nLastTry = 0;
 }
 
 unsigned int CAddress::GetSerializeSize(int nType, int nVersion) const

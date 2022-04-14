@@ -4,9 +4,9 @@
 /** General change type (added, updated, removed). */
 enum ChangeType
 {
-    CT_NEW,
-    CT_UPDATED,
-    CT_DELETED
+	CT_NEW,
+	CT_UPDATED,
+	CT_DELETED
 };
 
 #endif // ENUM_CHANGETYPE_H

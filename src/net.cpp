@@ -315,35 +315,35 @@ void SetReachable(enum Network net, bool fFlag)
 // learn a new local address
 bool AddLocal(const CService& addr, int nScore)
 {
-    if (
+	if (
 		!addr.IsRoutable() ||
 		(!fDiscover && nScore < LOCAL_MANUAL) ||
 		IsLimited(addr)
 	)
 	{
-        return false;
+		return false;
 	}
-	
-    LogPrintf("AddLocal(%s,%i)\n", addr.ToString(), nScore);
 
-    {
-        LOCK(cs_mapLocalHost);
-        
+	LogPrintf("AddLocal(%s,%i)\n", addr.ToString(), nScore);
+
+	{
+		LOCK(cs_mapLocalHost);
+		
 		bool fAlready = mapLocalHost.count(addr) > 0;
-        LocalServiceInfo &info = mapLocalHost[addr];
-        
+		LocalServiceInfo &info = mapLocalHost[addr];
+		
 		if (!fAlready || nScore >= info.nScore)
 		{
-            info.nScore = nScore + (fAlready ? 1 : 0);
-            info.nPort = addr.GetPort();
-        }
+			info.nScore = nScore + (fAlready ? 1 : 0);
+			info.nPort = addr.GetPort();
+		}
 		
-        SetReachable(addr.GetNetwork());
-    }
+		SetReachable(addr.GetNetwork());
+	}
 
-    AdvertizeLocal();
+	AdvertizeLocal();
 
-    return true;
+	return true;
 }
 
 bool AddLocal(const CNetAddr &addr, int nScore)
@@ -495,18 +495,19 @@ bool CheckNode(CAddress addrConnect)
 		
 		closesocket(hSocket);
 
-/*        // Set to non-blocking
+/*
+		// Set to non-blocking
 #ifdef WIN32
-        u_long nOne = 1;
-        if (ioctlsocket(hSocket, FIONBIO, &nOne) == SOCKET_ERROR)
-            LogPrintf("ConnectSocket() : ioctlsocket non-blocking setting failed, error %d\n", WSAGetLastError());
+		u_long nOne = 1;
+		if (ioctlsocket(hSocket, FIONBIO, &nOne) == SOCKET_ERROR)
+			LogPrintf("ConnectSocket() : ioctlsocket non-blocking setting failed, error %d\n", WSAGetLastError());
 #else
-        if (fcntl(hSocket, F_SETFL, O_NONBLOCK) == SOCKET_ERROR)
-            LogPrintf("ConnectSocket() : fcntl non-blocking setting failed, error %d\n", errno);
+		if (fcntl(hSocket, F_SETFL, O_NONBLOCK) == SOCKET_ERROR)
+			LogPrintf("ConnectSocket() : fcntl non-blocking setting failed, error %d\n", errno);
 #endif
-        CNode* pnode = new CNode(hSocket, addrConnect, "", false);
-        // Close connection
-        pnode->CloseSocketDisconnect();
+		CNode* pnode = new CNode(hSocket, addrConnect, "", false);
+		// Close connection
+		pnode->CloseSocketDisconnect();
 */
 		return true;
 	}
@@ -1463,7 +1464,7 @@ void MapPort(bool fUseUPnP)
 #else // USE_UPNP
 void MapPort(bool)
 {
-    // Intentionally left blank.
+	// Intentionally left blank.
 }
 #endif // USE_UPNP
 
@@ -2100,7 +2101,7 @@ bool BindListenPort(const CService &addrBind, std::string& strError)
 		// this call is allowed to fail
 		setsockopt(hListenSocket, IPPROTO_IPV6, nParameterId, (const char*)&nProtLevel, sizeof(int));
 #endif // WIN32
-    }
+	}
 
 	if (::bind(hListenSocket, (struct sockaddr*)&sockaddr, len) == SOCKET_ERROR)
 	{

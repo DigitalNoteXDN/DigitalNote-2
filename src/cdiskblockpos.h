@@ -11,24 +11,24 @@ bool operator!=(const CDiskBlockPos &a, const CDiskBlockPos &b);
 // Adaptive block sizing depends on this
 struct CDiskBlockPos
 {
-    int nFile;
-    unsigned int nPos;
-	
-    CDiskBlockPos();
-    CDiskBlockPos(int nFileIn, unsigned int nPosIn);
-	
+	int nFile;
+	unsigned int nPos;
+
+	CDiskBlockPos();
+	CDiskBlockPos(int nFileIn, unsigned int nPosIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    friend bool operator==(const CDiskBlockPos &a, const CDiskBlockPos &b);
-    friend bool operator!=(const CDiskBlockPos &a, const CDiskBlockPos &b);
-    void SetNull();
-    bool IsNull() const;
+	friend bool operator==(const CDiskBlockPos &a, const CDiskBlockPos &b);
+	friend bool operator!=(const CDiskBlockPos &a, const CDiskBlockPos &b);
+	void SetNull();
+	bool IsNull() const;
 
-    std::string ToString() const;
+	std::string ToString() const;
 };
 
 #endif // CDISKBLOCKPOS_H

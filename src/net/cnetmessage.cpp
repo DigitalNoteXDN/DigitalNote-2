@@ -26,48 +26,48 @@ void CNetMessage::SetVersion(int nVersionIn)
 
 int CNetMessage::readHeader(const char *pch, unsigned int nBytes)
 {
-    // copy data to temporary parsing buffer
-    unsigned int nRemaining = 24 - nHdrPos;
-    unsigned int nCopy = std::min(nRemaining, nBytes);
+	// copy data to temporary parsing buffer
+	unsigned int nRemaining = 24 - nHdrPos;
+	unsigned int nCopy = std::min(nRemaining, nBytes);
 
-    memcpy(&hdrbuf[nHdrPos], pch, nCopy);
-    nHdrPos += nCopy;
+	memcpy(&hdrbuf[nHdrPos], pch, nCopy);
+	nHdrPos += nCopy;
 
-    // if header incomplete, exit
-    if (nHdrPos < 24)
-        return nCopy;
+	// if header incomplete, exit
+	if (nHdrPos < 24)
+		return nCopy;
 
-    // deserialize to CMessageHeader
-    try {
-        hdrbuf >> hdr;
-    }
-    catch (std::exception &e) {
-        return -1;
-    }
+	// deserialize to CMessageHeader
+	try {
+		hdrbuf >> hdr;
+	}
+	catch (std::exception &e) {
+		return -1;
+	}
 
-    // reject messages larger than MAX_MESSAGE_SIZE
-    if (hdr.nMessageSize > MAX_MESSAGE_SIZE)
-            return -1;
+	// reject messages larger than MAX_MESSAGE_SIZE
+	if (hdr.nMessageSize > MAX_MESSAGE_SIZE)
+			return -1;
 
-    // switch state to reading message data
-    in_data = true;
+	// switch state to reading message data
+	in_data = true;
 
-    return nCopy;
+	return nCopy;
 }
 
 int CNetMessage::readData(const char *pch, unsigned int nBytes)
 {
-    unsigned int nRemaining = hdr.nMessageSize - nDataPos;
-    unsigned int nCopy = std::min(nRemaining, nBytes);
+	unsigned int nRemaining = hdr.nMessageSize - nDataPos;
+	unsigned int nCopy = std::min(nRemaining, nBytes);
 
-    if (vRecv.size() < nDataPos + nCopy) {
-        // Allocate up to 256 KiB ahead, but never more than the total message size.
-        vRecv.resize(std::min(hdr.nMessageSize, nDataPos + nCopy + 256 * 1024));
-    }
+	if (vRecv.size() < nDataPos + nCopy) {
+		// Allocate up to 256 KiB ahead, but never more than the total message size.
+		vRecv.resize(std::min(hdr.nMessageSize, nDataPos + nCopy + 256 * 1024));
+	}
 
-    memcpy(&vRecv[nDataPos], pch, nCopy);
-    nDataPos += nCopy;
+	memcpy(&vRecv[nDataPos], pch, nCopy);
+	nDataPos += nCopy;
 
-    return nCopy;
+	return nCopy;
 }
 

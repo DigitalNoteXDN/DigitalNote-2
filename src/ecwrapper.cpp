@@ -460,13 +460,13 @@ bool CECKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig)
 
 bool CECKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig)
 {
-    // -1 = error, 0 = bad sig, 1 = good
-    if (ECDSA_verify(0, (unsigned char*)&hash, sizeof(hash), &vchSig[0], vchSig.size(), pkey) != 1)
+	// -1 = error, 0 = bad sig, 1 = good
+	if (ECDSA_verify(0, (unsigned char*)&hash, sizeof(hash), &vchSig[0], vchSig.size(), pkey) != 1)
 	{
-        return false;
+		return false;
 	}
-	
-    return true;
+
+	return true;
 }
 
 bool CECKey::SignCompact(const uint256 &hash, unsigned char *p64, int &rec)
@@ -562,29 +562,44 @@ bool CECKey::Recover(const uint256 &hash, const unsigned char *p64, int rec)
 
 bool CECKey::TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], const unsigned char vchTweak[32])
 {
-    bool ret = true;
-    BN_CTX *ctx = BN_CTX_new();
-    BN_CTX_start(ctx);
-    BIGNUM *bnSecret = BN_CTX_get(ctx);
-    BIGNUM *bnTweak = BN_CTX_get(ctx);
-    BIGNUM *bnOrder = BN_CTX_get(ctx);
-    EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
-    EC_GROUP_get_order(group, bnOrder, ctx); // what a grossly inefficient way to get the (constant) group order...
-    BN_bin2bn(vchTweak, 32, bnTweak);
-    if (BN_cmp(bnTweak, bnOrder) >= 0)
-        ret = false; // extremely unlikely
-    BN_bin2bn(vchSecretIn, 32, bnSecret);
-    BN_add(bnSecret, bnSecret, bnTweak);
-    BN_nnmod(bnSecret, bnSecret, bnOrder, ctx);
-    if (BN_is_zero(bnSecret))
-        ret = false; // ridiculously unlikely
-    int nBits = BN_num_bits(bnSecret);
-    memset(vchSecretOut, 0, 32);
-    BN_bn2bin(bnSecret, &vchSecretOut[32-(nBits+7)/8]);
-    EC_GROUP_free(group);
-    BN_CTX_end(ctx);
-    BN_CTX_free(ctx);
-    return ret;
+	bool ret = true;
+	
+	BN_CTX *ctx = BN_CTX_new();
+	BN_CTX_start(ctx);
+	
+	BIGNUM *bnSecret = BN_CTX_get(ctx);
+	BIGNUM *bnTweak = BN_CTX_get(ctx);
+	BIGNUM *bnOrder = BN_CTX_get(ctx);
+	
+	EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+	EC_GROUP_get_order(group, bnOrder, ctx); // what a grossly inefficient way to get the (constant) group order...
+	BN_bin2bn(vchTweak, 32, bnTweak);
+	
+	if (BN_cmp(bnTweak, bnOrder) >= 0)
+	{
+		ret = false; // extremely unlikely
+	}
+	
+	BN_bin2bn(vchSecretIn, 32, bnSecret);
+	BN_add(bnSecret, bnSecret, bnTweak);
+	BN_nnmod(bnSecret, bnSecret, bnOrder, ctx);
+	
+	if (BN_is_zero(bnSecret))
+	{
+		ret = false; // ridiculously unlikely
+	}
+	
+	int nBits = BN_num_bits(bnSecret);
+	
+	memset(vchSecretOut, 0, 32);
+	
+	BN_bn2bin(bnSecret, &vchSecretOut[32-(nBits+7)/8]);
+	
+	EC_GROUP_free(group);
+	BN_CTX_end(ctx);
+	BN_CTX_free(ctx);
+	
+	return ret;
 }
 
 bool CECKey::TweakPublic(const unsigned char vchTweak[32])

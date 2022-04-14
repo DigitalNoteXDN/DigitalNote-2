@@ -9,21 +9,21 @@ class CSporkMessage;
 class CSporkManager
 {
 private:
-    std::vector<unsigned char> vchSig;
-    std::string strMasterPrivKey;
-    std::string strTestPubKey;
-    std::string strMainPubKey;
+	std::vector<unsigned char> vchSig;
+	std::string strMasterPrivKey;
+	std::string strTestPubKey;
+	std::string strMainPubKey;
 
 public:
-    CSporkManager();
-    
+	CSporkManager();
+
 	std::string GetSporkNameByID(int id);
-    int GetSporkIDByName(std::string strName);
-    bool UpdateSpork(int nSporkID, int64_t nValue);
-    bool SetPrivKey(const std::string &strPrivKey);
-    bool CheckSignature(CSporkMessage& spork);
-    bool Sign(CSporkMessage& spork);
-    void Relay(CSporkMessage& msg);
+	int GetSporkIDByName(std::string strName);
+	bool UpdateSpork(int nSporkID, int64_t nValue);
+	bool SetPrivKey(const std::string &strPrivKey);
+	bool CheckSignature(CSporkMessage& spork);
+	bool Sign(CSporkMessage& spork);
+	void Relay(CSporkMessage& msg);
 };
 
 #endif // CSPORKMANAGER_H

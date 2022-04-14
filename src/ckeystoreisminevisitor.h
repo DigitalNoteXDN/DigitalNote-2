@@ -12,14 +12,15 @@ class CStealthAddress;
 class CKeyStoreIsMineVisitor : public boost::static_visitor<bool>
 {
 private:
-    const CKeyStore *keystore;
+	const CKeyStore *keystore;
+
 public:
-    CKeyStoreIsMineVisitor(const CKeyStore *keystoreIn);
-	
-    bool operator()(const CNoDestination &dest) const;
-    bool operator()(const CKeyID &keyID) const;
-    bool operator()(const CScriptID &scriptID) const;
-    bool operator()(const CStealthAddress &stxAddr) const;
+	CKeyStoreIsMineVisitor(const CKeyStore *keystoreIn);
+
+	bool operator()(const CNoDestination &dest) const;
+	bool operator()(const CKeyID &keyID) const;
+	bool operator()(const CScriptID &scriptID) const;
+	bool operator()(const CStealthAddress &stxAddr) const;
 };
 
 #endif // CKEYSTOREISMINEVISITOR_H

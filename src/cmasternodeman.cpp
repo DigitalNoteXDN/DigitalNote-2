@@ -67,35 +67,35 @@ bool CMasternodeMan::Add(CMasternode &mn)
 
 void CMasternodeMan::AskForMN(CNode* pnode, CTxIn &vin)
 {
-    std::map<COutPoint, int64_t>::iterator i = mWeAskedForMasternodeListEntry.find(vin.prevout);
-    
+	std::map<COutPoint, int64_t>::iterator i = mWeAskedForMasternodeListEntry.find(vin.prevout);
+
 	if (i != mWeAskedForMasternodeListEntry.end())
-    {
-        int64_t t = (*i).second;
+	{
+		int64_t t = (*i).second;
 		
-        if (GetTime() < t)
+		if (GetTime() < t)
 		{
 			return; // we've asked recently
 		}
-    }
+	}
 
-    // ask for the mnb info once from the node that sent mnp
-    LogPrintf("CMasternodeMan::AskForMN - Asking node for missing entry, vin: %s\n", vin.ToString());
-    
+	// ask for the mnb info once from the node that sent mnp
+	LogPrintf("CMasternodeMan::AskForMN - Asking node for missing entry, vin: %s\n", vin.ToString());
+
 	pnode->PushMessage("dseg", vin);
-    
+
 	int64_t askAgain = GetTime() + MASTERNODE_MIN_DSEEP_SECONDS;
-	
-    mWeAskedForMasternodeListEntry[vin.prevout] = askAgain;
+
+	mWeAskedForMasternodeListEntry[vin.prevout] = askAgain;
 }
 
 void CMasternodeMan::Check()
 {
-    LOCK(cs);
+	LOCK(cs);
 
-    for(CMasternode& mn : vMasternodes)
+	for(CMasternode& mn : vMasternodes)
 	{
-        mn.Check();
+		mn.Check();
 	}
 }
 
@@ -156,7 +156,7 @@ void CMasternodeMan::CheckAndRemove()
 	// check which masternodes we've asked for
 	std::map<COutPoint, int64_t>::iterator it2 = mWeAskedForMasternodeListEntry.begin();
 	while(it2 != mWeAskedForMasternodeListEntry.end())
-	{    
+	{
 		if((*it2).second < GetTime())
 		{
 			mWeAskedForMasternodeListEntry.erase(it2++);
@@ -1137,11 +1137,11 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, std::string& strCommand, CData
 
 void CMasternodeMan::RelayMasternodeEntry(const CTxIn vin, const CService addr, const std::vector<unsigned char> vchSig, const int64_t nNow, const CPubKey pubkey, const CPubKey pubkey2, const int count, const int current, const int64_t lastUpdated, const int protocolVersion, CScript donationAddress, int donationPercentage)
 {
-    LOCK(cs_vNodes);
-	
-    for(CNode* pnode : vNodes)
+	LOCK(cs_vNodes);
+
+	for(CNode* pnode : vNodes)
 	{
-        pnode->PushMessage(
+		pnode->PushMessage(
 			"dsee", vin, addr, vchSig, nNow, pubkey, pubkey2, count, current,
 			lastUpdated, protocolVersion, donationAddress, donationPercentage
 		);
@@ -1150,11 +1150,11 @@ void CMasternodeMan::RelayMasternodeEntry(const CTxIn vin, const CService addr, 
 
 void CMasternodeMan::RelayMasternodeEntryPing(const CTxIn vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop)
 {
-    LOCK(cs_vNodes);
-    
+	LOCK(cs_vNodes);
+
 	for(CNode* pnode : vNodes)
 	{
-        pnode->PushMessage("dseep", vin, vchSig, nNow, stop);
+		pnode->PushMessage("dseep", vin, vchSig, nNow, stop);
 	}
 }
 
@@ -1177,15 +1177,15 @@ void CMasternodeMan::Remove(CTxIn vin)
 
 std::string CMasternodeMan::ToString() const
 {
-    std::ostringstream info;
+	std::ostringstream info;
 
-    info << "masternodes: " << (int)vMasternodes.size() <<
-            ", peers who asked us for masternode list: " << (int)mAskedUsForMasternodeList.size() <<
-            ", peers we asked for masternode list: " << (int)mWeAskedForMasternodeList.size() <<
-            ", entries in Masternode list we asked for: " << (int)mWeAskedForMasternodeListEntry.size() <<
-            ", nDsqCount: " << (int)nDsqCount;
+	info << "masternodes: " << (int)vMasternodes.size() <<
+			", peers who asked us for masternode list: " << (int)mAskedUsForMasternodeList.size() <<
+			", peers we asked for masternode list: " << (int)mWeAskedForMasternodeList.size() <<
+			", entries in Masternode list we asked for: " << (int)mWeAskedForMasternodeListEntry.size() <<
+			", nDsqCount: " << (int)nDsqCount;
 
-    return info.str();
+	return info.str();
 }
 
 /*

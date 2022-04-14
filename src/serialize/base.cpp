@@ -10,7 +10,7 @@
 template<typename T>
 T& REF(const T& val)
 {
-    return const_cast<T&>(val);
+	return const_cast<T&>(val);
 }
 
 /**
@@ -20,7 +20,7 @@ T& REF(const T& val)
 template<typename T>
 T* NCONST_PTR(const T* val)
 {
-    return const_cast<T*>(val);
+	return const_cast<T*>(val);
 }
 
 /**

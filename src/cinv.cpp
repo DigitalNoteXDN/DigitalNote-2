@@ -8,80 +8,80 @@
 
 static const char* ppszTypeName[] =
 {
-    "ERROR",
-    "tx",
-    "dstx",
-    "block",
-    "filtered block",
-    "tx lock request",
-    "tx lock vote",
-    "spork",
-    "masternode winner",
-    "unknown",
-    "unknown",
-    "unknown",
-    "unknown",
-    "unknown",
-    "unknown"
+	"ERROR",
+	"tx",
+	"dstx",
+	"block",
+	"filtered block",
+	"tx lock request",
+	"tx lock vote",
+	"spork",
+	"masternode winner",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown"
 };
 
 CInv::CInv()
 {
-    type = 0;
-    hash = 0;
+	type = 0;
+	hash = 0;
 }
 
 CInv::CInv(int typeIn, const uint256& hashIn)
 {
-    type = typeIn;
-    hash = hashIn;
+	type = typeIn;
+	hash = hashIn;
 }
 
 CInv::CInv(const std::string& strType, const uint256& hashIn)
 {
-    unsigned int i;
-	
-    for (i = 1; i < ARRAYLEN(ppszTypeName); i++)
-    {
-        if (strType == ppszTypeName[i])
-        {
-            type = i;
-            
-			break;
-        }
-    }
-	
-    if (i == ARRAYLEN(ppszTypeName))
+	unsigned int i;
+
+	for (i = 1; i < ARRAYLEN(ppszTypeName); i++)
 	{
-        throw std::out_of_range(strprintf("CInv::CInv(std::string, uint256) : unknown type '%s'", strType));
+		if (strType == ppszTypeName[i])
+		{
+			type = i;
+			
+			break;
+		}
 	}
-	
-    hash = hashIn;
+
+	if (i == ARRAYLEN(ppszTypeName))
+	{
+		throw std::out_of_range(strprintf("CInv::CInv(std::string, uint256) : unknown type '%s'", strType));
+	}
+
+	hash = hashIn;
 }
 
 bool operator<(const CInv& a, const CInv& b)
 {
-    return (a.type < b.type || (a.type == b.type && a.hash < b.hash));
+	return (a.type < b.type || (a.type == b.type && a.hash < b.hash));
 }
 
 bool CInv::IsKnownType() const
 {
-    return (type >= 1 && type < (int)ARRAYLEN(ppszTypeName));
+	return (type >= 1 && type < (int)ARRAYLEN(ppszTypeName));
 }
 
 const char* CInv::GetCommand() const
 {
-    if (!IsKnownType())
+	if (!IsKnownType())
 	{
-        throw std::out_of_range(strprintf("CInv::GetCommand() : type=%d unknown type", type));
+		throw std::out_of_range(strprintf("CInv::GetCommand() : type=%d unknown type", type));
 	}
-	
-    return ppszTypeName[type];
+
+	return ppszTypeName[type];
 }
 
 std::string CInv::ToString() const
 {
-    return strprintf("%s %s", GetCommand(), hash.ToString());
+	return strprintf("%s %s", GetCommand(), hash.ToString());
 }
 
 unsigned int CInv::GetSerializeSize(int nType, int nVersion) const

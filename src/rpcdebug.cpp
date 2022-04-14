@@ -13,3 +13,4 @@ json_spirit::Value debugrpcallowip(const json_spirit::Array& params, bool fHelp)
 	
 	return obj;
 }
+

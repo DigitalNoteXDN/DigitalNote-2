@@ -29,7 +29,7 @@ unsigned int CDiskBlockPos::GetSerializeSize(int nType, int nVersion) const
 	s.nVersion = nVersion;
 	
 	READWRITE(VARINT(nFile));
-    READWRITE(VARINT(nPos));
+	READWRITE(VARINT(nPos));
 	
 	return nSerSize;
 }
@@ -45,7 +45,7 @@ void CDiskBlockPos::Serialize(Stream& s, int nType, int nVersion) const
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(VARINT(nFile));
-    READWRITE(VARINT(nPos));
+	READWRITE(VARINT(nPos));
 }
 
 template<typename Stream>
@@ -59,7 +59,7 @@ void CDiskBlockPos::Unserialize(Stream& s, int nType, int nVersion)
 	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(VARINT(nFile));
-    READWRITE(VARINT(nPos));
+	READWRITE(VARINT(nPos));
 }
 
 template void CDiskBlockPos::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;

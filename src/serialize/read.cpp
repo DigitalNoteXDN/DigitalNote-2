@@ -227,58 +227,58 @@ void Unserialize(Stream& is, T& a, long nType, int nVersion)
 template<typename Stream>
 uint64_t ReadCompactSize(Stream& is)
 {
-    unsigned char chSize;
-    uint64_t nSizeRet = 0;
-    
+	unsigned char chSize;
+	uint64_t nSizeRet = 0;
+
 	READDATA(is, chSize);
-    
+
 	if (chSize < 253)
-    {
-        nSizeRet = chSize;
-    }
-    else if (chSize == 253)
-    {
-        unsigned short xSize;
-        
+	{
+		nSizeRet = chSize;
+	}
+	else if (chSize == 253)
+	{
+		unsigned short xSize;
+		
 		READDATA(is, xSize);
-        nSizeRet = xSize;
-        
+		nSizeRet = xSize;
+		
 		if (nSizeRet < 253)
 		{
-            throw std::ios_base::failure("non-canonical ReadCompactSize()");
+			throw std::ios_base::failure("non-canonical ReadCompactSize()");
 		}
-    }
-    else if (chSize == 254)
-    {
-        unsigned int xSize;
-        
+	}
+	else if (chSize == 254)
+	{
+		unsigned int xSize;
+		
 		READDATA(is, xSize);
-        nSizeRet = xSize;
-        
+		nSizeRet = xSize;
+		
 		if (nSizeRet < 0x10000u)
 		{
-            throw std::ios_base::failure("non-canonical ReadCompactSize()");
+			throw std::ios_base::failure("non-canonical ReadCompactSize()");
 		}
-    }
-    else
-    {
-        uint64_t xSize;
-        
+	}
+	else
+	{
+		uint64_t xSize;
+		
 		READDATA(is, xSize);
-        nSizeRet = xSize;
-        
+		nSizeRet = xSize;
+		
 		if (nSizeRet < 0x100000000ULL)
 		{
-            throw std::ios_base::failure("non-canonical ReadCompactSize()");
+			throw std::ios_base::failure("non-canonical ReadCompactSize()");
 		}
-    }
-	
-    if (nSizeRet > (uint64_t)MAX_MESSAGE_SIZE)
-	{
-        throw std::ios_base::failure("ReadCompactSize() : size too large");
 	}
-	
-    return nSizeRet;
+
+	if (nSizeRet > (uint64_t)MAX_MESSAGE_SIZE)
+	{
+		throw std::ios_base::failure("ReadCompactSize() : size too large");
+	}
+
+	return nSizeRet;
 }
 
 

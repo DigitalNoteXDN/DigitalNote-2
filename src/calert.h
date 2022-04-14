@@ -13,32 +13,32 @@ class uint256;
 class CAlert : public CUnsignedAlert
 {
 public:
-    std::vector<unsigned char> vchMsg;
-    std::vector<unsigned char> vchSig;
+	std::vector<unsigned char> vchMsg;
+	std::vector<unsigned char> vchSig;
 
-    CAlert();
-	
+	CAlert();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    void SetNull();
-    bool IsNull() const;
-    uint256 GetHash() const;
-    bool IsInEffect() const;
-    bool Cancels(const CAlert& alert) const;
-    bool AppliesTo(int nVersion, const std::string &strSubVerIn) const;
-    bool AppliesToMe() const;
-    bool RelayTo(CNode* pnode) const;
-    bool CheckSignature() const;
-    bool ProcessAlert(bool fThread = true);
+	void SetNull();
+	bool IsNull() const;
+	uint256 GetHash() const;
+	bool IsInEffect() const;
+	bool Cancels(const CAlert& alert) const;
+	bool AppliesTo(int nVersion, const std::string &strSubVerIn) const;
+	bool AppliesToMe() const;
+	bool RelayTo(CNode* pnode) const;
+	bool CheckSignature() const;
+	bool ProcessAlert(bool fThread = true);
 
-    /*
-     * Get copy of (active) alert object by hash. Returns a null alert if it is not found.
-     */
-    static CAlert getAlertByHash(const uint256 &hash);
+	/*
+	 * Get copy of (active) alert object by hash. Returns a null alert if it is not found.
+	 */
+	static CAlert getAlertByHash(const uint256 &hash);
 };
 
 #endif // CALERT_H

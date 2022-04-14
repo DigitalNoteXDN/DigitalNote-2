@@ -116,8 +116,8 @@ bool CTxOut::IsDust(int64_t MIN_RELAY_TX_FEE) const
 
 bool operator==(const CTxOut& a, const CTxOut& b)
 {
-	return (a.nValue       == b.nValue &&
-			a.nRounds      == b.nRounds &&
+	return (a.nValue == b.nValue &&
+			a.nRounds == b.nRounds &&
 			a.scriptPubKey == b.scriptPubKey);
 }
 

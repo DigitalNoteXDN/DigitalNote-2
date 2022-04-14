@@ -9,11 +9,12 @@
 class CBanDB
 {
 private:
-    boost::filesystem::path pathBanlist;
+	boost::filesystem::path pathBanlist;
+
 public:
-    CBanDB();
-    bool Write(const banmap_t& banSet);
-    bool Read(banmap_t& banSet);
+	CBanDB();
+	bool Write(const banmap_t& banSet);
+	bool Read(banmap_t& banSet);
 };
 
 #endif // CBANDB_H

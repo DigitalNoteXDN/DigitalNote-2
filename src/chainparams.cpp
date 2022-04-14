@@ -20,12 +20,12 @@ static CChainParams *pCurrentParams = &mainParams;
 
 const CChainParams &Params()
 {
-    return *pCurrentParams;
+	return *pCurrentParams;
 }
 
 void SelectParams(CChainParams_Network network)
 {
-    switch (network)
+	switch (network)
 	{
 		case CChainParams_Network::MAIN:
 			pCurrentParams = &mainParams;
@@ -43,38 +43,38 @@ void SelectParams(CChainParams_Network network)
 			assert(false && "Unimplemented network");
 		
 			return;
-    }
+	}
 }
 
 bool SelectParamsFromCommandLine()
 {
-    bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = GetBoolArg("-testnet", false);
+	bool fRegTest = GetBoolArg("-regtest", false);
+	bool fTestNet = GetBoolArg("-testnet", false);
 
-    if (fTestNet && fRegTest)
+	if (fTestNet && fRegTest)
 	{
-        return false;
-    }
+		return false;
+	}
 
-    if (fRegTest)
+	if (fRegTest)
 	{
-        SelectParams(CChainParams_Network::REGTEST);
-    }
+		SelectParams(CChainParams_Network::REGTEST);
+	}
 	else if (fTestNet)
 	{
-        SelectParams(CChainParams_Network::TESTNET);
-    }
+		SelectParams(CChainParams_Network::TESTNET);
+	}
 	else
 	{
-        SelectParams(CChainParams_Network::MAIN);
-    }
-	
-    return true;
+		SelectParams(CChainParams_Network::MAIN);
+	}
+
+	return true;
 }
 
 bool TestNet()
 {
-    // Note: it's deliberate that this returns "false" for regression test mode.
-    return Params().NetworkID() == CChainParams_Network::TESTNET;
+	// Note: it's deliberate that this returns "false" for regression test mode.
+	return Params().NetworkID() == CChainParams_Network::TESTNET;
 }
 

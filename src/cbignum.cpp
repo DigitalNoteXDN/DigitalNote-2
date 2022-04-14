@@ -904,94 +904,94 @@ BIGNUM* CBigNum::to_bignum()
 
 const CBigNum operator+(const CBigNum& a, const CBigNum& b)
 {
-    CBigNum r;
-	
-    if (!BN_add(r.bn, a.bn, b.bn))
+	CBigNum r;
+
+	if (!BN_add(r.bn, a.bn, b.bn))
 	{
-        throw CBigNum_Error("CBigNum::operator+ : BN_add failed");
-    }
-	
+		throw CBigNum_Error("CBigNum::operator+ : BN_add failed");
+	}
+
 	return r;
 }
 
 const CBigNum operator-(const CBigNum& a, const CBigNum& b)
 {
-    CBigNum r;
-    
+	CBigNum r;
+
 	if (!BN_sub(r.bn, a.bn, b.bn))
 	{
-        throw CBigNum_Error("CBigNum::operator- : BN_sub failed");
+		throw CBigNum_Error("CBigNum::operator- : BN_sub failed");
 	}
-	
-    return r;
+
+	return r;
 }
 
 const CBigNum operator-(const CBigNum& a)
 {
-    CBigNum r(a);
-	
-    BN_set_negative(r.bn, !BN_is_negative(r.bn));
-    
+	CBigNum r(a);
+
+	BN_set_negative(r.bn, !BN_is_negative(r.bn));
+
 	return r;
 }
 
 const CBigNum operator*(const CBigNum& a, const CBigNum& b)
 {
-    CBigNum_CTX pctx;
-    CBigNum r;
+	CBigNum_CTX pctx;
+	CBigNum r;
 	
-    if (!BN_mul(r.bn, a.bn, b.bn, pctx))
+	if (!BN_mul(r.bn, a.bn, b.bn, pctx))
 	{
-        throw CBigNum_Error("CBigNum::operator* : BN_mul failed");
+		throw CBigNum_Error("CBigNum::operator* : BN_mul failed");
 	}
 	
-    return r;
+	return r;
 }
 
 const CBigNum operator/(const CBigNum& a, const CBigNum& b)
 {
-    CBigNum_CTX pctx;
-    CBigNum r;
-	
-    if (!BN_div(r.bn, NULL, a.bn, b.bn, pctx))
-    {
+	CBigNum_CTX pctx;
+	CBigNum r;
+
+	if (!BN_div(r.bn, NULL, a.bn, b.bn, pctx))
+	{
 		throw CBigNum_Error("CBigNum::operator/ : BN_div failed");
 	}
-	
-    return r;
+
+	return r;
 }
 
 const CBigNum operator%(const CBigNum& a, const CBigNum& b)
 {
-    CBigNum_CTX pctx;
-    CBigNum r;
-	
-    if (!BN_nnmod(r.bn, a.bn, b.bn, pctx))
-    {
+	CBigNum_CTX pctx;
+	CBigNum r;
+
+	if (!BN_nnmod(r.bn, a.bn, b.bn, pctx))
+	{
 		throw CBigNum_Error("CBigNum::operator% : BN_div failed");
-    }
-	
+	}
+
 	return r;
 }
 
 const CBigNum operator<<(const CBigNum& a, unsigned int shift)
 {
-    CBigNum r;
-	
-    if (!BN_lshift(r.bn, a.bn, shift))
-    {
+	CBigNum r;
+
+	if (!BN_lshift(r.bn, a.bn, shift))
+	{
 		throw CBigNum_Error("CBigNum:operator<< : BN_lshift failed");
 	}
-	
-    return r;
+
+	return r;
 }
 
 const CBigNum operator>>(const CBigNum& a, unsigned int shift)
 {
-    CBigNum r = a;
-	
-    r >>= shift;
-    
+	CBigNum r = a;
+
+	r >>= shift;
+
 	return r;
 }
 

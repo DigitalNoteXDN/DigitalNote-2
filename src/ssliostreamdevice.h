@@ -14,6 +14,11 @@
 template <typename Protocol>
 class SSLIOStreamDevice : public boost::iostreams::device<boost::iostreams::bidirectional>
 {
+private:
+	bool fNeedHandshake;
+	bool fUseSSL;
+	boost::asio::ssl::stream<typename Protocol::socket>& stream;
+
 public:
 	SSLIOStreamDevice(boost::asio::ssl::stream<typename Protocol::socket> &streamIn, bool fUseSSLIn);
 
@@ -21,11 +26,6 @@ public:
 	std::streamsize read(char* s, std::streamsize n);
 	std::streamsize write(const char* s, std::streamsize n);
 	bool connect(const std::string& server, const std::string& port);
-
-private:
-    bool fNeedHandshake;
-    bool fUseSSL;
-    boost::asio::ssl::stream<typename Protocol::socket>& stream;
 };
 
 #endif // SSLIOSTREAMDEVICE_H

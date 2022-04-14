@@ -14,17 +14,17 @@ namespace Checkpoints
 {
 	typedef std::map<int, uint256> MapCheckpoints;
 
-    // Returns true if block passes checkpoint checks
-    bool CheckHardened(int nHeight, const uint256& hash);
+	// Returns true if block passes checkpoint checks
+	bool CheckHardened(int nHeight, const uint256& hash);
 
-    // Return conservative estimate of total number of blocks, 0 if unknown
-    int GetTotalBlocksEstimate();
+	// Return conservative estimate of total number of blocks, 0 if unknown
+	int GetTotalBlocksEstimate();
 
-    // Returns last CBlockIndex* in mapBlockIndex that is a checkpoint
-    CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex);
+	// Returns last CBlockIndex* in mapBlockIndex that is a checkpoint
+	CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex);
 
-    const CBlockIndex* AutoSelectSyncCheckpoint();
-    bool CheckSync(int nHeight);
+	const CBlockIndex* AutoSelectSyncCheckpoint();
+	bool CheckSync(int nHeight);
 }
 
 #endif // CHECKPOINTS_H

@@ -255,8 +255,8 @@ json_spirit::Value smsglocalkeys(const json_spirit::Array& params, bool fHelp)
 			return result;
 		}
 		
-		std::string op      = params[1].get_str();
-		std::string addr    = params[2].get_str();
+		std::string op = params[1].get_str();
+		std::string addr = params[2].get_str();
 		
 		std::vector<DigitalNote::SMSG::Address>::iterator it;
 		
@@ -312,8 +312,8 @@ json_spirit::Value smsglocalkeys(const json_spirit::Array& params, bool fHelp)
 			return result;
 		}
 		
-		std::string op      = params[1].get_str();
-		std::string addr    = params[2].get_str();
+		std::string op = params[1].get_str();
+		std::string addr = params[2].get_str();
 		
 		std::vector<DigitalNote::SMSG::Address>::iterator it;
 		
@@ -639,9 +639,9 @@ json_spirit::Value smsgsend(const json_spirit::Array& params, bool fHelp)
 		throw std::runtime_error("Secure messaging is disabled.");
 	}
 
-	std::string addrFrom  = params[0].get_str();
-	std::string addrTo    = params[1].get_str();
-	std::string msg       = params[2].get_str();
+	std::string addrFrom = params[0].get_str();
+	std::string addrTo = params[1].get_str();
+	std::string msg = params[2].get_str();
 
 	json_spirit::Object result;
 	std::string sError;
@@ -673,9 +673,9 @@ json_spirit::Value smsgsendanon(const json_spirit::Array& params, bool fHelp)
 		throw std::runtime_error("Secure messaging is disabled.");
 	}
 
-	std::string addrFrom  = "anon";
-	std::string addrTo    = params[0].get_str();
-	std::string msg       = params[1].get_str();
+	std::string addrFrom = "anon";
+	std::string addrTo = params[0].get_str();
+	std::string msg = params[1].get_str();
 
 	json_spirit::Object result;
 	std::string sError;
@@ -1006,7 +1006,7 @@ json_spirit::Value smsgbuckets(const json_spirit::Array& params, bool fHelp)
 				else
 				{
 					try
-					{    
+					{
 						uint64_t nFBytes = 0;
 						nFBytes = boost::filesystem::file_size(fullPath);
 						nBytes += nFBytes;
