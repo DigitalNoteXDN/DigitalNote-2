@@ -123,7 +123,8 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			strCommand != "connect" &&
 			strCommand != "outputs" &&
 			strCommand != "vote-many" &&
-			strCommand != "vote"
+			strCommand != "vote" &&
+			strCommand != "gen-config"
 		)
 	)
 	{
@@ -152,6 +153,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			"  winners      - Print list of masternode winners\n"
 			"  vote-many    - Vote on a DigitalNote initiative\n"
 			"  vote         - Vote on a DigitalNote initiative\n"
+			"  gen-config   - Generate masternode.conf of current running session.\n"
 		);
 	}
 
@@ -933,8 +935,6 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		CMasternode *pmn = mnodeman.Find(activeMasternode.vin);
 
 		mnObj.push_back(json_spirit::Pair("vin", activeMasternode.vin.ToString().c_str()));
-		//mnObj.push_back(json_spirit::Pair("vin->prevout->hash", activeMasternode.vin.prevout.hash.ToString().c_str()));
-		//mnObj.push_back(json_spirit::Pair("vin->prevout->n", (int64_t)(activeMasternode.vin.prevout.n)));
 		mnObj.push_back(json_spirit::Pair("service", activeMasternode.service.ToString().c_str()));
 		mnObj.push_back(json_spirit::Pair("status", activeMasternode.status));
 		//mnObj.push_back(json_spirit::Pair("pubKeyMasternode", address2.ToString().c_str()));
@@ -948,7 +948,38 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
 		return mnObj;
 	}
-
+	
+	if(strCommand == "gen-config")
+	{
+		json_spirit::Object mnObj;
+		std::string config = "<server_name> ";
+		std::string strMasterNodePrivKey = GetArg("-masternodeprivkey", "");
+		
+		// Masternode server address
+		config += activeMasternode.service.ToString();
+		config += " ";
+		
+		// Private master node key
+		if (strMasterNodePrivKey != "")
+		{
+			config += strMasterNodePrivKey;
+			config += " ";
+		}
+		else
+		{
+			config += "<masternodeprivkey> ";
+		}
+		
+		// 2 million coints input hash and position
+		config += activeMasternode.vin.prevout.hash.ToString();
+		config += " ";
+		config += boost::lexical_cast<std::string>(activeMasternode.vin.prevout.n);
+		
+		mnObj.push_back(json_spirit::Pair("config", config.c_str()));
+		
+		return mnObj;
+	}
+	
 	return json_spirit::Value::null;
 }
 

@@ -134,7 +134,12 @@ int CAddrMan::ShrinkNew(int nUBucket)
 	}
 
 	// otherwise, select four randomly, and pick the oldest of those to replace
-	int n[4] = {GetRandInt(vNew.size()), GetRandInt(vNew.size()), GetRandInt(vNew.size()), GetRandInt(vNew.size())};
+	int n[4] = {
+		GetRandInt(vNew.size()),
+		GetRandInt(vNew.size()),
+		GetRandInt(vNew.size()),
+		GetRandInt(vNew.size())
+	};
 	int nI = 0;
 	int nOldest = -1;
 

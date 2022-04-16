@@ -1159,7 +1159,7 @@ bool CWallet::Lock()
 	}
 
 	return result;
-};
+}
 
 bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool anonymizeOnly, bool stakingOnly)
 {
@@ -1419,7 +1419,7 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
 
 			sxAddr.spend_secret = vchCryptedSecret;
 			pwalletdbEncryption->WriteStealthAddress(sxAddr);
-		};
+		}
 
 		// Encryption was introduced in version 0.4.0
 		SetMinVersion(FEATURE_WALLETCRYPT, pwalletdbEncryption, true);
