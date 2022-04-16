@@ -72,6 +72,7 @@
 #include "util/backwards.h"
 #include "cautofile.h"
 #include "serialize.h"
+#include "boost_placeholders.h"
 
 //
 // Global state

@@ -25,6 +25,7 @@
 #include "ui_interface.h"
 #include "base58.h"
 #include "boost_ioservices.h"
+#include "boost_placeholders.h"
 
 #ifdef ENABLE_WALLET
 #include "cwallet.h"

@@ -13,6 +13,7 @@
 #include "thread.h"
 #include "cwallet.h"
 #include "rpcprotocol.h"
+#include "boost_placeholders.h"
 
 #include "crpctable.h"
 

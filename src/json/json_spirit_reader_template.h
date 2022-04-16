@@ -8,6 +8,7 @@
 
 #include "json_spirit_value.h"
 #include "json_spirit_error_position.h"
+#include "../boost_placeholders.h"
 
 //#define BOOST_SPIRIT_THREADSAFE  // uncomment for multithreaded use, requires linking to boost.thread
 
@@ -432,7 +433,7 @@ namespace json_spirit
                 Char_action   end_obj    ( boost::bind( &Semantic_actions_t::end_obj,     &self.actions_, boost::placeholders::_1 ) );
                 Char_action   begin_array( boost::bind( &Semantic_actions_t::begin_array, &self.actions_, boost::placeholders::_1 ) );
                 Char_action   end_array  ( boost::bind( &Semantic_actions_t::end_array,   &self.actions_, boost::placeholders::_1 ) );
-                Str_action    new_name   ( boost::bind( &Semantic_actions_t::new_name,    &self.actions_, boost::placeholders::_1, _2 ) );
+                Str_action    new_name   ( boost::bind( &Semantic_actions_t::new_name,    &self.actions_, boost::placeholders::_1, boost::placeholders::_2 ) );
                 Str_action    new_str    ( boost::bind( &Semantic_actions_t::new_str,     &self.actions_, boost::placeholders::_1, boost::placeholders::_2 ) );
                 Str_action    new_true   ( boost::bind( &Semantic_actions_t::new_true,    &self.actions_, boost::placeholders::_1, boost::placeholders::_2 ) );
                 Str_action    new_false  ( boost::bind( &Semantic_actions_t::new_false,   &self.actions_, boost::placeholders::_1, boost::placeholders::_2 ) );
