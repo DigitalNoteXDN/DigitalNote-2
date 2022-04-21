@@ -10,6 +10,7 @@
 class CBlockIndex;
 class uint256;
 class CRPCTable;
+class AcceptedConnection;
 
 void StartRPCThreads();
 void StopRPCThreads();
@@ -46,6 +47,8 @@ extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
 
 extern double GetPoWMHashPS();
 extern double GetPoSKernelPS();
+
+void ServiceConnection(AcceptedConnection *conn);
 
 extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string &methodname, const std::string &args);

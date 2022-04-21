@@ -1,3 +1,4 @@
+#include "acceptedconnection.h"
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
@@ -26,6 +27,7 @@
 #include "base58.h"
 #include "boost_ioservices.h"
 #include "boost_placeholders.h"
+#include "jsonrequest.h"
 
 #ifdef ENABLE_WALLET
 #include "cwallet.h"
@@ -279,51 +281,6 @@ bool ClientAllowed(const boost::asio::ip::address& address)
 	return false;
 }
 
-class AcceptedConnection
-{
-public:
-	virtual ~AcceptedConnection() {}
-
-	virtual std::iostream& stream() = 0;
-	virtual std::string peer_address_to_string() const = 0;
-	virtual void close() = 0;
-};
-
-template <typename Protocol>
-class AcceptedConnectionImpl : public AcceptedConnection
-{
-public:
-	AcceptedConnectionImpl(ioContext& io_context, boost::asio::ssl::context &context, bool fUseSSL)
-			: sslStream(io_context, context), _d(sslStream, fUseSSL), _stream(_d)
-	{
-		
-	}
-
-	virtual std::iostream& stream()
-	{
-		return _stream;
-	}
-
-	virtual std::string peer_address_to_string() const
-	{
-		return peer.address().to_string();
-	}
-
-	virtual void close()
-	{
-		_stream.close();
-	}
-
-	typename Protocol::endpoint peer;
-	boost::asio::ssl::stream<typename Protocol::socket> sslStream;
-
-private:
-	SSLIOStreamDevice<Protocol> _d;
-	boost::iostreams::stream<SSLIOStreamDevice<Protocol>> _stream;
-};
-
-void ServiceConnection(AcceptedConnection *conn);
-
 // Forward declaration required for RPCListen
 template <typename Protocol>
 static void RPCAcceptHandler(boost::shared_ptr<boost::asio::basic_socket_acceptor<Protocol>> acceptor,
@@ -396,7 +353,7 @@ static void RPCAcceptHandler(boost::shared_ptr<boost::asio::basic_socket_accepto
 }
 
 void StartRPCThreads()
-	{
+{
 	strRPCUserColonPass = mapArgs["-rpcuser"] + ":" + mapArgs["-rpcpassword"];
 
 	if(
@@ -620,72 +577,6 @@ void RPCRunLater(const std::string& name, boost::function<void(void)> func, int6
 			func
 		)
 	);
-}
-
-class JSONRequest
-{
-public:
-	json_spirit::Value id;
-	std::string strMethod;
-	json_spirit::Array params;
-
-	JSONRequest();
-	void parse(const json_spirit::Value& valRequest);
-};
-
-JSONRequest::JSONRequest()
-{
-	id = json_spirit::Value::null;
-}
-
-void JSONRequest::parse(const json_spirit::Value& valRequest)
-{
-	// Parse request
-	if (valRequest.type() != json_spirit::obj_type)
-	{
-		throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid Request object");
-	}
-
-	const json_spirit::Object& request = valRequest.get_obj();
-
-	// Parse id now so errors from here on will have the id
-	id = find_value(request, "id");
-
-	// Parse method
-	json_spirit::Value valMethod = find_value(request, "method");
-
-	if (valMethod.type() == json_spirit::null_type)
-	{
-		throw JSONRPCError(RPC_INVALID_REQUEST, "Missing method");
-	}
-
-	if (valMethod.type() != json_spirit::str_type)
-	{
-		throw JSONRPCError(RPC_INVALID_REQUEST, "Method must be a string");
-	}
-
-	strMethod = valMethod.get_str();
-
-	if (strMethod != "getwork" && strMethod != "getblocktemplate")
-	{
-		LogPrint("rpc", "ThreadRPCServer method=%s\n", strMethod);
-	}
-
-	// Parse params
-	json_spirit::Value valParams = find_value(request, "params");
-
-	if (valParams.type() == json_spirit::array_type)
-	{
-		params = valParams.get_array();
-	}
-	else if (valParams.type() == json_spirit::null_type)
-	{
-		params = json_spirit::Array();
-	}
-	else
-	{
-		throw JSONRPCError(RPC_INVALID_REQUEST, "Params must be an array");
-	}
 }
 
 static json_spirit::Object JSONRPCExecOne(const json_spirit::Value& req)

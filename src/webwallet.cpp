@@ -119,7 +119,7 @@ void NotifySecMsgOutbox(json_spirit::Object& msg)
 
 void Subscribe()
 {
-	LogPrint("webwallet", "webwallet: Subscribe \n");
+	LogPrint("webwallet", "webwallet: Subscribe\n");
 
 	// Connect signals
 	DigitalNote::SMSG::ext_signal_NotifyInboxChangedJson.connect(&DigitalNote::Webwallet::NotifySecMsgInbox);
@@ -128,7 +128,7 @@ void Subscribe()
 
 void Unsubscribe()
 {
-	LogPrint("webwallet", "webwallet: unsubscribeFromCoreSignals \n");
+	LogPrint("webwallet", "webwallet: Unsubscribe\n");
 
 	// Disconnect signals
 	DigitalNote::SMSG::ext_signal_NotifyInboxChangedJson.disconnect(&DigitalNote::Webwallet::NotifySecMsgInbox);
@@ -137,6 +137,3 @@ void Unsubscribe()
 
 } // namespace Webwallet
 } // namespace DigitalNote
-
-
-
