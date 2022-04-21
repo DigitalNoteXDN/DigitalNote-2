@@ -22,7 +22,6 @@
 #include "wallet.h"
 #include "script.h"
 #include "main_extern.h"
-#include "webwalletconnector.h"
 #include "chashwriter.h"
 #include "thread.h"
 #include "ckey.h"
@@ -37,6 +36,7 @@
 #include "rpcprotocol.h"
 #include "rpcrawtransaction.h"
 #include "tallyitem.h"
+#include "webwallet.h"
 
 typedef std::map<std::string, tallyitem> mapAccountTally_t;
 
@@ -460,7 +460,7 @@ json_spirit::Value setaccount(const json_spirit::Array& params, bool fHelp)
 			}
 		}
 		
-		if (fWebWalletMode)
+		if (DigitalNote::Webwallet::ext_mode)
 		{
 			pwalletMain->SetAddressAccountIdAssociation(address.Get(), strAccount);
 		}

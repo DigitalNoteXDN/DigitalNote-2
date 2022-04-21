@@ -7,7 +7,6 @@
 #include <leveldb/db.h>
 #include <leveldb/cache.h>
 #include <leveldb/filter_policy.h>
-#include <leveldb/write_batch.h>
 
 #include "txdb-leveldb.h"
 #include "main_extern.h"
@@ -24,41 +23,9 @@
 #include "util.h"
 #include "enums/serialize_type.h"
 #include "cdatastream.h"
+#include "cbatchscanner.h"
 
 leveldb::DB *txdb; // global pointer for LevelDB object instance
-
-class CBatchScanner : public leveldb::WriteBatch::Handler
-{
-public:
-	std::string needle;
-	bool *deleted;
-	std::string *foundValue;
-	bool foundEntry;
-
-	CBatchScanner() : foundEntry(false)
-	{
-		
-	}
-
-	virtual void Put(const leveldb::Slice& key, const leveldb::Slice& value)
-	{
-		if (key.ToString() == needle)
-		{
-			foundEntry = true;
-			*deleted = false;
-			*foundValue = value.ToString();
-		}
-	}
-
-	virtual void Delete(const leveldb::Slice& key)
-	{
-		if (key.ToString() == needle)
-		{
-			foundEntry = true;
-			*deleted = true;
-		}
-	}
-};
 
 static leveldb::Options GetOptions()
 {

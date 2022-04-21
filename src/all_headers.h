@@ -141,7 +141,6 @@
 	#include "coutput.h"
 	#include "db.h"
 	#include "masternode-payments.h"
-	#include "webwalletconnector.h"
 	#include "ecwrapper.h"
 	#include "limitedmap.h"
 	#include "mruset.h"

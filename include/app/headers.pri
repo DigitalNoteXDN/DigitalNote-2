@@ -149,7 +149,6 @@ HEADERS += src/velocity.h
 HEADERS += src/version.h
 HEADERS += src/walletdb.h
 HEADERS += src/wallet.h
-HEADERS += src/webwalletconnector.h
 HEADERS += src/ui_interface.h
 HEADERS += src/ui_translate.h
 HEADERS += src/cautofile.h

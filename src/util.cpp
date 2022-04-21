@@ -11,6 +11,7 @@
 #include "thread.h"
 #include "ui_interface.h"
 #include "ui_translate.h"
+#include "cmedianfilter.h"
 
 #include <openssl/bio.h>
 #include <openssl/evp.h>

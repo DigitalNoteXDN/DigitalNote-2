@@ -18,7 +18,6 @@
 #include "ctxmempool.h"
 #include "rpcserver.h"
 #include "smsg.h"
-#include "webwalletconnector.h"
 #include "cdbenv.h"
 #include "net.h"
 #include "main.h"
@@ -59,6 +58,7 @@
 #include "cwallettx.h"
 #include "ctxout.h"
 #include "caccountingentry.h"
+#include "webwallet.h"
 
 #include "init.h"
 
@@ -147,7 +147,7 @@ void Shutdown()
 	StopRPCThreads();
 
 	DigitalNote::SMSG::Shutdown();
-	WebWalletConnectorShutdown();
+	DigitalNote::Webwallet::Shutdown();
 
 #ifdef ENABLE_WALLET
 	ShutdownRPCMining();
@@ -1359,7 +1359,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 	// ********************************************************* Step 10.6: startup web wallet connector
 
-	WebWalletConnectorStart(GetBoolArg("-webwallet", false));
+	DigitalNote::Webwallet::Start(GetBoolArg("-webwallet", false));
 
 	// ********************************************************* Step 11: start node
 

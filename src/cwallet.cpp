@@ -31,7 +31,6 @@
 #include "main_const.h"
 #include "main_extern.h"
 #include "ctxmempool.h"
-#include "webwalletconnector.h"
 #include "smsg.h"
 #include "ckeymetadata.h"
 #include "cstealthkeymetadata.h"
@@ -54,6 +53,7 @@
 #include "cblockindex.h"
 #include "ctxindex.h"
 #include "serialize.h"
+#include "webwallet.h"
 
 #include "cwallet.h"
 
@@ -4804,7 +4804,7 @@ DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 bool CWallet::SetAddressBookName(const CTxDestination& address, const std::string& strName)
 {
 	// never update address book if this is web wallet as this will break account<>address mapping
-	if (fWebWalletMode)
+	if (DigitalNote::Webwallet::ext_mode)
 	{
 		return true;
 	}
@@ -4837,7 +4837,7 @@ bool CWallet::SetAddressBookName(const CTxDestination& address, const std::strin
 
 bool CWallet::SetAddressAccountIdAssociation(const CTxDestination& address, const std::string& strName)
 {
-	if (!fWebWalletMode)
+	if (!DigitalNote::Webwallet::ext_mode)
 	{
 		return true;
 	}
