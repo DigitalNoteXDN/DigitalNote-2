@@ -231,12 +231,9 @@ void CService::SetPort(unsigned short portIn)
 unsigned int CService::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+	
 	s.nType = nType;
 	s.nVersion = nVersion;
 
@@ -246,11 +243,6 @@ unsigned int CService::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(FLATDATA(ip));
 	READWRITE(portN);
 
-	if (fRead)
-	{
-		pthis->port = ntohs(portN);
-	}
-
 	return nSerSize;
 }
 
@@ -258,44 +250,28 @@ template<typename Stream>
 void CService::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CService* pthis = const_cast<CService*>(this);
 	unsigned short portN = htons(port);
 	
 	READWRITE(FLATDATA(ip));
 	READWRITE(portN);
-	
-	if (fRead)
-	{
-		pthis->port = ntohs(portN);
-	}
 }
 
 template<typename Stream>
 void CService::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CService* pthis = const_cast<CService*>(this);
 	unsigned short portN = htons(port);
 	
 	READWRITE(FLATDATA(ip));
 	READWRITE(portN);
-	
-	if (fRead)
-	{
-		pthis->port = ntohs(portN);
-	}
+
+	pthis->port = ntohs(portN);
 }
 
 template void CService::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;

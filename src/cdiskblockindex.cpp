@@ -28,12 +28,9 @@ CDiskBlockIndex::CDiskBlockIndex(CBlockIndex* pindex) : CBlockIndex(*pindex)
 unsigned int CDiskBlockIndex::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -57,11 +54,6 @@ unsigned int CDiskBlockIndex::GetSerializeSize(int nType, int nVersion) const
 		READWRITE(prevoutStake);
 		READWRITE(nStakeTime);
 	}
-	else if (fRead)
-	{
-		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
-		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
-	}
 	
 	READWRITE(hashProof);
 
@@ -81,11 +73,7 @@ template<typename Stream>
 void CDiskBlockIndex::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
 	{
@@ -106,11 +94,6 @@ void CDiskBlockIndex::Serialize(Stream& s, int nType, int nVersion) const
 	{
 		READWRITE(prevoutStake);
 		READWRITE(nStakeTime);
-	}
-	else if (fRead)
-	{
-		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
-		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
 	}
 	
 	READWRITE(hashProof);
@@ -129,11 +112,7 @@ template<typename Stream>
 void CDiskBlockIndex::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
 	{
@@ -155,7 +134,7 @@ void CDiskBlockIndex::Unserialize(Stream& s, int nType, int nVersion)
 		READWRITE(prevoutStake);
 		READWRITE(nStakeTime);
 	}
-	else if (fRead)
+	else
 	{
 		const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
 		const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;

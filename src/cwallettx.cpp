@@ -47,48 +47,37 @@ CWalletTx::CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CMerk
 unsigned int CWalletTx::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
 	CWalletTx* pthis = const_cast<CWalletTx*>(this);
 	
-	if (fRead)
-	{
-		pthis->Init(NULL);
-	}
-	
 	char fSpent = false;
 
-	if (!fRead)
+	pthis->mapValue["fromaccount"] = pthis->strFromAccount;
+
+	std::string str;
+	
+	for(char f : vfSpent)
 	{
-		pthis->mapValue["fromaccount"] = pthis->strFromAccount;
-
-		std::string str;
+		str += (f ? '1' : '0');
 		
-		for(char f : vfSpent)
+		if (f)
 		{
-			str += (f ? '1' : '0');
-			
-			if (f)
-			{
-				fSpent = true;
-			}
+			fSpent = true;
 		}
-		
-		pthis->mapValue["spent"] = str;
+	}
+	
+	pthis->mapValue["spent"] = str;
 
-		WriteOrderPos(pthis->nOrderPos, pthis->mapValue);
+	WriteOrderPos(pthis->nOrderPos, pthis->mapValue);
 
-		if (nTimeSmart)
-		{
-			pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
-		}
+	if (nTimeSmart)
+	{
+		pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
 	}
 
 	nSerSize += SerReadWrite(s, *(CMerkleTx*)this, nType, nVersion,ser_action);
@@ -100,27 +89,6 @@ unsigned int CWalletTx::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(nTimeReceived);
 	READWRITE(fFromMe);
 	READWRITE(fSpent);
-
-	if (fRead)
-	{
-		pthis->strFromAccount = pthis->mapValue["fromaccount"];
-
-		if (mapValue.count("spent"))
-		{
-			for(char c : pthis->mapValue["spent"])
-			{
-				pthis->vfSpent.push_back(c != '0');
-			}
-		}
-		else
-		{
-			pthis->vfSpent.assign(vout.size(), fSpent);
-		}
-		
-		ReadOrderPos(pthis->nOrderPos, pthis->mapValue);
-
-		pthis->nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(pthis->mapValue["timesmart"]) : 0;
-	}
 
 	pthis->mapValue.erase("fromaccount");
 	pthis->mapValue.erase("version");
@@ -135,45 +103,32 @@ template<typename Stream>
 void CWalletTx::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CWalletTx* pthis = const_cast<CWalletTx*>(this);
-	
-	if (fRead)
-	{
-		pthis->Init(NULL);
-	}
-	
 	char fSpent = false;
 
-	if (!fRead)
+	pthis->mapValue["fromaccount"] = pthis->strFromAccount;
+
+	std::string str;
+	
+	for(char f : vfSpent)
 	{
-		pthis->mapValue["fromaccount"] = pthis->strFromAccount;
-
-		std::string str;
+		str += (f ? '1' : '0');
 		
-		for(char f : vfSpent)
+		if (f)
 		{
-			str += (f ? '1' : '0');
-			
-			if (f)
-			{
-				fSpent = true;
-			}
+			fSpent = true;
 		}
-		
-		pthis->mapValue["spent"] = str;
+	}
+	
+	pthis->mapValue["spent"] = str;
 
-		WriteOrderPos(pthis->nOrderPos, pthis->mapValue);
+	WriteOrderPos(pthis->nOrderPos, pthis->mapValue);
 
-		if (nTimeSmart)
-		{
-			pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
-		}
+	if (nTimeSmart)
+	{
+		pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
 	}
 
 	nSerSize += SerReadWrite(s, *(CMerkleTx*)this, nType, nVersion,ser_action);
@@ -185,27 +140,6 @@ void CWalletTx::Serialize(Stream& s, int nType, int nVersion) const
 	READWRITE(nTimeReceived);
 	READWRITE(fFromMe);
 	READWRITE(fSpent);
-
-	if (fRead)
-	{
-		pthis->strFromAccount = pthis->mapValue["fromaccount"];
-
-		if (mapValue.count("spent"))
-		{
-			for(char c : pthis->mapValue["spent"])
-			{
-				pthis->vfSpent.push_back(c != '0');
-			}
-		}
-		else
-		{
-			pthis->vfSpent.assign(vout.size(), fSpent);
-		}
-		
-		ReadOrderPos(pthis->nOrderPos, pthis->mapValue);
-
-		pthis->nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(pthis->mapValue["timesmart"]) : 0;
-	}
 
 	pthis->mapValue.erase("fromaccount");
 	pthis->mapValue.erase("version");
@@ -218,46 +152,13 @@ template<typename Stream>
 void CWalletTx::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CWalletTx* pthis = const_cast<CWalletTx*>(this);
 	
-	if (fRead)
-	{
-		pthis->Init(NULL);
-	}
+	pthis->Init(NULL);
 	
 	char fSpent = false;
-
-	if (!fRead)
-	{
-		pthis->mapValue["fromaccount"] = pthis->strFromAccount;
-
-		std::string str;
-		
-		for(char f : vfSpent)
-		{
-			str += (f ? '1' : '0');
-			
-			if (f)
-			{
-				fSpent = true;
-			}
-		}
-		
-		pthis->mapValue["spent"] = str;
-
-		WriteOrderPos(pthis->nOrderPos, pthis->mapValue);
-
-		if (nTimeSmart)
-		{
-			pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
-		}
-	}
 
 	nSerSize += SerReadWrite(s, *(CMerkleTx*)this, nType, nVersion,ser_action);
 	
@@ -269,26 +170,23 @@ void CWalletTx::Unserialize(Stream& s, int nType, int nVersion)
 	READWRITE(fFromMe);
 	READWRITE(fSpent);
 
-	if (fRead)
+	pthis->strFromAccount = pthis->mapValue["fromaccount"];
+
+	if (mapValue.count("spent"))
 	{
-		pthis->strFromAccount = pthis->mapValue["fromaccount"];
-
-		if (mapValue.count("spent"))
+		for(char c : pthis->mapValue["spent"])
 		{
-			for(char c : pthis->mapValue["spent"])
-			{
-				pthis->vfSpent.push_back(c != '0');
-			}
+			pthis->vfSpent.push_back(c != '0');
 		}
-		else
-		{
-			pthis->vfSpent.assign(vout.size(), fSpent);
-		}
-		
-		ReadOrderPos(pthis->nOrderPos, pthis->mapValue);
-
-		pthis->nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(pthis->mapValue["timesmart"]) : 0;
 	}
+	else
+	{
+		pthis->vfSpent.assign(vout.size(), fSpent);
+	}
+	
+	ReadOrderPos(pthis->nOrderPos, pthis->mapValue);
+
+	pthis->nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(pthis->mapValue["timesmart"]) : 0;
 
 	pthis->mapValue.erase("fromaccount");
 	pthis->mapValue.erase("version");

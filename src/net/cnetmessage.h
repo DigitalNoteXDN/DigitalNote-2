@@ -4,7 +4,8 @@
 #include "cmessageheader.h"
 #include "cdatastream.h"
 
-class CNetMessage {
+class CNetMessage
+{
 public:
 	bool in_data;				// parsing header (false) or data (true)
 	CDataStream hdrbuf;			// partially received header
@@ -14,6 +15,7 @@ public:
 	unsigned int nDataPos;
 
 	CNetMessage(int nTypeIn, int nVersionIn);
+	
 	bool complete() const;
 	void SetVersion(int nVersionIn);
 	int readHeader(const char *pch, unsigned int nBytes);

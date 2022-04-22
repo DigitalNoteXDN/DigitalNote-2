@@ -348,12 +348,9 @@ std::string CMasternode::Status()
 unsigned int CMasternode::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	

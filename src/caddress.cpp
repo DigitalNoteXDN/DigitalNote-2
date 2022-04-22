@@ -30,22 +30,14 @@ void CAddress::Init()
 unsigned int CAddress::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
 	CAddress* pthis = const_cast<CAddress*>(this);
 	CService* pip = (CService*)pthis;
-	
-	if (fRead)
-	{
-		pthis->Init();
-	}
 	
 	if (nType & SER_DISK)
 	{
@@ -67,19 +59,10 @@ template<typename Stream>
 void CAddress::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAddress* pthis = const_cast<CAddress*>(this);
 	CService* pip = (CService*)pthis;
-	
-	if (fRead)
-	{
-		pthis->Init();
-	}
 	
 	if (nType & SER_DISK)
 	{
@@ -99,19 +82,12 @@ template<typename Stream>
 void CAddress::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAddress* pthis = const_cast<CAddress*>(this);
 	CService* pip = (CService*)pthis;
 	
-	if (fRead)
-	{
-		pthis->Init();
-	}
+	pthis->Init();
 	
 	if (nType & SER_DISK)
 	{

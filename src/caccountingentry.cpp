@@ -13,12 +13,9 @@ CAccountingEntry::CAccountingEntry()
 unsigned int CAccountingEntry::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -34,41 +31,22 @@ unsigned int CAccountingEntry::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(nTime);
 	READWRITE(strOtherAccount);
 
-	if (!fRead)
-	{
-		WriteOrderPos(nOrderPos, me.mapValue);
+	WriteOrderPos(nOrderPos, me.mapValue);
 
-		if (!(mapValue.empty() && _ssExtra.empty()))
-		{
-			CDataStream ss(nType, nVersion);
-			
-			ss.insert(ss.begin(), '\0');
-			ss << mapValue;
-			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
-			
-			me.strComment.append(ss.str());
-		}
+	if (!(mapValue.empty() && _ssExtra.empty()))
+	{
+		CDataStream ss(nType, nVersion);
+		
+		ss.insert(ss.begin(), '\0');
+		ss << mapValue;
+		ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
+		
+		me.strComment.append(ss.str());
 	}
 
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
-	
-	if (fRead)
-	{
-		me.mapValue.clear();
-		
-		if (std::string::npos != nSepPos)
-		{
-			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
-			
-			ss >> me.mapValue;
-			
-			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
-		}
-		
-		ReadOrderPos(me.nOrderPos, me.mapValue);
-	}
 	
 	if (std::string::npos != nSepPos)
 	{
@@ -102,41 +80,23 @@ void CAccountingEntry::Serialize(Stream& s, int nType, int nVersion) const
 	READWRITE(nTime);
 	READWRITE(strOtherAccount);
 
-	if (!fRead)
-	{
-		WriteOrderPos(nOrderPos, me.mapValue);
+	
+	WriteOrderPos(nOrderPos, me.mapValue);
 
-		if (!(mapValue.empty() && _ssExtra.empty()))
-		{
-			CDataStream ss(nType, nVersion);
-			
-			ss.insert(ss.begin(), '\0');
-			ss << mapValue;
-			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
-			
-			me.strComment.append(ss.str());
-		}
+	if (!(mapValue.empty() && _ssExtra.empty()))
+	{
+		CDataStream ss(nType, nVersion);
+		
+		ss.insert(ss.begin(), '\0');
+		ss << mapValue;
+		ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
+		
+		me.strComment.append(ss.str());
 	}
 
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
-	
-	if (fRead)
-	{
-		me.mapValue.clear();
-		
-		if (std::string::npos != nSepPos)
-		{
-			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
-			
-			ss >> me.mapValue;
-			
-			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
-		}
-		
-		ReadOrderPos(me.nOrderPos, me.mapValue);
-	}
 	
 	if (std::string::npos != nSepPos)
 	{
@@ -150,11 +110,7 @@ template<typename Stream>
 void CAccountingEntry::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	CAccountingEntry& me = *const_cast<CAccountingEntry*>(this);
 	
@@ -167,42 +123,22 @@ void CAccountingEntry::Unserialize(Stream& s, int nType, int nVersion)
 	READWRITE(nCreditDebit);
 	READWRITE(nTime);
 	READWRITE(strOtherAccount);
-
-	if (!fRead)
-	{
-		WriteOrderPos(nOrderPos, me.mapValue);
-
-		if (!(mapValue.empty() && _ssExtra.empty()))
-		{
-			CDataStream ss(nType, nVersion);
-			
-			ss.insert(ss.begin(), '\0');
-			ss << mapValue;
-			ss.insert(ss.end(), _ssExtra.begin(), _ssExtra.end());
-			
-			me.strComment.append(ss.str());
-		}
-	}
-
 	READWRITE(strComment);
 
 	size_t nSepPos = strComment.find("\0", 0, 1);
 	
-	if (fRead)
+	me.mapValue.clear();
+	
+	if (std::string::npos != nSepPos)
 	{
-		me.mapValue.clear();
+		CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
 		
-		if (std::string::npos != nSepPos)
-		{
-			CDataStream ss(std::vector<char>(strComment.begin() + nSepPos + 1, strComment.end()), nType, nVersion);
-			
-			ss >> me.mapValue;
-			
-			me._ssExtra = std::vector<char>(ss.begin(), ss.end());
-		}
+		ss >> me.mapValue;
 		
-		ReadOrderPos(me.nOrderPos, me.mapValue);
+		me._ssExtra = std::vector<char>(ss.begin(), ss.end());
 	}
+	
+	ReadOrderPos(me.nOrderPos, me.mapValue);
 	
 	if (std::string::npos != nSepPos)
 	{
