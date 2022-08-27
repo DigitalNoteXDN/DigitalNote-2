@@ -205,12 +205,23 @@ int ECDSA_SIG_recover_key_GFp(EC_KEY *eckey, ECDSA_SIG *ecsig, const unsigned ch
 
 	zero = BN_CTX_get(ctx);
 
+//	BN_zero() only needs to set 'top' and 'neg' to zero for correct results,
+//  and this should never fail. So the return value from the use of
+//	BN_set_word() (which can fail due to needless expansion) is now deprecated;
+//	if OPENSSL_NO_DEPRECATED is defined, BN_zero() is a void macro.\
+//
+//	Reference:
+//		https://www.openssl.org/news/changelog.txt
+#ifndef OPENSSL_NO_DEPRECATED
+	BN_zero(zero);
+#else
 	if (!BN_zero(zero))
 	{
 		ret=-1;
 		
 		goto err;
 	}
+#endif
 
 	if (!BN_mod_sub(e, zero, e, order, ctx))
 	{
