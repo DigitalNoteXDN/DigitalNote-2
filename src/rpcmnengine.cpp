@@ -749,15 +749,20 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 	{
 		// Find possible candidates
 		std::vector<COutput> possibleCoins = activeMasternode.SelectCoinsMasternode();
-
-		json_spirit::Object obj;
+		
+		json_spirit::Array results;
+		
 		for(COutput& out : possibleCoins)
 		{
-			obj.push_back(json_spirit::Pair(out.tx->GetHash().ToString().c_str(), boost::lexical_cast<std::string>(out.i)));
+			json_spirit::Object obj;
+			
+			obj.push_back(json_spirit::Pair("txhash", out.tx->GetHash().ToString().c_str()));
+			obj.push_back(json_spirit::Pair("outputidx", boost::lexical_cast<std::string>(out.i)));
+			
+			results.push_back(obj);
 		}
 
-		return obj;
-
+		return results;
 	}
 
 	if(strCommand == "vote-many")
@@ -948,7 +953,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 
 		return mnObj;
 	}
-	
+
 	if(strCommand == "gen-config")
 	{
 		json_spirit::Object mnObj;
@@ -979,7 +984,7 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 		
 		return mnObj;
 	}
-	
+
 	return json_spirit::Value::null;
 }
 
