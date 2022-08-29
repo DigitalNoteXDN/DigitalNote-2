@@ -29,6 +29,7 @@ include(include/options/use_build_info.pri)
 include(include/options/use_pch.pri)
 include(include/options/use_unity_build.pri)
 include(include/options/use_limits_patch.pri)
+include(include/options/release.pri)
 
 ## Libraries
 include(include/libs.pri)
