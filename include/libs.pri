@@ -1,3 +1,7 @@
+contains(RELEASE, 1) {
+	LIBS += -Wl,-Bdynamic
+}
+
 macx {
 	LIBS += -framework Foundation
 	LIBS += -framework ApplicationServices
@@ -14,11 +18,27 @@ LIBS += -lz
 
 include(libs/leveldb.pri)
 include(libs/secp256k1.pri)
+
+contains(RELEASE, 1) {
+	LIBS += -Wl,-Bstatic
+}
 include(libs/openssl.pri)
 include(libs/gmp.pri)
 include(libs/boost.pri)
+
+contains(RELEASE, 1) {
+	LIBS += -Wl,-Bdynamic
+}
 include(libs/event.pri)
+
+contains(RELEASE, 1) {
+	LIBS += -Wl,-Bstatic
+}
 include(libs/bdb.pri)
+
+contains(RELEASE, 1) {
+	LIBS += -Wl,-Bdynamic
+}
 include(libs/miniupnpc.pri)
 
 contains(DIGITALNOTE_APP_NAME, app) {
