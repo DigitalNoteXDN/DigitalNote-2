@@ -38,6 +38,7 @@
 #include "cstealthaddress.h"
 #include "thread.h"
 #include "rpcprotocol.h"
+#include "netbase.h"
 
 void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew, AvailableCoinsType coin_type=ALL_COINS)
 {
@@ -1041,8 +1042,8 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 	}
 
 	json_spirit::Object obj;
-
-	if (strMode == "rank")
+	
+	if (strMode == "rank" || strMode == "full")
 	{
 		std::vector<std::pair<int, CMasternode> > vMasternodeRanks = mnodeman.GetMasternodeRanks(pindexBest->nHeight);
 		
@@ -1050,12 +1051,45 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 		{
 			std::string strVin = s.second.vin.prevout.ToStringShort();
 			
-			if(strFilter !="" && strVin.find(strFilter) == std::string::npos)
+			if(strFilter != "" && strVin.find(strFilter) == std::string::npos)
 			{
 				continue;
 			}
 			
-			obj.push_back(json_spirit::Pair(strVin, s.first));
+			if(strMode == "rank")
+			{
+				obj.push_back(json_spirit::Pair(strVin, s.first));
+			}
+			else if (strMode == "full")
+			{
+				CMasternode& mn = s.second;
+				
+				CScript pubkey;
+				pubkey.SetDestination(mn.pubkey.GetID());
+				CTxDestination address1;
+				ExtractDestination(pubkey, address1);
+				CDigitalNoteAddress address2(address1);
+
+				std::ostringstream addrStream;
+				addrStream << strVin;
+				
+				std::string strStatus = mn.Status();
+				std::string strNetwork = GetNetworkName(mn.addr.GetNetwork());
+				
+				json_spirit::Object output;
+				output.push_back(json_spirit::Pair("rank", (strStatus == "ENABLED" ? s.first : 0)));
+				output.push_back(json_spirit::Pair("network", strNetwork));
+				output.push_back(json_spirit::Pair("txhash", mn.vin.prevout.hash.ToString().c_str()));
+				output.push_back(json_spirit::Pair("outidx", (uint64_t)mn.vin.prevout.n));
+				output.push_back(json_spirit::Pair("status", strStatus));
+				output.push_back(json_spirit::Pair("addr", address2.ToString().c_str()));
+				output.push_back(json_spirit::Pair("version", mn.protocolVersion));
+				output.push_back(json_spirit::Pair("lastseen", (int64_t)mn.lastTimeSeen));
+				output.push_back(json_spirit::Pair("activetime", (int64_t)(mn.lastTimeSeen - mn.sigTime)));
+				output.push_back(json_spirit::Pair("lastpaid", (int64_t)mn.nLastPaid));
+				
+				obj.push_back(json_spirit::Pair(strVin, output));
+			}
 		}
 	}
 	else
@@ -1099,41 +1133,6 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 				}
 				
 				obj.push_back(json_spirit::Pair(strVin, strOut.c_str()));
-			}
-			else if (strMode == "full")
-			{
-				CScript pubkey;
-				pubkey.SetDestination(mn.pubkey.GetID());
-				CTxDestination address1;
-				ExtractDestination(pubkey, address1);
-				CDigitalNoteAddress address2(address1);
-
-				std::ostringstream addrStream;
-				std::ostringstream stringStream;
-				
-				addrStream << std::setw(21) << strVin;
-
-				stringStream << std::setw(10) <<
-							   mn.Status() << " " <<
-							   mn.protocolVersion << " " <<
-							   address2.ToString() << " " <<
-							   mn.addr.ToString() << " " <<
-							   mn.lastTimeSeen << " " << std::setw(8) <<
-							   (mn.lastTimeSeen - mn.sigTime) << " " <<
-							   mn.nLastPaid;
-				
-				std::string output = stringStream.str();
-				
-				stringStream << " " << strVin;
-				
-				if(strFilter !="" &&
-					stringStream.str().find(strFilter) == std::string::npos &&
-					strVin.find(strFilter) == std::string::npos)
-				{
-					continue;
-				}
-				
-				obj.push_back(json_spirit::Pair(addrStream.str(), output));
 			}
 			else if (strMode == "lastseen")
 			{

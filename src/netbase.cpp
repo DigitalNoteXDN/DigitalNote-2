@@ -48,6 +48,21 @@ enum Network ParseNetwork(std::string net)
 	return NET_UNROUTABLE;
 }
 
+std::string GetNetworkName(enum Network net)
+{
+    switch (net)
+	{
+		case NET_IPV4:
+			return "ipv4";
+		case NET_IPV6:
+			return "ipv6";
+		case NET_TOR:
+			return "onion";
+		default:
+			return "";
+    }
+}
+
 void SplitHostPort(const std::string &in, int &portOut, std::string &hostOut)
 {
 	std::string _in = in;
