@@ -1042,10 +1042,12 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 	}
 
 	json_spirit::Object obj;
+	json_spirit::Array full_results;
 	
 	if (strMode == "rank" || strMode == "full")
 	{
 		std::vector<std::pair<int, CMasternode> > vMasternodeRanks = mnodeman.GetMasternodeRanks(pindexBest->nHeight);
+		
 		
 		for(std::pair<int, CMasternode>& s : vMasternodeRanks)
 		{
@@ -1088,8 +1090,13 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 				output.push_back(json_spirit::Pair("activetime", (int64_t)(mn.lastTimeSeen - mn.sigTime)));
 				output.push_back(json_spirit::Pair("lastpaid", (int64_t)mn.nLastPaid));
 				
-				obj.push_back(json_spirit::Pair(strVin, output));
+				full_results.push_back(output);
 			}
+		}
+		
+		if(strMode == "full")
+		{
+			return full_results;
 		}
 	}
 	else
