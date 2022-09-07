@@ -35,11 +35,11 @@ contains(RELEASE, 1) {
 	LIBS += -Wl,-Bstatic
 }
 include(libs/bdb.pri)
+include(libs/miniupnpc.pri)
 
 contains(RELEASE, 1) {
 	LIBS += -Wl,-Bdynamic
 }
-include(libs/miniupnpc.pri)
 
 contains(DIGITALNOTE_APP_NAME, app) {
 	include(libs/qrencode.pri)
