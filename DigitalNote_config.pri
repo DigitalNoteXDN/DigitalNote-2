@@ -23,9 +23,9 @@ win32 {
 	DIGITALNOTE_BOOST_SUFFIX          = -mgw7-mt-d-x64-1_75
 	
 	## OpenSSL library
-	DIGITALNOTE_OPENSSL_PATH          = $${DIGITALNOTE_PATH}/../libs/openssl-1.0.2u
-	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.0.2u/include
-	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1.0.2u
+	DIGITALNOTE_OPENSSL_PATH          = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s
+	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s/include
+	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s
 	
 	## Berkeley db library
 	DIGITALNOTE_BDB_PATH              = $${DIGITALNOTE_PATH}/../libs/db-6.2.32.NC
@@ -33,9 +33,9 @@ win32 {
 	DIGITALNOTE_BDB_LIB_PATH          = $${DIGITALNOTE_PATH}/../libs/db-6.2.32.NC/build_unix
 	
 	## Event library
-	DIGITALNOTE_EVENT_PATH            = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.11-stable
-	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.11-stable/include
-	DIGITALNOTE_EVENT_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.11-stable/.libs
+	DIGITALNOTE_EVENT_PATH            = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable
+	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/include
+	DIGITALNOTE_EVENT_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/.libs
 	
 	## GMP library
 	DIGITALNOTE_GMP_PATH              = $${DIGITALNOTE_PATH}/../libs/gmp-6.2.1
@@ -43,9 +43,9 @@ win32 {
 	DIGITALNOTE_GMP_LIB_PATH          = $${DIGITALNOTE_PATH}/../libs/gmp-6.2.1/.libs
 	
 	## Miniupnp library
-	DIGITALNOTE_MINIUPNP_PATH         = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.1
-	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.1/../
-	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.1
+	DIGITALNOTE_MINIUPNP_PATH         = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.4
+	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.4/include
+	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.4
 	
 	## QREncode library
 	DIGITALNOTE_QRENCODE_PATH         = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1
