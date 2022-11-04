@@ -1,6 +1,7 @@
 #ifndef CDBENV_H
 #define CDBENV_H
 
+#include <map>
 #include <boost/filesystem.hpp>
 #include <db_cxx.h>
 

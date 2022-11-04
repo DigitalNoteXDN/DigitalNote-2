@@ -17,10 +17,10 @@ DIGITALNOTE_SECP256K1_LIB_PATH        = $${DIGITALNOTE_PATH}/src/secp256k1/.libs
 
 win32 {
 	## Boost
-	DIGITALNOTE_BOOST_PATH            = $${DIGITALNOTE_PATH}/../libs/boost_1_75_0
-	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_75_0
-	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_75_0/stage/lib
-	DIGITALNOTE_BOOST_SUFFIX          = -mgw7-mt-d-x64-1_75
+	DIGITALNOTE_BOOST_PATH            = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0
+	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0
+	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/stage/lib
+	DIGITALNOTE_BOOST_SUFFIX          = -mgw7-mt-s-x64-1_80
 	
 	## OpenSSL library
 	DIGITALNOTE_OPENSSL_PATH          = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s
