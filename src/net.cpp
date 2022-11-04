@@ -7,7 +7,7 @@
 #endif
 
 #ifdef USE_UPNP
-	#ifndef UBUNTU2204_MINIUPNPC
+	#ifdef USE_MINIUPNPC_VERSION
 		#include <miniupnpc-2.1/miniupnpc.h>
 		#include <miniupnpc-2.1/miniwget.h>
 		#include <miniupnpc-2.1/upnpcommands.h>

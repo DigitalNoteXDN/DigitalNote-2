@@ -7,7 +7,7 @@ contains(USE_UPNP, 1) {
 	message(Building UPNP support)
 	
 	win32 {
-		exists($${DIGITALNOTE_MINIUPNP_PATH}/libminiupnpc.a) {
+		exists($${DIGITALNOTE_MINIUPNP_LIB_PATH}/libminiupnpc.a) {
 			message("found MiniUPNP lib")
 		} else {
 			message("You need to compile lib MiniUPNP yourself.")

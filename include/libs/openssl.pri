@@ -1,11 +1,11 @@
 win32 {
 	FAIL = 0
 	
-	!exists($${DIGITALNOTE_OPENSSL_PATH}/libssl.a) {
+	!exists($${DIGITALNOTE_OPENSSL_LIB_PATH}/libssl.a) {
 		FAIL = 1
 	}
 	
-	!exists($${DIGITALNOTE_OPENSSL_PATH}/libcrypto.a) {
+	!exists($${DIGITALNOTE_OPENSSL_LIB_PATH}/libcrypto.a) {
 		FAIL = 1
 	}
 	

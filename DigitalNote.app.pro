@@ -33,7 +33,7 @@ include(include/options/use_dbus.pri)
 include(include/options/use_pch.pri)
 include(include/options/use_unity_build.pri)
 include(include/options/use_limits_patch.pri)
-include(include/options/use_latest_miniupnpc.pri)
+include(include/options/use_miniupnpc_version.pri)
 
 ## Libraries
 include(include/libs.pri)
