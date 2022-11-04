@@ -20,12 +20,12 @@ win32 {
 	DIGITALNOTE_BOOST_PATH            = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0
 	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0
 	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/stage/lib
-	DIGITALNOTE_BOOST_SUFFIX          = -mgw7-mt-s-x64-1_80
+	DIGITALNOTE_BOOST_SUFFIX          = -mgw12-mt-s-x64-1_80
 	
 	## OpenSSL library
-	DIGITALNOTE_OPENSSL_PATH          = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s
-	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s/include
-	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1_1_1s
+	DIGITALNOTE_OPENSSL_PATH          = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s
+	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s/include
+	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s
 	
 	## Berkeley db library
 	DIGITALNOTE_BDB_PATH              = $${DIGITALNOTE_PATH}/../libs/db-6.2.32.NC
