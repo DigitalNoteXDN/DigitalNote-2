@@ -2,16 +2,14 @@
 contains(USE_QRCODE, 1) {
     message(Building with QRCode support)
     
-	win32 {
+	defined(DIGITALNOTE_QRENCODE_LIB_PATH, var) {
 		exists($${DIGITALNOTE_QRENCODE_LIB_PATH}/libqrencode.a) {
 			message("found QREncode lib.")
 		} else {
 			message("You need to compile lib QREncode yourself with msys2.")
 			message("Also you need to configure the paths in 'DigitalNote_config.pri'")
 		}
-	}
-	
-	win32|macx {
+		
 		QMAKE_LIBDIR += $${DIGITALNOTE_QRENCODE_LIB_PATH}
 		INCLUDEPATH += $${DIGITALNOTE_QRENCODE_INCLUDE_PATH}
 		DEPENDPATH += $${DIGITALNOTE_QRENCODE_INCLUDE_PATH}

@@ -10,7 +10,6 @@ exists($${DIGITALNOTE_SECP256K1_LIB_PATH}/libsecp256k1.a) {
 	}
 }
 
-
 contains(COMPILE_SECP256K1, 1) {
 	#Build Secp256k1
 	# we use QMAKE_CXXFLAGS_RELEASE even without RELEASE=1 because we use RELEASE to indicate linking preferences not -O preferences
