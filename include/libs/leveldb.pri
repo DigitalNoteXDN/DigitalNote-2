@@ -13,7 +13,7 @@ exists($${DIGITALNOTE_LEVELDB_LIB_PATH}/libleveldb.a) : exists($${DIGITALNOTE_LE
 
 contains(COMPILE_LEVELDB, 1) {
 	# we use QMAKE_CXXFLAGS_RELEASE even without RELEASE=1 because we use RELEASE to indicate linking preferences not -O preferences
-	extra_leveldb.commands = cd $${DIGITALNOTE_LEVELDB_PATH} && CC=$$QMAKE_CC CXX=$$QMAKE_CXX CXXFLAGS=$$LEVELDB_FLAGS CFLAGS=$$LEVELDB_FLAGS LDFLAGS=$$LEVELDB_FLAGS $(MAKE) libleveldb.a libmemenv.a
+	extra_leveldb.commands = cd $${DIGITALNOTE_LEVELDB_PATH} && CC=$$QMAKE_CC CXX=$$QMAKE_CXX $(MAKE) libleveldb.a libmemenv.a
 	extra_leveldb.target = $${DIGITALNOTE_LEVELDB_LIB_PATH}/libleveldb.a
 	extra_leveldb.depends = FORCE
 
