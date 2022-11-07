@@ -14,7 +14,7 @@ macx {
 	LIBS += -lrt
 }
 
-LIBS += -lz
+#LIBS += -lz
 
 include(libs/leveldb.pri)
 include(libs/secp256k1.pri)
