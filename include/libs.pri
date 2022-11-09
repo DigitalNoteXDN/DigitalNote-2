@@ -5,7 +5,7 @@ macx {
 	LIBS += -framework CoreServices
 	
 	contains(RELEASE, 1) {
-		LIBS += -static
+		LIBS += -Bstatic
 	}
 	
 	include(libs/leveldb.pri)
