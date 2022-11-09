@@ -59,9 +59,9 @@ macx {
 	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s/lib
 	
 	## Berkeley db library
-	DIGITALNOTE_BDB_INCLUDE_PATH      = /usr/local/Cellar/berkeley-db/18.1.40_1/include
-	DIGITALNOTE_BDB_LIB_PATH          = /usr/local/Cellar/berkeley-db/18.1.40_1/lib
-	DIGITALNOTE_LIB_BDB_SUFFIX        = -18
+	DIGITALNOTE_BDB_INCLUDE_PATH      = $${DIGITALNOTE_PATH}/../libs/db-6.2.32.NC/include
+	DIGITALNOTE_BDB_LIB_PATH          = $${DIGITALNOTE_PATH}/../libs/db-6.2.32.NC/lib
+	DIGITALNOTE_LIB_BDB_SUFFIX        = 
 	
 	## Event library
 	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/include
