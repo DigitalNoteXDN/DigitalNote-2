@@ -1,50 +1,75 @@
-contains(RELEASE, 1) {
-	LIBS += -Wl,-Bdynamic
-}
-
 macx {
 	LIBS += -framework Foundation
 	LIBS += -framework ApplicationServices
 	LIBS += -framework AppKit
 	LIBS += -framework CoreServices
+	
+	contains(RELEASE, 1) {
+		LIBS += -static
+	}
+	
+	include(libs/leveldb.pri)
+	include(libs/secp256k1.pri)
+	include(libs/openssl.pri)
+	include(libs/gmp.pri)
+	include(libs/boost.pri)
+	include(libs/event.pri)
+	include(libs/bdb.pri)
+	include(libs/miniupnpc.pri)
+
+	contains(DIGITALNOTE_APP_NAME, app) {
+		include(libs/qrencode.pri)
+	}
 }
 
-!windows:!macx {
+linux {
 	LIBS += -ldl
 	LIBS += -lrt
+	
+	contains(RELEASE, 1) {
+		LIBS += -Wl,-Bstatic
+	}
+	
+	include(libs/leveldb.pri)
+	include(libs/secp256k1.pri)
+	include(libs/openssl.pri)
+	include(libs/gmp.pri)
+	include(libs/boost.pri)
+	include(libs/event.pri)
+	include(libs/bdb.pri)
+	include(libs/miniupnpc.pri)
+	
+	contains(DIGITALNOTE_APP_NAME, app) {
+		include(libs/qrencode.pri)
+	}
+	
+	contains(RELEASE, 1) {
+		LIBS += -Wl,-Bdynamic
+	}
 }
 
-#LIBS += -lz
-
-include(libs/leveldb.pri)
-include(libs/secp256k1.pri)
-
-contains(RELEASE, 1) {
-	LIBS += -Wl,-Bstatic
-}
-include(libs/openssl.pri)
-include(libs/gmp.pri)
-include(libs/boost.pri)
-
-contains(RELEASE, 1) {
-	LIBS += -Wl,-Bdynamic
-}
-include(libs/event.pri)
-
-contains(RELEASE, 1) {
-	LIBS += -Wl,-Bstatic
-}
-include(libs/bdb.pri)
-include(libs/miniupnpc.pri)
-
-contains(RELEASE, 1) {
-	LIBS += -Wl,-Bdynamic
-}
-
-contains(DIGITALNOTE_APP_NAME, app) {
-	include(libs/qrencode.pri)
-}
 win32 {
+	contains(RELEASE, 1) {
+		LIBS += -Wl,-Bstatic
+	}
+	
+	include(libs/leveldb.pri)
+	include(libs/secp256k1.pri)
+	include(libs/openssl.pri)
+	include(libs/gmp.pri)
+	include(libs/boost.pri)
+	include(libs/event.pri)
+	include(libs/bdb.pri)
+	include(libs/miniupnpc.pri)
+
+	contains(DIGITALNOTE_APP_NAME, app) {
+		include(libs/qrencode.pri)
+	}
+	
+	contains(RELEASE, 1) {
+		LIBS += -Wl,-Bdynamic
+	}
+	
 	LIBS += -lshlwapi
 	LIBS += -lws2_32
 	LIBS += -lmswsock
