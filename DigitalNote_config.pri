@@ -47,37 +47,37 @@ win32 {
 }
 
 macx {
-	QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
-	
+	QMAKE_MACOSX_DEPLOYMENT_TARGET = 12.00
+
 	## Boost
-	DIGITALNOTE_BOOST_INCLUDE_PATH    = /usr/local/Cellar/boost/1.76.0/include
-	DIGITALNOTE_BOOST_LIB_PATH        = /usr/local/Cellar/boost/1.76.0/lib
+	DIGITALNOTE_BOOST_INCLUDE_PATH    = /usr/local/Cellar/boost/1.80.0/include
+	DIGITALNOTE_BOOST_LIB_PATH        = /usr/local/Cellar/boost/1.80.0/lib
 	DIGITALNOTE_BOOST_SUFFIX          = -mt
 	
 	## OpenSSL library
-	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = /usr/local/Cellar/openssl@1.1/1.1.1k/include
-	DIGITALNOTE_OPENSSL_LIB_PATH      = /usr/local/Cellar/openssl@1.1/1.1.1k/lib
+	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s/include
+	DIGITALNOTE_OPENSSL_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s/lib
 	
 	## Berkeley db library
-	DIGITALNOTE_BDB_INCLUDE_PATH      = /usr/local/Cellar/berkeley-db@6.2.32/include
-	DIGITALNOTE_BDB_LIB_PATH          = /usr/local/Cellar/berkeley-db@6.2.32/lib
-	DIGITALNOTE_LIB_BDB_SUFFIX        = -6.2
+	DIGITALNOTE_BDB_INCLUDE_PATH      = /usr/local/Cellar/berkeley-db/18.1.40_1/include
+	DIGITALNOTE_BDB_LIB_PATH          = /usr/local/Cellar/berkeley-db/18.1.40_1/lib
+	DIGITALNOTE_LIB_BDB_SUFFIX        = -18
 	
 	## Event library
-	DIGITALNOTE_EVENT_INCLUDE_PATH    = /usr/local/include
-	DIGITALNOTE_EVENT_LIB_PATH        = /usr/local/lib
+	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/include
+	DIGITALNOTE_EVENT_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/lib
 	
 	## GMP library
-	DIGITALNOTE_GMP_INCLUDE_PATH      = /usr/local/include
-	DIGITALNOTE_GMP_LIB_PATH          = /usr/local/lib
+	DIGITALNOTE_GMP_INCLUDE_PATH      = $${DIGITALNOTE_PATH}/../libs/gmp-6.2.1/include
+	DIGITALNOTE_GMP_LIB_PATH          = $${DIGITALNOTE_PATH}/../libs/gmp-6.2.1/lib
 	
 	## Miniupnp library
-	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = /usr/local/Cellar/miniupnpc/2.2.2/include
-	DIGITALNOTE_MINIUPNP_LIB_PATH     = /usr/local/Cellar/miniupnpc/2.2.2/lib
+	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.4/include
+	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.4/lib
 	
 	## QREncode library
-	DIGITALNOTE_QRENCODE_INCLUDE_PATH = /usr/local/include
-	DIGITALNOTE_QRENCODE_LIB_PATH     = /usr/local/lib
+	DIGITALNOTE_QRENCODE_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1/include
+	DIGITALNOTE_QRENCODE_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1/lib
 }
 
 ##
