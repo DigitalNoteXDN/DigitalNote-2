@@ -50,9 +50,9 @@ macx {
 	QMAKE_MACOSX_DEPLOYMENT_TARGET = 12.00
 
 	## Boost
-	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/include
-	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/lib
-	DIGITALNOTE_BOOST_SUFFIX          = 
+	DIGITALNOTE_BOOST_INCLUDE_PATH    = /usr/local/Cellar/boost/1.80.0/include
+	DIGITALNOTE_BOOST_LIB_PATH        = /usr/local/Cellar/boost/1.80.0/lib
+	DIGITALNOTE_BOOST_SUFFIX          = -mt
 	
 	## OpenSSL library
 	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1s/include
