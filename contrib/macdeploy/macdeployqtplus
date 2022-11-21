@@ -426,7 +426,7 @@ if os.path.exists(appname + ".temp.dmg"):
 
 # ------------------------------------------------
 
-target = os.path.join("dist", "Bitcoin-Qt.app")
+target = os.path.join("dist", "DigitalNote-qt.app")
 
 print("+ Copying source bundle +")
 if verbose:
@@ -534,7 +534,7 @@ ds['.']['icvp'] = icvp
 ds['.']['vSrn'] = ('long', 1)
 
 ds['Applications']['Iloc'] = (370, 156)
-ds['Bitcoin-Qt.app']['Iloc'] = (128, 156)
+ds['DigitalNote-qt.app']['Iloc'] = (128, 156)
 
 ds.flush()
 ds.close()
