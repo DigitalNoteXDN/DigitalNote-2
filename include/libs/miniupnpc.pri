@@ -19,11 +19,6 @@ contains(USE_UPNP, 1) {
 		DEPENDPATH += $${DIGITALNOTE_MINIUPNP_INCLUDE_PATH}
 	}
 	
-	LIBS += -lminiupnpc
-	win32 {
-		LIBS += -liphlpapi
-	}
-	
 	DEFINES += MINIUPNP_STATICLIB
 	DEFINES += USE_UPNP
 } else {
