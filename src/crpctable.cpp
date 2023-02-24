@@ -136,7 +136,12 @@ static const CRPCCommand vRPCCommands[] =
 	{ "smsggetmessagesforaccount", &smsggetmessagesforaccount,            false,     false,     false },
 #endif // ENABLE_WALLET
 	{ "mintblock",              &mintblock,              false,     false,     false },
-	{ "debugrpcallowip",        &debugrpcallowip,        false,     false,     false }
+	{ "debugrpcallowip",        &debugrpcallowip,        false,     false,     false },
+	
+#ifdef USE_BIP39
+	{ "bip39_new_mnemonic",     &bip39_new_mnemonic,     false,     false,     false },
+	{ "bip39_get_privkey",      &bip39_get_privkey,      false,     false,     false }
+#endif // USE_BIP39
 };
 
 CRPCTable::CRPCTable()
