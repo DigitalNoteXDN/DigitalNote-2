@@ -74,7 +74,8 @@ json_spirit::Value bip39_new_mnemonic(const json_spirit::Array& params, bool fHe
 	// results
 	results.push_back(json_spirit::Pair("checksum", checksum.GetStr()));
 	results.push_back(json_spirit::Pair("entropy", entropy.GetStr()));
-	results.push_back(json_spirit::Pair("mnemonic", EncodeBase64(mnemonic_str)));
+	results.push_back(json_spirit::Pair("mnemonic", mnemonic_str));
+	results.push_back(json_spirit::Pair("mnemonic_base64", EncodeBase64(mnemonic_str)));
 	results.push_back(json_spirit::Pair("seed", seed.GetStr()));
 	results.push_back(json_spirit::Pair("private_key", CDigitalNoteSecret(vchSecret).ToString()));
 	
@@ -132,7 +133,8 @@ json_spirit::Value bip39_get_privkey(const json_spirit::Array& params, bool fHel
 	// results
 	results.push_back(json_spirit::Pair("checksum", mnemonic.GetCheckSum().GetStr()));
 	results.push_back(json_spirit::Pair("entropy", mnemonic.GetEntropy().GetStr()));
-	results.push_back(json_spirit::Pair("mnemonic", EncodeBase64(mnemonic_str)));
+	results.push_back(json_spirit::Pair("mnemonic", mnemonic_str));
+	results.push_back(json_spirit::Pair("mnemonic_base64", EncodeBase64(mnemonic_str)));
 	results.push_back(json_spirit::Pair("seed", seed.GetStr()));
 	results.push_back(json_spirit::Pair("private_key", CDigitalNoteSecret(vchSecret).ToString()));
 	
