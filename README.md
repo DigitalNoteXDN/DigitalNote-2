@@ -26,22 +26,23 @@ github releases: [► DigitalNoteXDN/DigitalNote-2](https://github.com/DigitalNo
 
 Build instructions:
 -------------------
-MacOS: [build-osx](/doc/build-osx.md)
-Windows: [build-msw](/doc/build-msw.md)
-Linux: [build-lnx](/doc/build-lnx.md)
+DigitalNote Builder project: [► DigitalNoteXDN/DigitalNote-Builder](https://github.com/DigitalNoteXDN/DigitalNote-Builder)
 
 
 Specifications and General info
 -------------------
 DigitalNote uses 
 
-	* libsecp256k1,
-	* libgmp,
-	* Boost1.68, OR Boost1.58,  
-	* Openssl1.02r,
-	* erkeley DB 6.2.32,
-	* QT5.12.1,
-	* to compile
+	* Secp256k1
+	* Leveldb
+	* Boost 1.80  
+	* Berkeley DB 6.2.32
+	* GMP 6.2.1
+	* libevent 2.1.12
+	* miniupnpc 2.2.4
+	* Openssl 1.1.1s
+	* QRencode 4.1.1
+	* QT 5.15.7
 
 General Specs
 
