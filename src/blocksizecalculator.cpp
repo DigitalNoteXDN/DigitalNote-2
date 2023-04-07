@@ -1,8 +1,3 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2014 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include "cblockindex.h"
@@ -23,9 +18,8 @@ static bool sorted = false;
 
 unsigned int BlockSizeCalculator::ComputeBlockSize(CBlockIndex *pblockindex, unsigned int pastblocks)
 {
-
 	unsigned int proposedMaxBlockSize = 0;
-    unsigned int result = MIN_BLOCK_SIZE;
+	unsigned int result = MIN_BLOCK_SIZE;
 
 	LOCK(cs_main);
 
@@ -35,13 +29,11 @@ unsigned int BlockSizeCalculator::ComputeBlockSize(CBlockIndex *pblockindex, uns
 	{
 		//Absolute max block size will be 2^32-1 bytes due to the fact that unsigned int's are 4 bytes
 		result = proposedMaxBlockSize * MAX_BLOCK_SIZE_INCREASE_MULTIPLE;
-		result = result < proposedMaxBlockSize ?
-				std::numeric_limits<unsigned int>::max() :
-				result;
+		result = result < proposedMaxBlockSize ? std::numeric_limits<unsigned int>::max() : result;
 		
-        if (result < MIN_BLOCK_SIZE)
+		if (result < MIN_BLOCK_SIZE)
 		{
-            result = MIN_BLOCK_SIZE;
+			result = MIN_BLOCK_SIZE;
 		}
 	}
 
@@ -82,7 +74,6 @@ inline unsigned int BlockSizeCalculator::GetMedianBlockSize(CBlockIndex *pblocki
 
 inline std::vector<unsigned int> BlockSizeCalculator::GetBlockSizes(CBlockIndex *pblockindex, unsigned int pastblocks)
 {
-
 	if (pblockindex->nHeight < (int)pastblocks)
 	{
 		return blocksizes;
@@ -103,15 +94,13 @@ inline std::vector<unsigned int> BlockSizeCalculator::GetBlockSizes(CBlockIndex 
 			{
 				std::vector<unsigned int>::iterator it;
 				
-				it = std::find(blocksizes.begin(), blocksizes.end(),
-						oldestBlockSize);
+				it = std::find(blocksizes.begin(), blocksizes.end(), oldestBlockSize);
 				
 				if (it != blocksizes.end())
 				{
 					blocksizes.erase(it);
 					
-					it = std::lower_bound(blocksizes.begin(), blocksizes.end(),
-							latestBlockSize);
+					it = std::lower_bound(blocksizes.begin(), blocksizes.end(), latestBlockSize);
 					
 					blocksizes.insert(it, latestBlockSize);
 				}
@@ -139,7 +128,6 @@ inline std::vector<unsigned int> BlockSizeCalculator::GetBlockSizes(CBlockIndex 
 
 inline int BlockSizeCalculator::GetBlockSize(CBlockIndex *pblockindex)
 {
-
 	if (pblockindex == NULL)
 	{
 		return -1;

@@ -3,7 +3,7 @@
 
 struct CNodeStateStats
 {
-    int nMisbehavior;
+	int nMisbehavior;
 };
 
 #endif // CNODESTATESTATS_H

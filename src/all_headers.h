@@ -2,16 +2,16 @@
 	#include "compat.h"
 	
 	#include <string>
-    #include <set>
-    #include <map>
+	#include <set>
+	#include <map>
 	#include <list>
-    #include <vector>
-    #include <algorithm>
-    #include <cmath>
-    #include <cassert>
-    #include <cstddef>
-    #include <cstdint>
-    #include <cstdlib>
+	#include <vector>
+	#include <algorithm>
+	#include <cmath>
+	#include <cassert>
+	#include <cstddef>
+	#include <cstdint>
+	#include <cstdlib>
 	#include <functional>
 	#include <string.h>
 	#include <limits>
@@ -58,7 +58,7 @@
 	#include "types/data_chunk.h"
 	#include "types/ec_point.h"
 	#include "types/isminefilter.h"
-	#include "types/mapprevtx.h"
+	#include "types/mapprevtx_t.h"
 	#include "types/mapvalue_t.h"
 	#include "types/txitems.h"
 	#include "types/txpair.h"
@@ -141,7 +141,6 @@
 	#include "coutput.h"
 	#include "db.h"
 	#include "masternode-payments.h"
-	#include "webwalletconnector.h"
 	#include "ecwrapper.h"
 	#include "limitedmap.h"
 	#include "mruset.h"

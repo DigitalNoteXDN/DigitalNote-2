@@ -5,11 +5,11 @@
  *  destructor of these are not allowed to run in parallel, though. */
 class ECCVerifyHandle
 {
-    static int refcount;
+	static int refcount;
 
 public:
-    ECCVerifyHandle();
-    ~ECCVerifyHandle();
+	ECCVerifyHandle();
+	~ECCVerifyHandle();
 };
 
 #endif // ECCVERIFYHANDLE_H

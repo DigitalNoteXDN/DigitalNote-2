@@ -17,12 +17,12 @@ public:
 	explicit CAddress(CService ipIn, uint64_t nServicesIn=NODE_NETWORK);
 
 	void Init();
-	
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CADDRESS_H

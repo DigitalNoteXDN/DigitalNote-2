@@ -1,4 +1,4 @@
-win32 {
+defined(DIGITALNOTE_BOOST_LIB_PATH, var) {
 	FAIL = 0
 	
 	!exists($${DIGITALNOTE_BOOST_LIB_PATH}/libboost_system$${DIGITALNOTE_BOOST_SUFFIX}.a) {
@@ -31,19 +31,11 @@ win32 {
 		message("You need to compile boost yourself.")
 		message("Also you need to configure the paths in 'DigitalNote_config.pri'")
 	}
-}
 
-win32|macx {
 	QMAKE_LIBDIR += $${DIGITALNOTE_BOOST_LIB_PATH}
 	INCLUDEPATH += $${DIGITALNOTE_BOOST_INCLUDE_PATH}
 	DEPENDPATH += $${DIGITALNOTE_BOOST_INCLUDE_PATH}
 }
-
-LIBS += -lboost_system$${DIGITALNOTE_BOOST_SUFFIX}
-LIBS += -lboost_filesystem$${DIGITALNOTE_BOOST_SUFFIX}
-LIBS += -lboost_program_options$${DIGITALNOTE_BOOST_SUFFIX}
-LIBS += -lboost_thread$${DIGITALNOTE_BOOST_SUFFIX}
-LIBS += -lboost_chrono$${DIGITALNOTE_BOOST_SUFFIX}
 
 DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE

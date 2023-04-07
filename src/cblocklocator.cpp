@@ -39,12 +39,9 @@ CBlockLocator::CBlockLocator(const std::vector<uint256>& vHaveIn)
 unsigned int CBlockLocator::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -52,6 +49,7 @@ unsigned int CBlockLocator::GetSerializeSize(int nType, int nVersion) const
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 	
 	return nSerSize;
@@ -61,16 +59,13 @@ template<typename Stream>
 void CBlockLocator::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 }
 
@@ -78,16 +73,13 @@ template<typename Stream>
 void CBlockLocator::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	if (!(nType & SER_GETHASH))
 	{
 		READWRITE(nVersion);
 	}
+	
 	READWRITE(vHave);
 }
 
@@ -170,6 +162,7 @@ CBlockIndex* CBlockLocator::GetBlockIndex()
 		if (mi != mapBlockIndex.end())
 		{
 			CBlockIndex* pindex = (*mi).second;
+			
 			if (pindex->IsInMainChain())
 			{
 				return pindex;
@@ -186,9 +179,11 @@ uint256 CBlockLocator::GetBlockHash()
 	for(const uint256& hash : vHave)
 	{
 		std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+		
 		if (mi != mapBlockIndex.end())
 		{
 			CBlockIndex* pindex = (*mi).second;
+			
 			if (pindex->IsInMainChain())
 			{
 				return hash;
@@ -210,3 +205,4 @@ int CBlockLocator::GetHeight()
 	
 	return pindex->nHeight;
 }
+

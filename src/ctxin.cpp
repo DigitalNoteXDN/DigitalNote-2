@@ -15,27 +15,24 @@ CTxIn::CTxIn()
 
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, unsigned int nSequenceIn)
 {
-    prevout = prevoutIn;
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
+	prevout = prevoutIn;
+	scriptSig = scriptSigIn;
+	nSequence = nSequenceIn;
 }
 
 CTxIn::CTxIn(uint256 hashPrevTx, unsigned int nOut, CScript scriptSigIn, unsigned int nSequenceIn)
 {
-    prevout = COutPoint(hashPrevTx, nOut);
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
+	prevout = COutPoint(hashPrevTx, nOut);
+	scriptSig = scriptSigIn;
+	nSequence = nSequenceIn;
 }
 
 unsigned int CTxIn::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -50,11 +47,7 @@ template<typename Stream>
 void CTxIn::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(prevout);
 	READWRITE(scriptSig);
@@ -65,11 +58,7 @@ template<typename Stream>
 void CTxIn::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(prevout);
 	READWRITE(scriptSig);
@@ -101,16 +90,27 @@ bool operator!=(const CTxIn& a, const CTxIn& b)
 
 std::string CTxIn::ToString() const
 {
-    std::string str;
-    str += "CTxIn(";
-    str += prevout.ToString();
-    if (prevout.IsNull())
-        str += strprintf(", coinbase %s", HexStr(scriptSig));
-    else
-        str += strprintf(", scriptSig=%s", scriptSig.ToString().substr(0,24));
-    if (nSequence != std::numeric_limits<unsigned int>::max())
-        str += strprintf(", nSequence=%u", nSequence);
-    str += ")";
-    return str;
+	std::string str;
+
+	str += "CTxIn(";
+	str += prevout.ToString();
+
+	if (prevout.IsNull())
+	{
+		str += strprintf(", coinbase %s", HexStr(scriptSig));
+	}
+	else
+	{
+		str += strprintf(", scriptSig=%s", scriptSig.ToString().substr(0,24));
+	}
+
+	if (nSequence != std::numeric_limits<unsigned int>::max())
+	{
+		str += strprintf(", nSequence=%u", nSequence);
+	}
+
+	str += ")";
+
+	return str;
 }
 

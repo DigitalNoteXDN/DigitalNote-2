@@ -16,22 +16,22 @@ class COutPoint;
 class CCoinControl
 {
 private:
-    std::set<COutPoint> setSelected;
+	std::set<COutPoint> setSelected;
 
 public:
-    CTxDestination destChange;
-    bool useMNengine;
-    bool useInstantX;
+	CTxDestination destChange;
+	bool useMNengine;
+	bool useInstantX;
 
-    CCoinControl();
-	
-    void SetNull();
-    bool HasSelected() const;
-    bool IsSelected(const uint256& hash, unsigned int n) const;
-    void Select(COutPoint& output);
-    void UnSelect(COutPoint& output);
-    void UnSelectAll();
-    void ListSelected(std::vector<COutPoint>& vOutpoints);
+	CCoinControl();
+
+	void SetNull();
+	bool HasSelected() const;
+	bool IsSelected(const uint256& hash, unsigned int n) const;
+	void Select(COutPoint& output);
+	void UnSelect(COutPoint& output);
+	void UnSelectAll();
+	void ListSelected(std::vector<COutPoint>& vOutpoints);
 };
 
 #endif // CCOINCONTROL_H

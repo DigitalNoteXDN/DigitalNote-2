@@ -1,7 +1,3 @@
-// Copyright (c) 2011-2015 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <QDebug>
@@ -27,10 +23,11 @@ bool BannedNodeLessThan::operator()(const CCombinedBan& left, const CCombinedBan
 
     switch(column)
     {
-    case BanTableModel::Address:
-        return pLeft->subnet.ToString().compare(pRight->subnet.ToString()) < 0;
-    case BanTableModel::Bantime:
-        return pLeft->banEntry.nBanUntil < pRight->banEntry.nBanUntil;
+		case BanTableModel::Address:
+			return pLeft->subnet.ToString().compare(pRight->subnet.ToString()) < 0;
+		
+		case BanTableModel::Bantime:
+			return pLeft->banEntry.nBanUntil < pRight->banEntry.nBanUntil;
     }
 
     return false;

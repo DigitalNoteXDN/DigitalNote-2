@@ -1,8 +1,3 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include <openssl/ripemd.h>
@@ -40,6 +35,8 @@
 #include "cdigitalnoteaddress.h"
 #include "cblockindex.h"
 #include "main_extern.h"
+#include "fork.h"
+#include "serialize.h"
 
 #include "script.h"
 
@@ -68,7 +65,7 @@ inline bool set_error(ScriptError* ret, const ScriptError serror)
 	}
 
 	return false;
-}
+	}
 
 } // anon namespace
 
@@ -141,6 +138,7 @@ const char* ScriptErrorString(const ScriptError serror)
 		default:
 			break;
 	}
+
 	return "unknown error";
 }
 
@@ -554,26 +552,26 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig)
 
 bool static CheckSignatureEncoding(const valtype &vchSig)
 {
-    if (!IsLowDERSignature(vchSig))
+	if (!IsLowDERSignature(vchSig))
 	{
-        return false;
-    }
+		return false;
+	}
 	else if (!IsDefinedHashtypeSignature(vchSig))
 	{
-        return false;
-    }
-	
-    return true;
+		return false;
+	}
+
+	return true;
 }
 
 bool static CheckPubKeyEncoding(const valtype &vchSig)
 {
-    if (!IsCompressedOrUncompressedPubKey(vchSig))
+	if (!IsCompressedOrUncompressedPubKey(vchSig))
 	{
-        return false;
-    }
-	
-    return true;
+		return false;
+	}
+
+	return true;
 }
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
@@ -1228,7 +1226,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						// something like n != 1 and have some wiseguy pass in 1 with extra
 						// zero bytes after it (numerically, 0x01 == 0x0001 == 0x000001)
 						//if (opcode == OP_NOTEQUAL)
-						//    fEqual = !fEqual;
+						//	fEqual = !fEqual;
 						popstack(stack);
 						popstack(stack);
 						
@@ -1705,7 +1703,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						
 						while (fSuccess && nSigsCount > 0)
 						{
-							valtype& vchSig    = stacktop(-isig);
+							valtype& vchSig = stacktop(-isig);
 							valtype& vchPubKey = stacktop(-ikey);
 
 							if ((flags & SCRIPT_VERIFY_STRICTENC) && (!CheckSignatureEncoding(vchSig) || !CheckPubKeyEncoding(vchPubKey)))
@@ -1845,100 +1843,100 @@ bool static CheckPubKeyEncoding(const valtype &vchSig, unsigned int flags, Scrip
 
 bool static CheckMinimalPush(const valtype& data, opcodetype opcode)
 {
-    if (data.size() == 0)
+	if (data.size() == 0)
 	{
-        // Could have used OP_0.
-        return opcode == OP_0;
-    }
+		// Could have used OP_0.
+		return opcode == OP_0;
+	}
 	else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16)
 	{
-        // Could have used OP_1 .. OP_16.
-        return opcode == OP_1 + (data[0] - 1);
-    }
+		// Could have used OP_1 .. OP_16.
+		return opcode == OP_1 + (data[0] - 1);
+	}
 	else if (data.size() == 1 && data[0] == 0x81)
 	{
-        // Could have used OP_1NEGATE.
-        return opcode == OP_1NEGATE;
-    }
+		// Could have used OP_1NEGATE.
+		return opcode == OP_1NEGATE;
+	}
 	else if (data.size() <= 75)
 	{
-        // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
-        return opcode == data.size();
-    }
+		// Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
+		return opcode == data.size();
+	}
 	else if (data.size() <= 255)
 	{
-        // Could have used OP_PUSHDATA.
-        return opcode == OP_PUSHDATA1;
-    }
+		// Could have used OP_PUSHDATA.
+		return opcode == OP_PUSHDATA1;
+	}
 	else if (data.size() <= 65535)
 	{
-        // Could have used OP_PUSHDATA2.
-        return opcode == OP_PUSHDATA2;
-    }
-	
-    return true;
+		// Could have used OP_PUSHDATA2.
+		return opcode == OP_PUSHDATA2;
+	}
+
+	return true;
 }
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {
-    CScript::const_iterator pc = script.begin();
-    CScript::const_iterator pend = script.end();
-    CScript::const_iterator pbegincodehash = script.begin();
-    opcodetype opcode;
-    valtype vchPushValue;
-    std::vector<bool> vfExec;
-    std::vector<valtype> altstack;
-    set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
-	
-    if (script.size() > 10000)
+	CScript::const_iterator pc = script.begin();
+	CScript::const_iterator pend = script.end();
+	CScript::const_iterator pbegincodehash = script.begin();
+	opcodetype opcode;
+	valtype vchPushValue;
+	std::vector<bool> vfExec;
+	std::vector<valtype> altstack;
+	set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+
+	if (script.size() > 10000)
 	{
-        return set_error(serror, SCRIPT_ERR_SCRIPT_SIZE);
+		return set_error(serror, SCRIPT_ERR_SCRIPT_SIZE);
 	}
-	
-    int nOpCount = 0;
-    bool fRequireMinimal = (flags & SCRIPT_VERIFY_MINIMALDATA) != 0;
 
-    try
-    {
-        while (pc < pend)
-        {
-            bool fExec = !count(vfExec.begin(), vfExec.end(), false);
+	int nOpCount = 0;
+	bool fRequireMinimal = (flags & SCRIPT_VERIFY_MINIMALDATA) != 0;
 
-            //
-            // Read instruction
-            //
-            if (!script.GetOp(pc, opcode, vchPushValue))
+	try
+	{
+		while (pc < pend)
+		{
+			bool fExec = !count(vfExec.begin(), vfExec.end(), false);
+
+			//
+			// Read instruction
+			//
+			if (!script.GetOp(pc, opcode, vchPushValue))
 			{
-                return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+				return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
 			}
 			
-            if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
+			if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
 			{
-                return set_error(serror, SCRIPT_ERR_PUSH_SIZE);
+				return set_error(serror, SCRIPT_ERR_PUSH_SIZE);
 			}
 			
-            // Note how OP_RESERVED does not count towards the opcode limit.
-            if (opcode > OP_16 && ++nOpCount > 201)
+			// Note how OP_RESERVED does not count towards the opcode limit.
+			if (opcode > OP_16 && ++nOpCount > 201)
 			{
-                return set_error(serror, SCRIPT_ERR_OP_COUNT);
+				return set_error(serror, SCRIPT_ERR_OP_COUNT);
 			}
 			
-            if (opcode == OP_CAT || opcode == OP_SUBSTR || opcode == OP_LEFT || opcode == OP_RIGHT  || opcode == OP_INVERT ||
-                opcode == OP_AND || opcode == OP_OR     || opcode == OP_XOR  || opcode == OP_2MUL   || opcode == OP_2DIV ||
-                opcode == OP_MUL || opcode == OP_DIV    || opcode == OP_MOD  || opcode == OP_LSHIFT || opcode == OP_RSHIFT)
+			if (opcode == OP_CAT || opcode == OP_SUBSTR || opcode == OP_LEFT || opcode == OP_RIGHT  || opcode == OP_INVERT ||
+				opcode == OP_AND || opcode == OP_OR     || opcode == OP_XOR  || opcode == OP_2MUL   || opcode == OP_2DIV ||
+				opcode == OP_MUL || opcode == OP_DIV    || opcode == OP_MOD  || opcode == OP_LSHIFT || opcode == OP_RSHIFT)
 			{
-                return set_error(serror, SCRIPT_ERR_DISABLED_OPCODE); // Disabled opcodes.
+				return set_error(serror, SCRIPT_ERR_DISABLED_OPCODE); // Disabled opcodes.
 			}
 			
-            if (fExec && 0 <= opcode && opcode <= OP_PUSHDATA4)
+			if (fExec && 0 <= opcode && opcode <= OP_PUSHDATA4)
 			{
-                if (fRequireMinimal && !CheckMinimalPush(vchPushValue, opcode))
+				if (fRequireMinimal && !CheckMinimalPush(vchPushValue, opcode))
 				{
-                    return set_error(serror, SCRIPT_ERR_MINIMALDATA);
-                }
+					return set_error(serror, SCRIPT_ERR_MINIMALDATA);
+				}
 				
-                stack.push_back(vchPushValue);
-            }
+				stack.push_back(vchPushValue);
+			}
 			else if (fExec || (OP_IF <= opcode && opcode <= OP_ENDIF))
 			{
 				switch (opcode)
@@ -2387,7 +2385,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						// something like n != 1 and have some wiseguy pass in 1 with extra
 						// zero bytes after it (numerically, 0x01 == 0x0001 == 0x000001)
 						//if (opcode == OP_NOTEQUAL)
-						//    fEqual = !fEqual;
+						//	fEqual = !fEqual;
 						popstack(stack);
 						popstack(stack);
 						
@@ -2693,7 +2691,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 							return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 						}
 						
-						valtype& vchSig    = stacktop(-2);
+						valtype& vchSig = stacktop(-2);
 						valtype& vchPubKey = stacktop(-1);
 
 						// Subset of script starting at the most recent codeseparator
@@ -2790,7 +2788,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 						
 						while (fSuccess && nSigsCount > 0)
 						{
-							valtype& vchSig    = stacktop(-isig);
+							valtype& vchSig = stacktop(-isig);
 							valtype& vchPubKey = stacktop(-ikey);
 
 							// Note how this makes the exact order of pubkey/signature evaluation
@@ -2871,24 +2869,24 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 				}
 			}
 			
-            // Size limits
-            if (stack.size() + altstack.size() > 1000)
+			// Size limits
+			if (stack.size() + altstack.size() > 1000)
 			{
-                return set_error(serror, SCRIPT_ERR_STACK_SIZE);
+				return set_error(serror, SCRIPT_ERR_STACK_SIZE);
 			}
-        }
-    }
-    catch (...)
-    {
-        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
-    }
-
-    if (!vfExec.empty())
-	{
-        return set_error(serror, SCRIPT_ERR_UNBALANCED_CONDITIONAL);
+		}
 	}
-	
-    return set_success(serror);
+	catch (...)
+	{
+		return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+	}
+
+	if (!vfExec.empty())
+	{
+		return set_error(serror, SCRIPT_ERR_UNBALANCED_CONDITIONAL);
+	}
+
+	return set_success(serror);
 }
 
 uint256 SignatureHash(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
@@ -3277,7 +3275,7 @@ bool SignN(const std::vector<valtype>& multisigdata, const CKeyStore& keystore, 
 		}
 	}
 
-	return nSigned==nRequired;
+	return nSigned == nRequired;
 }
 
 //
@@ -3346,6 +3344,7 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
 			return (SignN(vSolutions, keystore, hash, nHashType, scriptSigRet));
 		}
 	}
+
 	return false;
 }
 
@@ -3419,19 +3418,19 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 
 unsigned int HaveKeys(const std::vector<valtype>& pubkeys, const CKeyStore& keystore)
 {
-    unsigned int nResult = 0;
-	
-    for(const valtype& pubkey : pubkeys)
-    {
-        CKeyID keyID = CPubKey(pubkey).GetID();
+	unsigned int nResult = 0;
+
+	for(const valtype& pubkey : pubkeys)
+	{
+		CKeyID keyID = CPubKey(pubkey).GetID();
 		
-        if (keystore.HaveKey(keyID))
+		if (keystore.HaveKey(keyID))
 		{
-            ++nResult;
+			++nResult;
 		}
-    }
-	
-    return nResult;
+	}
+
+	return nResult;
 }
 
 isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest)
@@ -3530,10 +3529,10 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
 	}
 
 	return ISMINE_NO;
-}
+	}
 
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
-{
+	bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
+	{
 	std::vector<valtype> vSolutions;
 	txnouttype whichType;
 
@@ -3648,7 +3647,8 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
 }
 */
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
+		unsigned int flags, int nHashType)
 {
 	std::vector<std::vector<unsigned char> > stack, stackCopy;
 
@@ -3679,7 +3679,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 	{
 		if (!scriptSig.IsPushOnly()) // scriptSig must be literals-only
 		{
-			return false;            // or validation fails
+			return false; // or validation fails
 		}
 		
 		const valtype& pubKeySerialized = stackCopy.back();
@@ -3703,7 +3703,8 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 	return true;
 }
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags,
+		const BaseSignatureChecker& checker, ScriptError* serror)
 {
 	set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
 
@@ -3833,12 +3834,12 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
 bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
 	assert(nIn < txTo.vin.size());
-	
+
 	CTxIn& txin = txTo.vin[nIn];
-	
+
 	assert(txin.prevout.n < txFrom.vout.size());
 	assert(txin.prevout.hash == txFrom.GetHash());
-	
+
 	const CTxOut& txout = txFrom.vout[txin.prevout.n];
 
 	return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, nHashType);
@@ -3847,28 +3848,28 @@ bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CTrans
 bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
 {
 	std::string _txFrom, _txTo;
-	
+
 	_txFrom = txFrom.GetHash().ToString();
 	_txTo = txTo.GetHash().ToString();
-	
+
 	LogPrintf("VerifySignature from %s to %s\n", _txFrom.c_str(), _txTo.c_str());
-	
-    assert(nIn < txTo.vin.size());
-	
-    const CTxIn& txin = txTo.vin[nIn];
-    
+
+	assert(nIn < txTo.vin.size());
+
+	const CTxIn& txin = txTo.vin[nIn];
+
 	if (txin.prevout.n >= txFrom.vout.size())
 	{
-        return false;
-    }
-	
+		return false;
+	}
+
 	const CTxOut& txout = txFrom.vout[txin.prevout.n];
 
-    if (txin.prevout.hash != txFrom.GetHash())
+	if (txin.prevout.hash != txFrom.GetHash())
 	{
-        return false;
+		return false;
 	}
-	
+
 	/*
 		Exploit happpend on 31st Aug 2021 17:17:26
 		
@@ -3891,7 +3892,7 @@ bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsig
 	{
 		return true;
 	}
-	
+
 	/*
 		Prevent burn address to send any transactions
 	*/
@@ -3899,14 +3900,14 @@ bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsig
 	ExtractDestination(txout.scriptPubKey, ctxdest_address);
 	CDigitalNoteAddress cdigit_address(ctxdest_address);
 	std::string str_address = cdigit_address.ToString();
-	
+
 	// Burn address must be filtered and
 	// transactions with burn address that made in the past must be still valid
 	if(
 		(
-			str_address == "dMsop93F7hbLSA2d666tSPjB2NXSAfXpeU" ||
-			str_address == "dVibZ11CVyiso4Kw3ZLAHp7Wn77dXuvq1d" ||
-			str_address == "daigDQ7VxAFwmhh59HstA53KYD5a4q81N5"
+			str_address == BURN_ADDRESS_A ||
+			str_address == BURN_ADDRESS_B ||
+			str_address == BURN_ADDRESS_C
 		) && pindexBest->nHeight > 429972
 	)
 	{
@@ -3914,20 +3915,20 @@ bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsig
 		
 		return false;
 	}
-	
-    return VerifyScript(txin.scriptSig, txout.scriptPubKey, txTo, nIn, flags, nHashType);
+
+	return VerifyScript(txin.scriptSig, txout.scriptPubKey, txTo, nIn, flags, nHashType);
 }
 
 static CScript PushAll(const std::vector<valtype>& values)
 {
-    CScript result;
-	
-    for(const valtype& v : values)
+	CScript result;
+
+	for(const valtype& v : values)
 	{
-        result << v;
+		result << v;
 	}
-	
-    return result;
+
+	return result;
 }
 
 static CScript CombineMultisig(CScript scriptPubKey, const CTransaction& txTo, unsigned int nIn,

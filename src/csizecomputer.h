@@ -1,6 +1,8 @@
 #ifndef CSIZECOMPUTER_H
 #define CSIZECOMPUTER_H
 
+#include <stddef.h>
+
 class CSizeComputer
 {
 protected:

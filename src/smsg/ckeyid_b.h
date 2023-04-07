@@ -11,7 +11,7 @@ namespace SMSG {
 class CKeyID_B : public CKeyID
 {
 public:
-    uint32_t* GetPPN();
+	uint32_t* GetPPN();
 };
 
 } // namespace SMSG

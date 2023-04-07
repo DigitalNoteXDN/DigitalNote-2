@@ -1,6 +1,7 @@
 ## Ignore directories
 build
 release
+dist
 
 ## Ignore files
 src/*.exe

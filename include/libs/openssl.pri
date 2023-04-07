@@ -1,11 +1,11 @@
-win32 {
+defined(DIGITALNOTE_OPENSSL_LIB_PATH, var) {
 	FAIL = 0
 	
-	!exists($${DIGITALNOTE_OPENSSL_PATH}/libssl.a) {
+	!exists($${DIGITALNOTE_OPENSSL_LIB_PATH}/libssl.a) {
 		FAIL = 1
 	}
 	
-	!exists($${DIGITALNOTE_OPENSSL_PATH}/libcrypto.a) {
+	!exists($${DIGITALNOTE_OPENSSL_LIB_PATH}/libcrypto.a) {
 		FAIL = 1
 	}
 	
@@ -16,13 +16,9 @@ win32 {
 		message("found crypto lib")
 		message("found ssl lib")
 	}
-}
-
-win32|macx {
+	
 	QMAKE_LIBDIR += $${DIGITALNOTE_OPENSSL_LIB_PATH}
 	INCLUDEPATH += $${DIGITALNOTE_OPENSSL_INCLUDE_PATH}
 	DEPENDPATH += $${DIGITALNOTE_OPENSSL_INCLUDE_PATH}
 }
 
-LIBS += -lssl
-LIBS += -lcrypto

@@ -9,11 +9,12 @@ class CAddrMan;
 class CAddrDB
 {
 private:
-    boost::filesystem::path pathAddr;
+	boost::filesystem::path pathAddr;
+
 public:
-    CAddrDB();
-    bool Write(const CAddrMan& addr);
-    bool Read(CAddrMan& addr);
+	CAddrDB();
+	bool Write(const CAddrMan& addr);
+	bool Read(CAddrMan& addr);
 };
 
 #endif // CADDRDB_H

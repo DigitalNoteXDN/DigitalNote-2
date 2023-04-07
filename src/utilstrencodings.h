@@ -1,18 +1,12 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2015 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 /**
  * Utilities for converting data from/to strings.
  */
-#ifndef BITCOIN_UTILSTRENCODINGS_H
-#define BITCOIN_UTILSTRENCODINGS_H
+#ifndef UTILSTRENCODINGS_H
+#define UTILSTRENCODINGS_H
 
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include "serialize.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <openssl/bio.h>
@@ -22,13 +16,11 @@
 #include <openssl/rand.h>
 #include <openssl/bn.h>
 
-
-#define BEGIN(a)            ((char*)&(a))
-#define END(a)              ((char*)&((&(a))[1]))
-#define UBEGIN(a)           ((unsigned char*)&(a))
-#define UEND(a)             ((unsigned char*)&((&(a))[1]))
-#define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
-
+#define BEGIN(a)			((char*)&(a))
+#define END(a)				((char*)&((&(a))[1]))
+#define UBEGIN(a)			((unsigned char*)&(a))
+#define UEND(a)				((unsigned char*)&((&(a))[1]))
+#define ARRAYLEN(array)		(sizeof(array)/sizeof((array)[0]))
 
 extern const signed char p_util_hexdigit[256];
 
@@ -90,4 +82,4 @@ inline std::string HexStr(const T& vch, bool fSpaces=false)
  */
 std::string FormatParagraph(const std::string &in, size_t width=79, size_t indent=0);
 
-#endif // BITCOIN_UTILSTRENCODINGS_H
+#endif // UTILSTRENCODINGS_H

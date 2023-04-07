@@ -133,5 +133,7 @@
         <file alias="zh_CN">../../.qm/bitcoin_zh_CN.qm</file>
         <file alias="zh_TW">../../.qm/bitcoin_zh_TW.qm</file>
     </qresource>
-    <qresource prefix="/"/>
+    <qresource prefix="/fonts">
+        <file alias="monospace">res/fonts/RobotoMono-Bold.ttf</file>
+    </qresource>
 </RCC>

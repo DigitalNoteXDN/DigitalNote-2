@@ -14,19 +14,18 @@ namespace SMSG {
 class BatchScanner : public leveldb::WriteBatch::Handler
 {
 public:
-    std::string needle;
-    bool* deleted;
-    std::string* foundValue;
-    bool foundEntry;
+	std::string needle;
+	bool* deleted;
+	std::string* foundValue;
+	bool foundEntry;
 
-    BatchScanner();
-	
-    virtual void Put(const leveldb::Slice& key, const leveldb::Slice& value);
-    virtual void Delete(const leveldb::Slice& key);
+	BatchScanner();
+
+	virtual void Put(const leveldb::Slice& key, const leveldb::Slice& value);
+	virtual void Delete(const leveldb::Slice& key);
 };
 
 } // namespace SMSG
 } // namespace DigitalNote
 
 #endif // SMSG_BATCHSCANNER_H
-

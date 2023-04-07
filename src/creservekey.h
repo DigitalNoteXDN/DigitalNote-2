@@ -11,17 +11,17 @@ class CWallet;
 class CReserveKey
 {
 protected:
-    CWallet* pwallet;
-    int64_t nIndex;
-    CPubKey vchPubKey;
+	CWallet* pwallet;
+	int64_t nIndex;
+	CPubKey vchPubKey;
 
 public:
-    CReserveKey(CWallet* pwalletIn);
-    ~CReserveKey();
-	
-    void ReturnKey();
-    bool GetReservedKey(CPubKey &pubkey);
-    void KeepKey();
+	CReserveKey(CWallet* pwalletIn);
+	~CReserveKey();
+
+	void ReturnKey();
+	bool GetReservedKey(CPubKey &pubkey);
+	void KeepKey();
 };
 
 #endif // CRESERVEKEY_H

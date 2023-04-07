@@ -11,4 +11,3 @@
 #include "../../src/init.cpp"
 #include "../../src/net.cpp"
 #include "../../src/checkpoints.cpp"
-#include "../../src/addrman.cpp"

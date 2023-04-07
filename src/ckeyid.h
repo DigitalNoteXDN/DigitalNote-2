@@ -7,12 +7,12 @@
 class CKeyID : public uint160
 {
 public:
-    CKeyID() : uint160(0)
+	CKeyID() : uint160(0)
 	{
 		
 	}
-	
-    CKeyID(const uint160 &in) : uint160(in)
+
+	CKeyID(const uint160 &in) : uint160(in)
 	{
 		
 	}

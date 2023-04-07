@@ -13,14 +13,14 @@ class CKey;
 class CDigitalNoteSecret : public CBase58Data
 {
 public:
-    CDigitalNoteSecret();
-    CDigitalNoteSecret(const CKey& vchSecret);
-	
+	CDigitalNoteSecret();
+	CDigitalNoteSecret(const CKey& vchSecret);
+
 	void SetKey(const CKey& vchSecret);
-    CKey GetKey();
-    bool IsValid() const;
-    bool SetString(const char* pszSecret);
-    bool SetString(const std::string& strSecret);
+	CKey GetKey();
+	bool IsValid() const;
+	bool SetString(const char* pszSecret);
+	bool SetString(const std::string& strSecret);
 };
 
 #endif // CDIGITALNOTESECRET_H

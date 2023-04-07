@@ -1,11 +1,5 @@
-// Copyright (c) 2016-2020 The CryptoCoderz Team / Espers
-// Copyright (c) 2018-2020 The CryptoCoderz Team / INSaNe project
-// Copyright (c) 2018-2020 The Rubix project
-// Copyright (c) 2018-2020 The DigitalNote project
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_MINING_H
-#define BITCOIN_MINING_H
+#ifndef MINING_H
+#define MINING_H
 
 #include "main_const.h"
 
@@ -38,5 +32,4 @@ static const int nStakeMinConfirmations = 25;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int nCoinbaseMaturity = 15; // 15-TXs | 90-Mined
 
-
-#endif // BITCOIN_MINING_H
+#endif // MINING_H

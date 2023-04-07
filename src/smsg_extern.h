@@ -25,9 +25,9 @@ namespace DigitalNote
 		extern boost::thread_group							ext_thread_group;
 		extern bool 										ext_enabled;
 		extern std::map<int64_t, DigitalNote::SMSG::Bucket>	ext_buckets;
-		extern std::vector<DigitalNote::SMSG::Address>      ext_addresses;
+		extern std::vector<DigitalNote::SMSG::Address>		ext_addresses;
 		extern DigitalNote::SMSG::Options					ext_options;
-		extern CCriticalSection								ext_cs;            // all except inbox and outbox
+		extern CCriticalSection								ext_cs;				// all except inbox and outbox
 		extern CCriticalSection								ext_cs_db;
 		extern leveldb::DB*									ext_db;
 	} // namespace SMSG

@@ -1,9 +1,5 @@
-// Copyright (c) 2014 The ShadowCoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-#ifndef BITCOIN_STEALTH_H
-#define BITCOIN_STEALTH_H
+#ifndef STEALTH_H
+#define STEALTH_H
 
 #include <cstdint>
 #include <string>
@@ -26,8 +22,8 @@ typedef uint32_t stealth_bitfield;
 
 struct stealth_prefix
 {
-    uint8_t number_bits;
-    stealth_bitfield bitfield;
+	uint8_t number_bits;
+	stealth_bitfield bitfield;
 };
 
 template <typename T, typename Iterator>
@@ -45,5 +41,5 @@ int StealthSecretSpend(ec_secret& scanSecret, ec_point& ephemPubkey, ec_secret& 
 int StealthSharedToSecretSpend(ec_secret& sharedS, ec_secret& spendSecret, ec_secret& secretOut);
 bool IsStealthAddress(const std::string& encodedAddress);
 
-#endif  // BITCOIN_STEALTH_H
+#endif  // STEALTH_H
 

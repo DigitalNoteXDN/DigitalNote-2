@@ -1,9 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_NET_H
-#define BITCOIN_NET_H
+#ifndef NET_H
+#define NET_H
 
 #include <vector>
 #include <list>
@@ -12,7 +8,7 @@
 #include <boost/signals2/signal.hpp>
 
 #include "limitedmap.h"
-#include "serialize.h"
+#include "serialize/base.h"
 #include "net/cnode.h"
 
 class CAddrMan;
@@ -28,53 +24,52 @@ class CService;
 class CAddress;
 class uint256;
 
-namespace boost {
-    class thread_group;
+namespace boost
+{
+	class thread_group;
 }
 
 enum
 {
-    LOCAL_NONE,   // unknown
-    LOCAL_IF,     // address a local interface listens on
-    LOCAL_BIND,   // address explicit bound to
-    LOCAL_UPNP,   // address reported by UPnP
-    LOCAL_MANUAL, // address explicitly specified (-externalip=)
+	LOCAL_NONE,		// unknown
+	LOCAL_IF,		// address a local interface listens on
+	LOCAL_BIND,		// address explicit bound to
+	LOCAL_UPNP,		// address reported by UPnP
+	LOCAL_MANUAL,	// address explicitly specified (-externalip=)
 
-    LOCAL_MAX
+	LOCAL_MAX
 };
 
-enum {
-    MSG_TX = 1,
-    MSG_BLOCK,
-    // Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
-    // MSG_FILTERED_BLOCK should not appear in any invs except as a part of getdata.
-    MSG_FILTERED_BLOCK,
-    MSG_TXLOCK_REQUEST,
-    MSG_TXLOCK_VOTE,
-    MSG_SPORK,
-    MSG_MASTERNODE_WINNER,
-    MSG_MASTERNODE_SCANNING_ERROR,
-    MSG_DSTX
+enum
+{
+	MSG_TX = 1,
+	MSG_BLOCK,
+	// Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
+	// MSG_FILTERED_BLOCK should not appear in any invs except as a part of getdata.
+	MSG_FILTERED_BLOCK,
+	MSG_TXLOCK_REQUEST,
+	MSG_TXLOCK_VOTE,
+	MSG_SPORK,
+	MSG_MASTERNODE_WINNER,
+	MSG_MASTERNODE_SCANNING_ERROR,
+	MSG_DSTX
 };
 
-
-
-struct LocalServiceInfo {
-    int nScore;
-    int nPort;
+struct LocalServiceInfo
+{
+	int nScore;
+	int nPort;
 };
 
 // Signals for message handling
 struct CNodeSignals
 {
-    boost::signals2::signal<int ()> GetHeight;
-    boost::signals2::signal<bool (CNode*)> ProcessMessages;
-    boost::signals2::signal<bool (CNode*, bool)> SendMessages;
-    boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
-    boost::signals2::signal<void (NodeId)> FinalizeNode;
+	boost::signals2::signal<int ()> GetHeight;
+	boost::signals2::signal<bool (CNode*)> ProcessMessages;
+	boost::signals2::signal<bool (CNode*, bool)> SendMessages;
+	boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
+	boost::signals2::signal<void (NodeId)> FinalizeNode;
 };
-
-
 
 /** Time between pings automatically sent out for latency probing and keepalive (in seconds). */
 static const int PING_INTERVAL = 1 * 60;
@@ -94,7 +89,6 @@ static const size_t MAPASKFOR_MAX_SZ = MAX_INV_SZ;
 static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
 /** The maximum number of new addresses to accumulate before announcing. */
 static const unsigned int MAX_ADDR_TO_SEND = 1000;
-
 
 extern int nBestHeight;
 extern bool fDiscover;
@@ -162,4 +156,4 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
 void RelayTransactionLockReq(const CTransaction& tx, bool relayToAll=false);
 void DumpBanlist();
 
-#endif
+#endif // NET_H

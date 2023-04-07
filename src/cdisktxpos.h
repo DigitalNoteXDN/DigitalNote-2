@@ -12,24 +12,24 @@ bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b);
 class CDiskTxPos
 {
 public:
-    unsigned int nFile;
-    unsigned int nBlockPos;
-    unsigned int nTxPos;
+	unsigned int nFile;
+	unsigned int nBlockPos;
+	unsigned int nTxPos;
 
-    CDiskTxPos();
-    CDiskTxPos(unsigned int nFileIn, unsigned int nBlockPosIn, unsigned int nTxPosIn);
-	
+	CDiskTxPos();
+	CDiskTxPos(unsigned int nFileIn, unsigned int nBlockPosIn, unsigned int nTxPosIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
-    
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
+
 	void SetNull();
-    bool IsNull() const;
+	bool IsNull() const;
 	friend bool operator==(const CDiskTxPos& a, const CDiskTxPos& b);
-    friend bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b);
-    std::string ToString() const;
+	friend bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b);
+	std::string ToString() const;
 };
 
 #endif // CDISKTXPOS_H

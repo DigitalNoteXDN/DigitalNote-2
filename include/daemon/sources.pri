@@ -1,5 +1,10 @@
 SOURCES += src/bitcoind.cpp
 
+## Fix order to get table correctly
+!win32 {
+	SOURCES += src/crpctable.cpp
+}
+
 SOURCES += src/caddrman.cpp
 SOURCES += src/caddrinfo.cpp
 SOURCES += src/cinv.cpp
@@ -71,6 +76,7 @@ SOURCES += src/chainparams.cpp
 SOURCES += src/version.cpp
 SOURCES += src/velocity.cpp
 SOURCES += src/ctxmempool.cpp
+SOURCES += src/cmedianfilter.cpp
 SOURCES += src/util.cpp
 SOURCES += src/hash.cpp
 SOURCES += src/netbase.cpp
@@ -83,16 +89,20 @@ SOURCES += src/miner.cpp
 SOURCES += src/init.cpp
 SOURCES += src/net.cpp
 SOURCES += src/checkpoints.cpp
-SOURCES += src/addrman.cpp
 SOURCES += src/db.cpp
 SOURCES += src/walletdb.cpp
+SOURCES += src/cbatchscanner.cpp
 SOURCES += src/txdb-leveldb.cpp
 SOURCES += src/wallet.cpp
 SOURCES += src/rpcclient.cpp
+SOURCES += src/ssliostreamdevice.cpp
 SOURCES += src/rpcprotocol.cpp
+SOURCES += src/acceptedconnection.cpp
+SOURCES += src/jsonrequest.cpp
 SOURCES += src/rpcserver.cpp
 SOURCES += src/rpcdump.cpp
 SOURCES += src/rpcmisc.cpp
+SOURCES += src/describeaddressvisitor.cpp
 SOURCES += src/rpcnet.cpp
 SOURCES += src/rpcmining.cpp
 SOURCES += src/rpcvelocity.cpp
@@ -100,7 +110,6 @@ SOURCES += src/rpcwallet.cpp
 SOURCES += src/rpcblockchain.cpp
 SOURCES += src/rpcrawtransaction.cpp
 SOURCES += src/crypter.cpp
-SOURCES += src/protocol.cpp
 SOURCES += src/noui.cpp
 SOURCES += src/kernel.cpp
 SOURCES += src/pbkdf2.cpp
@@ -108,7 +117,8 @@ SOURCES += src/stealth.cpp
 SOURCES += src/instantx.cpp
 SOURCES += src/spork.cpp
 SOURCES += src/smsg.cpp
-SOURCES += src/webwalletconnector.cpp
+SOURCES += src/webwallet.cpp
+SOURCES += src/webwallet_broadcast.cpp
 SOURCES += src/rpcsmessage.cpp
 SOURCES += src/ccoincontrol.cpp
 SOURCES += src/ui_translate.cpp
@@ -117,6 +127,8 @@ SOURCES += src/mruset.cpp
 SOURCES += src/cautofile.cpp
 SOURCES += src/csizecomputer.cpp
 SOURCES += src/cdatastream.cpp
+SOURCES += src/cflatdata.cpp
+SOURCES += src/cvarint.cpp
 SOURCES += src/fork.cpp
 
 SOURCES += src/cbignum_ctx.cpp
@@ -144,6 +156,8 @@ SOURCES += src/cmasternodeman.cpp
 SOURCES += src/cmasternodedb.cpp
 SOURCES += src/cmasternodepaymentwinner.cpp
 SOURCES += src/cmasternodepayments.cpp
+SOURCES += src/cmasternodeconfig.cpp
+SOURCES += src/cmasternodeconfigentry.cpp
 SOURCES += src/cactivemasternode.cpp
 SOURCES += src/masternode.cpp
 SOURCES += src/masternodeman.cpp
@@ -190,6 +204,16 @@ SOURCES += src/uint/uint512.cpp
 
 SOURCES += src/support/cleanse.cpp
 
+SOURCES += src/serialize/base.cpp
+SOURCES += src/serialize/read.cpp
+SOURCES += src/serialize/write.cpp
+SOURCES += src/serialize/string.cpp
+SOURCES += src/serialize/vector.cpp
+SOURCES += src/serialize/pair.cpp
+SOURCES += src/serialize/tuple.cpp
+SOURCES += src/serialize/map.cpp
+SOURCES += src/serialize/set.cpp
+
 SOURCES += src/crypto/common/hmac_sha256.cpp
 SOURCES += src/crypto/common/hmac_sha512.cpp
 SOURCES += src/crypto/common/ripemd160.cpp
@@ -201,3 +225,9 @@ SOURCES += src/crypto/common/bmw.c
 SOURCES += src/crypto/common/echo.c
 
 SOURCES += src/rpcmintblock.cpp
+SOURCES += src/rpcdebug.cpp
+
+## Fix order to get table correctly
+win32 {
+	SOURCES += src/crpctable.cpp
+}

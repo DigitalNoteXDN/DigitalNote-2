@@ -1,7 +1,3 @@
-// Copyright (c) 2009-2013 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "support/cleanse.h"
 #include "allocators/lockedpagemanager.h"
 
@@ -17,15 +13,15 @@ boost::once_flag LockedPageManager::init_flag = BOOST_ONCE_INIT;
 template<typename T>
 void LockObject(const T &t)
 {
-    LockedPageManager::Instance().LockRange((void*)(&t), sizeof(T));
+	LockedPageManager::Instance().LockRange((void*)(&t), sizeof(T));
 }
 
 template<typename T>
 void UnlockObject(const T &t)
 {
-    memory_cleanse((void*)(&t), sizeof(T));
-	
-    LockedPageManager::Instance().UnlockRange((void*)(&t), sizeof(T));
+	memory_cleanse((void*)(&t), sizeof(T));
+
+	LockedPageManager::Instance().UnlockRange((void*)(&t), sizeof(T));
 }
 
 template void LockObject<unsigned char>(const unsigned char &t);

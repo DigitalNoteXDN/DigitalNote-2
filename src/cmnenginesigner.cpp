@@ -24,82 +24,88 @@
 
 bool CMNengineSigner::IsVinAssociatedWithPubkey(CTxIn& vin, CPubKey& pubkey)
 {
-    CScript payee2;
-    CTransaction txVin;
-    uint256 hash;
-	
-    payee2 = GetScriptForDestination(pubkey.GetID());
-	
+	CScript payee2;
+	CTransaction txVin;
+	uint256 hash;
+
+	payee2 = GetScriptForDestination(pubkey.GetID());
+
 	//if(GetTransaction(vin.prevout.hash, txVin, hash, true)){
-    if(GetTransaction(vin.prevout.hash, txVin, hash))
+	if(GetTransaction(vin.prevout.hash, txVin, hash))
 	{
-        for(CTxOut out : txVin.vout)
+		for(CTxOut out : txVin.vout)
 		{
 			if(out.nValue == MasternodeCollateral(pindexBest->nHeight)*COIN)
 			{
-                if(out.scriptPubKey == payee2) return true;
-            }
-        }
-    }
+				if(out.scriptPubKey == payee2)
+				{
+					return true;
+				}
+			}
+		}
+	}
 
-    return false;
+	return false;
 }
 
 bool CMNengineSigner::SetKey(const std::string &strSecret, std::string& errorMessage, CKey& key, CPubKey& pubkey)
 {
-    CDigitalNoteSecret vchSecret;
-    bool fGood = vchSecret.SetString(strSecret);
+	CDigitalNoteSecret vchSecret;
+	bool fGood = vchSecret.SetString(strSecret);
 
-    if (!fGood)
+	if (!fGood)
 	{
 		errorMessage = ui_translate("");//NOTE: previous message contents - Invalid private key.
-        
+		
 		return false;
-    }
-    
+	}
+
 	key = vchSecret.GetKey();
-    pubkey = key.GetPubKey();
-    
+	pubkey = key.GetPubKey();
+
 	LogPrintf("CMNengineSetKey(): SetKey now set successfully \n");
-    
+
 	return true;
 }
 
 bool CMNengineSigner::SignMessage(const std::string &strMessage, std::string& errorMessage, std::vector<unsigned char>& vchSig, CKey key)
 {
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
-    ss << strMessage;
+	CHashWriter ss(SER_GETHASH, 0);
+	ss << strMessageMagic;
+	ss << strMessage;
 
-    if (!key.SignCompact(ss.GetHash(), vchSig))
+	if (!key.SignCompact(ss.GetHash(), vchSig))
 	{
-        errorMessage = ui_translate("Signing failed.");
-        
+		errorMessage = ui_translate("Signing failed.");
+		
 		return false;
-    }
+	}
 
-    return true;
+	return true;
 }
 
-bool CMNengineSigner::VerifyMessage(CPubKey pubkey, std::vector<unsigned char>& vchSig, const std::string &strMessage, std::string& errorMessage)
+bool CMNengineSigner::VerifyMessage(CPubKey pubkey, std::vector<unsigned char>& vchSig, const std::string &strMessage,
+		std::string& errorMessage)
 {
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
-    ss << strMessage;
-
-    CPubKey pubkey2;
-    if (!pubkey2.RecoverCompact(ss.GetHash(), vchSig))
-	{
-        errorMessage = ui_translate("Error recovering public key.");
-        
-		return false;
-    }
-
-    if (fDebug && (pubkey2.GetID() != pubkey.GetID()))
-	{
-        LogPrintf("CMNengineSigner::VerifyMessage -- keys don't match: %s %s\n", pubkey2.GetID().ToString(), pubkey.GetID().ToString());
-	}
+	CHashWriter ss(SER_GETHASH, 0);
 	
-    return (pubkey2.GetID() == pubkey.GetID());
+	ss << strMessageMagic;
+	ss << strMessage;
+
+	CPubKey pubkey2;
+	
+	if (!pubkey2.RecoverCompact(ss.GetHash(), vchSig))
+	{
+		errorMessage = ui_translate("Error recovering public key.");
+		
+		return false;
+	}
+
+	if (fDebug && (pubkey2.GetID() != pubkey.GetID()))
+	{
+		LogPrintf("CMNengineSigner::VerifyMessage -- keys don't match: %s %s\n", pubkey2.GetID().ToString(), pubkey.GetID().ToString());
+	}
+
+	return (pubkey2.GetID() == pubkey.GetID());
 }
 

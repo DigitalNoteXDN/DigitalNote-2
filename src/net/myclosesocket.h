@@ -3,22 +3,22 @@
 
 inline int myclosesocket(SOCKET& hSocket)
 {
-    if (hSocket == INVALID_SOCKET)
+	if (hSocket == INVALID_SOCKET)
 	{
-        return WSAENOTSOCK;
+		return WSAENOTSOCK;
 	}
-	
+
 #ifdef WIN32
-    int ret = closesocket(hSocket);
+	int ret = closesocket(hSocket);
 #else
-    int ret = close(hSocket);
+	int ret = close(hSocket);
 #endif
-	
-    hSocket = INVALID_SOCKET;
-	
-    return ret;
+
+	hSocket = INVALID_SOCKET;
+
+	return ret;
 }
 
-#define closesocket(s)      myclosesocket(s)
+#define closesocket(s)	myclosesocket(s)
 
 #endif // MYCLOSESOCKET_H

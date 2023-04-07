@@ -1,33 +1,28 @@
-// Copyright (c) 2016-2020 The CryptoCoderz Team / Espers
-// Copyright (c) 2018-2020 The CryptoCoderz Team / INSaNe project
-// Copyright (c) 2018-2020 The Rubix project
-// Copyright (c) 2018-2020 The DigitalNote project
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_BLOCKPARAMS_H
-#define BITCOIN_BLOCKPARAMS_H
+#ifndef BLOCKPARAMS_H
+#define BLOCKPARAMS_H
 
 #include <cstdint>
 
 class CBlockIndex;
 
-#define START_MASTERNODE_PAYMENTS_TESTNET      9993058800  // OFF (NOT TOGGLED)
-#define START_MASTERNODE_PAYMENTS              1554494400  // OFF (Friday, April 5, 2019 1:00:00 PM GMT-07:00 | PDT)
-#define STOP_MASTERNODE_PAYMENTS_TESTNET       9993058800  // OFF (NOT TOGGLED)
-#define STOP_MASTERNODE_PAYMENTS               9993058800  // OFF (NOT TOGGLED)
+#define START_MASTERNODE_PAYMENTS_TESTNET	9993058800	// OFF (NOT TOGGLED)
+#define START_MASTERNODE_PAYMENTS			1554494400	// OFF (Friday, April 5, 2019 1:00:00 PM GMT-07:00 | PDT)
+#define STOP_MASTERNODE_PAYMENTS_TESTNET	9993058800	// OFF (NOT TOGGLED)
+#define STOP_MASTERNODE_PAYMENTS			9993058800	// OFF (NOT TOGGLED)
 
-#define START_DEVOPS_PAYMENTS_TESTNET          9993058800  // OFF (NOT TOGGLED)
-#define START_DEVOPS_PAYMENTS                  1554494400  // OFF (Friday, April 5, 2019 1:00:00 PM GMT-07:00 | PDT)
-#define STOP_DEVOPS_PAYMENTS_TESTNET           9993058800  // OFF (NOT TOGGLED)
-#define STOP_DEVOPS_PAYMENTS                   9993058800  // OFF (NOT TOGGLED)
+#define START_DEVOPS_PAYMENTS_TESTNET		9993058800	// OFF (NOT TOGGLED)
+#define START_DEVOPS_PAYMENTS				1554494400	// OFF (Friday, April 5, 2019 1:00:00 PM GMT-07:00 | PDT)
+#define STOP_DEVOPS_PAYMENTS_TESTNET		9993058800	// OFF (NOT TOGGLED)
+#define STOP_DEVOPS_PAYMENTS				9993058800	// OFF (NOT TOGGLED)
 
-#define INSTANTX_SIGNATURES_REQUIRED           2
-#define INSTANTX_SIGNATURES_TOTAL              4
+#define INSTANTX_SIGNATURES_REQUIRED		2
+#define INSTANTX_SIGNATURES_TOTAL			4
 
 // Define difficulty retarget algorithms
-enum DiffMode {
-    DIFF_DEFAULT = 0, // Default to invalid 0
-    DIFF_VRX     = 1, // Retarget using Terminal-Velocity-RateX
+enum DiffMode
+{
+	DIFF_DEFAULT = 0, // Default to invalid 0
+	DIFF_VRX = 1, // Retarget using Terminal-Velocity-RateX
 };
 
 void VRXswngdebug();
@@ -44,4 +39,4 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
 int64_t GetMasternodePayment(int nHeight, int64_t blockValue);
 int64_t GetDevOpsPayment(int nHeight, int64_t blockValue);
 
-#endif // BITCOIN_BLOCKPARAMS_H
+#endif // BLOCKPARAMS_H

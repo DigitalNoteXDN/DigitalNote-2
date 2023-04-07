@@ -78,15 +78,19 @@ public:
                                   QString::fromStdString(strName),
                                   QString::fromStdString(address.ToString())));
             }
-
-            std::set<CStealthAddress>::iterator it;
-            for (it = wallet->stealthAddresses.begin(); it != wallet->stealthAddresses.end(); ++it)
+			
+            for (setStealthAddresses_t::iterator it = wallet->stealthAddresses.begin(); it != wallet->stealthAddresses.end(); ++it)
             {
                 bool fMine = !(it->scan_secret.size() < 1);
-                cachedAddressTable.append(AddressTableEntry(fMine ? AddressTableEntry::Receiving : AddressTableEntry::Sending,
-                                  QString::fromStdString(it->label),
-                                  QString::fromStdString(it->Encoded()),
-                                  true));
+				
+                cachedAddressTable.append(
+					AddressTableEntry(
+						fMine ? AddressTableEntry::Receiving : AddressTableEntry::Sending,
+						QString::fromStdString(it->label),
+						QString::fromStdString(it->Encoded()),
+						true
+					)
+				);
             };
         }
 		
@@ -508,7 +512,7 @@ QString AddressTableModel::labelForAddress(const QString &address) const
         } else
         {
             CDigitalNoteAddress address_parsed(sAddr);
-            std::map<CTxDestination, std::string>::iterator mi = wallet->mapAddressBook.find(address_parsed.Get());
+            mapAddressBook_t::iterator mi = wallet->mapAddressBook.find(address_parsed.Get());
             if (mi != wallet->mapAddressBook.end())
             {
                 return QString::fromStdString(mi->second);

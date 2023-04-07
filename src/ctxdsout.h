@@ -8,9 +8,9 @@
 class CTxDSOut : public CTxOut
 {
 public:
-    int nSentTimes;								//times we've sent this anonymously
+	int nSentTimes;								//times we've sent this anonymously
 
-    CTxDSOut(const CTxOut& out);
+	CTxDSOut(const CTxOut& out);
 };
 
 #endif // CTXDSOUT_H

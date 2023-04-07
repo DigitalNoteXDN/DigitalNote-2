@@ -1,7 +1,3 @@
-// Copyright (c) 2011-2014 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef WALLETMODEL_H
 #define WALLETMODEL_H
 
@@ -163,7 +159,10 @@ public:
     bool changePassphrase(const SecureString &oldPass, const SecureString &newPass);
     // Wallet backup
     bool backupWallet(const QString &filename);
-
+	// Wallet Repair
+	void checkWallet(int& nMismatchSpent, int64_t& nBalanceInQuestion);
+	void repairWallet(int& nMismatchSpent, int64_t& nBalanceInQuestio);
+	
     // RAI object for unlocking wallet, returned by requestUnlock()
     class UnlockContext
     {

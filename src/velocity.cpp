@@ -1,10 +1,3 @@
-// Copyright (c) 2014 The Cryptocoin Revival Foundation
-// Copyright (c) 2015-2020 The CryptoCoderz Team / Espers
-// Copyright (c) 2018-2020 The Rubix Project
-// Copyright (c) 2018-2020 The DigitalNote Project
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "ctxin.h"
 #include "ctxout.h"
 #include "ctxindex.h"
@@ -59,7 +52,7 @@ bool Velocity_check(int nHeight)
    Returns true if proposed Block matches constrains */
 bool Velocity(CBlockIndex* prevBlock, CBlock* block)
 {
-	const MapPrevTx mapInputs;
+	const mapPrevTx_t mapInputs;
 
 	// Define values
 	int64_t TXvalue = 0;
@@ -262,3 +255,4 @@ bool Velocity(CBlockIndex* prevBlock, CBlock* block)
 
 	return true;
 }
+

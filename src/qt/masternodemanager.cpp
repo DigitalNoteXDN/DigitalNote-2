@@ -28,6 +28,8 @@
 #include "cmasternodeman.h"
 #include "masternodeman.h"
 #include "cactivemasternode.h"
+#include "cmasternodeconfig.h"
+#include "cmasternodeconfigentry.h"
 #include "masternodeconfig.h"
 #include "masternode_extern.h"
 #include "mnengine_extern.h"
@@ -282,7 +284,7 @@ void MasternodeManager::on_startButton_clicked()
 
 	statusObj += "<center>Alias: " + sAlias;
 
-	for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 	{
 		if(mne.getAlias() == sAlias)
 		{
@@ -319,7 +321,7 @@ void MasternodeManager::on_startButton_clicked()
 
 void MasternodeManager::on_startAllButton_clicked()
 {
-    std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+    std::vector<CMasternodeConfigEntry> mnEntries;
 
     int total = 0;
     int successful = 0;
@@ -338,7 +340,7 @@ void MasternodeManager::on_startAllButton_clicked()
 		return;
     }
 
-    for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+    for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 	{
         total++;
 
@@ -417,7 +419,7 @@ void MasternodeManager::on_stopButton_clicked()
 
 	statusObj += "<center>Alias: " + sAlias;
 
-	for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 	{
 		if(mne.getAlias() == sAlias)
 		{
@@ -455,14 +457,14 @@ void MasternodeManager::on_stopAllButton_clicked()
 		// ????
     }
 
-    std::vector<CMasternodeConfig::CMasternodeEntry> mnEntries;
+    std::vector<CMasternodeConfigEntry> mnEntries;
 
     int total = 0;
     int successful = 0;
     int fail = 0;
     std::string statusObj;
 
-    for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+    for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 	{
         total++;
 
@@ -502,7 +504,7 @@ void MasternodeManager::on_stopAllButton_clicked()
 
 void MasternodeManager::on_UpdateButton_clicked()
 {
-	for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries())
+	for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
 	{
 		std::string errorMessage;
 		std::string strDonateAddress = "";

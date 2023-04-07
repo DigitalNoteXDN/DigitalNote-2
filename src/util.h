@@ -1,9 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_UTIL_H
-#define BITCOIN_UTIL_H
+#ifndef UTIL_H
+#define UTIL_H
 
 #include <algorithm>
 #include <map>
@@ -18,7 +14,6 @@
 #include <sys/resource.h>
 #endif
 
-#include "serialize.h"
 #include "tinyformat.h"
 #include "allocators/securestring.h"
 
@@ -33,38 +28,38 @@ namespace boost
 class CNetAddr;
 class uint256;
 
-#define BEGIN(a)            ((char*)&(a))
-#define END(a)              ((char*)&((&(a))[1]))
-#define UBEGIN(a)           ((unsigned char*)&(a))
-#define UEND(a)             ((unsigned char*)&((&(a))[1]))
-#define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
+#define BEGIN(a)			((char*)&(a))
+#define END(a)				((char*)&((&(a))[1]))
+#define UBEGIN(a)			((unsigned char*)&(a))
+#define UEND(a)				((unsigned char*)&((&(a))[1]))
+#define ARRAYLEN(array)		(sizeof(array)/sizeof((array)[0]))
 
-#define UVOIDBEGIN(a)        ((void*)&(a))
-#define CVOIDBEGIN(a)        ((const void*)&(a))
-#define UINTBEGIN(a)        ((uint32_t*)&(a))
-#define CUINTBEGIN(a)        ((const uint32_t*)&(a))
+#define UVOIDBEGIN(a)		((void*)&(a))
+#define CVOIDBEGIN(a)		((const void*)&(a))
+#define UINTBEGIN(a)		((uint32_t*)&(a))
+#define CUINTBEGIN(a)		((const uint32_t*)&(a))
 
 /* Format characters for (s)size_t and ptrdiff_t */
 #if defined(_MSC_VER) || defined(__MSVCRT__)
 
-  /* (s)size_t and ptrdiff_t have the same size specifier in MSVC:
-     http://msdn.microsoft.com/en-us/library/tcxf1dw6%28v=vs.100%29.aspx
-   */
-  #define PRIszx    "Ix"
-  #define PRIszu    "Iu"
-  #define PRIszd    "Id"
-  #define PRIpdx    "Ix"
-  #define PRIpdu    "Iu"
-  #define PRIpdd    "Id"
+/* (s)size_t and ptrdiff_t have the same size specifier in MSVC:
+	http://msdn.microsoft.com/en-us/library/tcxf1dw6%28v=vs.100%29.aspx
+*/
+#define PRIszx		"Ix"
+#define PRIszu		"Iu"
+#define PRIszd		"Id"
+#define PRIpdx		"Ix"
+#define PRIpdu		"Iu"
+#define PRIpdd		"Id"
 
 #else /* C99 standard */
 
-  #define PRIszx    "zx"
-  #define PRIszu    "zu"
-  #define PRIszd    "zd"
-  #define PRIpdx    "tx"
-  #define PRIpdu    "tu"
-  #define PRIpdd    "td"
+#define PRIszx		"zx"
+#define PRIszu		"zu"
+#define PRIszd		"zd"
+#define PRIpdx		"tx"
+#define PRIpdu		"tu"
+#define PRIpdd		"td"
 
 #endif // defined(_MSC_VER) || defined(__MSVCRT__)
 
@@ -72,33 +67,33 @@ class uint256;
 template <size_t nBytes, typename T>
 T* alignup(T* p)
 {
-    union
-    {
-        T* ptr;
-        size_t n;
-    } u;
-    
+	union
+	{
+		T* ptr;
+		size_t n;
+	} u;
+
 	u.ptr = p;
-    u.n = (u.n + (nBytes-1)) & ~(nBytes-1);
-	
-    return u.ptr;
+	u.n = (u.n + (nBytes-1)) & ~(nBytes-1);
+
+	return u.ptr;
 }
 
 #ifdef WIN32
 
-#define MSG_NOSIGNAL        0
-#define MSG_DONTWAIT        0
+#define MSG_NOSIGNAL		0
+#define MSG_DONTWAIT		0
 
 #ifndef S_IRUSR
 
-#define S_IRUSR             0400
-#define S_IWUSR             0200
+#define S_IRUSR				0400
+#define S_IWUSR				0200
 
 #endif // S_IRUSR
 
 #else // WIN32
 
-#define MAX_PATH            1024
+#define MAX_PATH			1024
 
 #endif // WIN32
 
@@ -158,28 +153,28 @@ int LogPrintStr(const std::string &str);
 /* When we switch to C++11, this can be switched to variadic templates instead
  * of this macro-based construction (see tinyformat.h).
  */
-#define MAKE_ERROR_AND_LOG_FUNC(n)                                        \
-    /*   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline int LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
-    {                                                                                \
-        if(!LogAcceptCategory(category)) return 0;                                   \
-        return LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n)));             \
-    }                                                                                \
-    /*   Log error and return false */                                               \
-    template<TINYFORMAT_ARGTYPES(n)>                                                 \
-    static inline bool error(const char* format, TINYFORMAT_VARARGS(n))              \
-    {                                                                                \
-        LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
-        return false;                                                                \
-    }                                                                                \
-    /*   Log error and return n */                                                   \
-    template<TINYFORMAT_ARGTYPES(n)>                                                 \
-    static inline int errorN(int rv, const char* format, TINYFORMAT_VARARGS(n))      \
-    {                                                                                \
-        LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
-        return rv;                                                                   \
-    }
+#define MAKE_ERROR_AND_LOG_FUNC(n) \
+	/*   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
+	template<TINYFORMAT_ARGTYPES(n)> \
+	static inline int LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
+	{ \
+		if(!LogAcceptCategory(category)) return 0; \
+		return LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
+	} \
+	/*   Log error and return false */ \
+	template<TINYFORMAT_ARGTYPES(n)> \
+	static inline bool error(const char* format, TINYFORMAT_VARARGS(n)) \
+	{ \
+		LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
+		return false; \
+	} \
+	/*   Log error and return n */ \
+	template<TINYFORMAT_ARGTYPES(n)> \
+	static inline int errorN(int rv, const char* format, TINYFORMAT_VARARGS(n)) \
+	{ \
+		LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
+		return rv; \
+	}
 
 
 TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
@@ -189,30 +184,28 @@ TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
  */
 static inline int LogPrint(const char* category, const char* format)
 {
-    if(!LogAcceptCategory(category))
+	if(!LogAcceptCategory(category))
 	{
 		return 0;
-    }
-	
+	}
+
 	return LogPrintStr(format);
 }
 
 static inline bool error(const char* format)
 {
-    LogPrintStr(std::string("ERROR: ") + format + "\n");
-    
+	LogPrintStr(std::string("ERROR: ") + format + "\n");
+
 	return false;
 }
 
 static inline int errorN(int n, const char* format)
 {
-    LogPrintStr(std::string("ERROR: ") + format + "\n");
-	
-    return n;
+	LogPrintStr(std::string("ERROR: ") + format + "\n");
+
+	return n;
 }
 
-extern std::map<std::string, std::string> mapArgs;
-extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
 extern const signed char p_util_hexdigit[256];
 
 void RandAddSeed();
@@ -285,86 +278,88 @@ bool ParseInt32(const std::string& str, int32_t *out);
 template<typename T>
 std::string HexStr(const T itbegin, const T itend, bool fSpaces=false)
 {
-    std::string rv;
-    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    rv.reserve((itend-itbegin)*3);
-    for(T it = itbegin; it < itend; ++it)
-    {
-        unsigned char val = (unsigned char)(*it);
-        if(fSpaces && it != itbegin)
-            rv.push_back(' ');
-        rv.push_back(hexmap[val>>4]);
-        rv.push_back(hexmap[val&15]);
-    }
+	std::string rv;
+	static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+									 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+	rv.reserve((itend-itbegin)*3);
+	for(T it = itbegin; it < itend; ++it)
+	{
+		unsigned char val = (unsigned char)(*it);
+		if(fSpaces && it != itbegin)
+			rv.push_back(' ');
+		rv.push_back(hexmap[val>>4]);
+		rv.push_back(hexmap[val&15]);
+	}
 
-    return rv;
+	return rv;
 }
 
 template<typename T>
 std::string HexStr(const T& vch, bool fSpaces=false)
 {
-    return HexStr(vch.begin(), vch.end(), fSpaces);
+	return HexStr(vch.begin(), vch.end(), fSpaces);
 }
 
 signed char HexDigit(char c);
 
 inline std::string i64tostr(int64_t n)
 {
-    return strprintf("%d", n);
+	return strprintf("%d", n);
 }
 
 inline std::string itostr(int n)
 {
-    return strprintf("%d", n);
+	return strprintf("%d", n);
 }
 
 inline int64_t atoi64(const char* psz)
 {
 #ifdef _MSC_VER
-    return _atoi64(psz);
+	return _atoi64(psz);
 #else
-    return strtoll(psz, NULL, 10);
+	return strtoll(psz, NULL, 10);
 #endif
 }
 
 inline int64_t atoi64(const std::string& str)
 {
 #ifdef _MSC_VER
-    return _atoi64(str.c_str());
+	return _atoi64(str.c_str());
 #else
-    return strtoll(str.c_str(), NULL, 10);
+	return strtoll(str.c_str(), NULL, 10);
 #endif
 }
 
 inline int atoi(const std::string& str)
 {
-    return atoi(str.c_str());
+	return atoi(str.c_str());
 }
 
 inline int roundint(double d)
 {
-    return (int)(d > 0 ? d + 0.5 : d - 0.5);
+	return (int)(d > 0 ? d + 0.5 : d - 0.5);
 }
 
 inline int64_t roundint64(double d)
 {
-    return (int64_t)(d > 0 ? d + 0.5 : d - 0.5);
+	return (int64_t)(d > 0 ? d + 0.5 : d - 0.5);
 }
 
 inline int64_t abs64(int64_t n)
 {
-    return (n >= 0 ? n : -n);
+	return (n >= 0 ? n : -n);
 }
 
 inline std::string leftTrim(std::string src, char chr)
 {
-    std::string::size_type pos = src.find_first_not_of(chr, 0);
+	std::string::size_type pos = src.find_first_not_of(chr, 0);
 
-    if(pos > 0)
-        src.erase(0, pos);
-
-    return src;
+	if(pos > 0)
+	{
+		src.erase(0, pos);
+	}
+	
+	return src;
 }
 
 int64_t GetPerformanceCounter();
@@ -376,23 +371,25 @@ std::string DateTimeStrFormat(const char* pszFormat, int64_t nTime);
 static const std::string strTimestampFormat = "%Y-%m-%d %H:%M:%S UTC";
 inline std::string DateTimeStrFormat(int64_t nTime)
 {
-    return DateTimeStrFormat(strTimestampFormat.c_str(), nTime);
+	return DateTimeStrFormat(strTimestampFormat.c_str(), nTime);
 }
 
 
 template<typename T>
 void skipspaces(T& it)
 {
-    while (isspace(*it))
-        ++it;
+	while (isspace(*it))
+	{
+		++it;
+	}
 }
 
 inline bool IsSwitchChar(char c)
 {
 #ifdef WIN32
-    return c == '-' || c == '/';
+	return c == '-' || c == '/';
 #else
-    return c == '-';
+	return c == '-';
 #endif
 }
 
@@ -452,9 +449,10 @@ extern uint32_t insecure_rand_Rz;
 extern uint32_t insecure_rand_Rw;
 static inline uint32_t insecure_rand(void)
 {
-  insecure_rand_Rz=36969*(insecure_rand_Rz&65535)+(insecure_rand_Rz>>16);
-  insecure_rand_Rw=18000*(insecure_rand_Rw&65535)+(insecure_rand_Rw>>16);
-  return (insecure_rand_Rw<<16)+insecure_rand_Rz;
+	insecure_rand_Rz = 36969 * (insecure_rand_Rz & 65535) + (insecure_rand_Rz >> 16);
+	insecure_rand_Rw = 18000 * (insecure_rand_Rw & 65535) + (insecure_rand_Rw >> 16);
+	
+	return (insecure_rand_Rw << 16) + insecure_rand_Rz;
 }
 
 /**
@@ -471,76 +469,28 @@ void seed_insecure_rand(bool fDeterministic=false);
 template <typename T>
 bool TimingResistantEqual(const T& a, const T& b)
 {
-    if (b.size() == 0) return a.size() == 0;
-    size_t accumulator = a.size() ^ b.size();
-    for (size_t i = 0; i < a.size(); i++)
-        accumulator |= a[i] ^ b[i%b.size()];
-    return accumulator == 0;
+	if (b.size() == 0)
+	{
+		return a.size() == 0;
+	}
+	
+	size_t accumulator = a.size() ^ b.size();
+	
+	for (size_t i = 0; i < a.size(); i++)
+	{
+		accumulator |= a[i] ^ b[i%b.size()];
+	}
+	
+	return accumulator == 0;
 }
 
-/** Median filter over a stream of values.
- * Returns the median of the last N numbers
- */
-template <typename T>
-class CMedianFilter
-{
-private:
-    std::vector<T> vValues;
-    std::vector<T> vSorted;
-    unsigned int nSize;
-public:
-    CMedianFilter(unsigned int size, T initial_value):
-        nSize(size)
-    {
-        vValues.reserve(size);
-        vValues.push_back(initial_value);
-        vSorted = vValues;
-    }
-
-    void input(T value)
-    {
-        if(vValues.size() == nSize)
-        {
-            vValues.erase(vValues.begin());
-        }
-        vValues.push_back(value);
-
-        vSorted.resize(vValues.size());
-        std::copy(vValues.begin(), vValues.end(), vSorted.begin());
-        std::sort(vSorted.begin(), vSorted.end());
-    }
-
-    T median() const
-    {
-        int size = vSorted.size();
-        assert(size>0);
-        if(size & 1) // Odd number of elements
-        {
-            return vSorted[size/2];
-        }
-        else // Even number of elements
-        {
-            return (vSorted[size/2-1] + vSorted[size/2]) / 2;
-        }
-    }
-
-    int size() const
-    {
-        return vValues.size();
-    }
-
-    std::vector<T> sorted () const
-    {
-        return vSorted;
-    }
-};
-
 #ifndef WIN32
-#define THREAD_PRIORITY_LOWEST          PRIO_MAX
-#define THREAD_PRIORITY_BELOW_NORMAL    2
-#define THREAD_PRIORITY_NORMAL          0
-#define THREAD_PRIORITY_ABOVE_NORMAL    0
-#endif
+#define THREAD_PRIORITY_LOWEST			PRIO_MAX
+#define THREAD_PRIORITY_BELOW_NORMAL	2
+#define THREAD_PRIORITY_NORMAL			0
+#define THREAD_PRIORITY_ABOVE_NORMAL	0
+#endif // WIN32
+
 void SetThreadPriority(int nPriority);
 
 void RenameThread(const char* name);
@@ -552,4 +502,4 @@ void LoopForever(const char* name, Callable func, int64_t msecs);
 template <typename Callable>
 void TraceThread(const char* name,  Callable func);
 
-#endif
+#endif // UTIL_H

@@ -6,78 +6,76 @@
 
 void CUnsignedAlert::SetNull()
 {
-    nVersion = 1;
-    nRelayUntil = 0;
-    nExpiration = 0;
-    nID = 0;
-    nCancel = 0;
-    nMinVer = 0;
-    nMaxVer = 0;
-    nPriority = 0;
+	nVersion = 1;
+	nRelayUntil = 0;
+	nExpiration = 0;
+	nID = 0;
+	nCancel = 0;
+	nMinVer = 0;
+	nMaxVer = 0;
+	nPriority = 0;
 
-    setCancel.clear();
-    setSubVer.clear();
-    strComment.clear();
-    strStatusBar.clear();
-    strReserved.clear();
+	setCancel.clear();
+	setSubVer.clear();
+	strComment.clear();
+	strStatusBar.clear();
+	strReserved.clear();
 }
 
 std::string CUnsignedAlert::ToString() const
 {
-    std::string strSetCancel;
-    std::string strSetSubVer;
-    
+	std::string strSetCancel;
+	std::string strSetSubVer;
+
 	for(int n : setCancel)
 	{
-        strSetCancel += strprintf("%d ", n);
+		strSetCancel += strprintf("%d ", n);
 	}
-	
-    for(std::string str : setSubVer)
+
+	for(std::string str : setSubVer)
 	{
-        strSetSubVer += "\"" + str + "\" ";
+		strSetSubVer += "\"" + str + "\" ";
 	}
-	
-    return strprintf(
-        "CAlert(\n"
-        "    nVersion     = %d\n"
-        "    nRelayUntil  = %d\n"
-        "    nExpiration  = %d\n"
-        "    nID          = %d\n"
-        "    nCancel      = %d\n"
-        "    setCancel    = %s\n"
-        "    nMinVer      = %d\n"
-        "    nMaxVer      = %d\n"
-        "    setSubVer    = %s\n"
-        "    nPriority    = %d\n"
-        "    strComment   = \"%s\"\n"
-        "    strStatusBar = \"%s\"\n"
-        ")\n",
-        nVersion,
-        nRelayUntil,
-        nExpiration,
-        nID,
-        nCancel,
-        strSetCancel,
-        nMinVer,
-        nMaxVer,
-        strSetSubVer,
-        nPriority,
-        strComment,
-        strStatusBar);
+
+	return strprintf(
+		"CAlert(\n"
+		"    nVersion     = %d\n"
+		"    nRelayUntil  = %d\n"
+		"    nExpiration  = %d\n"
+		"    nID          = %d\n"
+		"    nCancel      = %d\n"
+		"    setCancel    = %s\n"
+		"    nMinVer      = %d\n"
+		"    nMaxVer      = %d\n"
+		"    setSubVer    = %s\n"
+		"    nPriority    = %d\n"
+		"    strComment   = \"%s\"\n"
+		"    strStatusBar = \"%s\"\n"
+		")\n",
+		nVersion,
+		nRelayUntil,
+		nExpiration,
+		nID,
+		nCancel,
+		strSetCancel,
+		nMinVer,
+		nMaxVer,
+		strSetSubVer,
+		nPriority,
+		strComment,
+		strStatusBar
+	);
 }
 
 unsigned int CUnsignedAlert::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
-	
+
 	READWRITE(this->nVersion);
 	nVersion = this->nVersion;
 	READWRITE(nRelayUntil);
@@ -92,7 +90,7 @@ unsigned int CUnsignedAlert::GetSerializeSize(int nType, int nVersion) const
 	READWRITE(strComment);
 	READWRITE(strStatusBar);
 	READWRITE(strReserved);
-	
+
 	return nSerSize;
 }
 
@@ -100,12 +98,8 @@ template<typename Stream>
 void CUnsignedAlert::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(this->nVersion);
 	nVersion = this->nVersion;
 	READWRITE(nRelayUntil);
@@ -126,12 +120,8 @@ template<typename Stream>
 void CUnsignedAlert::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
-	
+
 	READWRITE(this->nVersion);
 	nVersion = this->nVersion;
 	READWRITE(nRelayUntil);

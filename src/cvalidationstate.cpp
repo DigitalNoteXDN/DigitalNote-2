@@ -14,15 +14,15 @@ bool CValidationState::DoS(int level, bool ret, unsigned char chRejectCodeIn, st
 	chRejectCode = chRejectCodeIn;
 	strRejectReason = strRejectReasonIn;
 	corruptionPossible = corruptionIn;
-	
+
 	if (mode == MODE_ERROR)
 	{
 		return ret;
 	}
-	
+
 	nDoS += level;
 	mode = MODE_INVALID;
-	
+
 	return ret;
 }
 
@@ -37,16 +37,16 @@ bool CValidationState::Error(std::string strRejectReasonIn)
 	{
 		strRejectReason = strRejectReasonIn;
 	}
-	
+
 	mode = MODE_ERROR;
-	
+
 	return false;
 }
 
 bool CValidationState::Abort(const std::string &msg)
 {
 	AbortNode(msg);
-	
+
 	return Error(msg);
 }
 
@@ -73,7 +73,7 @@ bool CValidationState::IsInvalid(int &nDoSOut) const
 		
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -91,3 +91,4 @@ std::string CValidationState::GetRejectReason() const
 {
 	return strRejectReason;
 }
+

@@ -14,31 +14,31 @@
 class CUnsignedAlert
 {
 public:
-    int nVersion;
-    int64_t nRelayUntil;      // when newer nodes stop relaying to newer nodes
-    int64_t nExpiration;
-    int nID;
-    int nCancel;
-    std::set<int> setCancel;
-    int nMinVer;            // lowest version inclusive
-    int nMaxVer;            // highest version inclusive
-    std::set<std::string> setSubVer;  // empty matches all
-    int nPriority;
+	int nVersion;
+	int64_t nRelayUntil;				// when newer nodes stop relaying to newer nodes
+	int64_t nExpiration;
+	int nID;
+	int nCancel;
+	std::set<int> setCancel;
+	int nMinVer;						// lowest version inclusive
+	int nMaxVer;						// highest version inclusive
+	std::set<std::string> setSubVer;	// empty matches all
+	int nPriority;
 
-    // Actions
-    std::string strComment;
-    std::string strStatusBar;
-    std::string strReserved;
-	
+	// Actions
+	std::string strComment;
+	std::string strStatusBar;
+	std::string strReserved;
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    void SetNull();
+	void SetNull();
 
-    std::string ToString() const;
+	std::string ToString() const;
 };
 
 #endif // CUNSIGNEDALERT_H

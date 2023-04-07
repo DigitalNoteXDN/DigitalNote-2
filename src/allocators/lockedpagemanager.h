@@ -20,30 +20,30 @@
 class LockedPageManager : public LockedPageManagerBase<MemoryPageLocker>
 {
 private:	
-    static LockedPageManager* _instance;
-    static boost::once_flag init_flag;
+	static LockedPageManager* _instance;
+	static boost::once_flag init_flag;
 
-    LockedPageManager();
+	LockedPageManager();
 
-    static void CreateInstance()
-    {
-        // Using a local static instance guarantees that the object is initialized
-        // when it's first needed and also deinitialized after all objects that use
-        // it are done with it.  I can think of one unlikely scenario where we may
-        // have a static deinitialization order/problem, but the check in
-        // LockedPageManagerBase's destructor helps us detect if that ever happens.
-        static LockedPageManager instance;
+	static void CreateInstance()
+	{
+		// Using a local static instance guarantees that the object is initialized
+		// when it's first needed and also deinitialized after all objects that use
+		// it are done with it.  I can think of one unlikely scenario where we may
+		// have a static deinitialization order/problem, but the check in
+		// LockedPageManagerBase's destructor helps us detect if that ever happens.
+		static LockedPageManager instance;
 		
-        LockedPageManager::_instance = &instance;
-    }
+		LockedPageManager::_instance = &instance;
+	}
 
 public:
-    static LockedPageManager& Instance() 
-    {
-        boost::call_once(LockedPageManager::CreateInstance, LockedPageManager::init_flag);
+	static LockedPageManager& Instance() 
+	{
+		boost::call_once(LockedPageManager::CreateInstance, LockedPageManager::init_flag);
 		
-        return *LockedPageManager::_instance;
-    }
+		return *LockedPageManager::_instance;
+	}
 };
 
 #endif // LOCKEDPAGEMANAGER_H

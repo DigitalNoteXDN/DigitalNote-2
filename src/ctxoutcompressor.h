@@ -7,16 +7,16 @@ class CTxOut;
 class CTxOutCompressor
 {
 private:
-    CTxOut& txout;
+	CTxOut& txout;
 
 public:
-    CTxOutCompressor(CTxOut& txoutIn);
-	
+	CTxOutCompressor(CTxOut& txoutIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CTXOUTCOMPRESSOR_H

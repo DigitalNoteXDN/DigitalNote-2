@@ -19,12 +19,9 @@
 unsigned int CConsensusVote::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -40,11 +37,7 @@ template<typename Stream>
 void CConsensusVote::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(txHash);
 	READWRITE(vinMasternode);
@@ -56,11 +49,7 @@ template<typename Stream>
 void CConsensusVote::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(txHash);
 	READWRITE(vinMasternode);
@@ -73,57 +62,65 @@ template void CConsensusVote::Unserialize<CDataStream>(CDataStream& s, int nType
 
 uint256 CConsensusVote::GetHash() const
 {
-    return vinMasternode.prevout.hash + vinMasternode.prevout.n + txHash;
+	return vinMasternode.prevout.hash + vinMasternode.prevout.n + txHash;
 }
 
 bool CConsensusVote::SignatureValid()
 {
-    std::string errorMessage;
-    std::string strMessage = txHash.ToString().c_str() + boost::lexical_cast<std::string>(nBlockHeight);
-    //LogPrintf("verify strMessage %s \n", strMessage.c_str());
+	std::string errorMessage;
+	std::string strMessage = txHash.ToString().c_str() + boost::lexical_cast<std::string>(nBlockHeight);
+	//LogPrintf("verify strMessage %s \n", strMessage.c_str());
 
-    CMasternode* pmn = mnodeman.Find(vinMasternode);
+	CMasternode* pmn = mnodeman.Find(vinMasternode);
 
-    if(pmn == NULL)
-    {
-        LogPrintf("InstantX::CConsensusVote::SignatureValid() - Unknown Masternode\n");
-        return false;
-    }
+	if(pmn == NULL)
+	{
+		LogPrintf("InstantX::CConsensusVote::SignatureValid() - Unknown Masternode\n");
+		
+		return false;
+	}
 
-    if(!mnEngineSigner.VerifyMessage(pmn->pubkey2, vchMasterNodeSignature, strMessage, errorMessage)) {
-        LogPrintf("InstantX::CConsensusVote::SignatureValid() - Verify message failed\n");
-        return false;
-    }
+	if(!mnEngineSigner.VerifyMessage(pmn->pubkey2, vchMasterNodeSignature, strMessage, errorMessage))
+	{
+		LogPrintf("InstantX::CConsensusVote::SignatureValid() - Verify message failed\n");
+		
+		return false;
+	}
 
-    return true;
+	return true;
 }
 
 bool CConsensusVote::Sign()
 {
-    std::string errorMessage;
+	std::string errorMessage;
 
-    CKey key2;
-    CPubKey pubkey2;
-    std::string strMessage = txHash.ToString().c_str() + boost::lexical_cast<std::string>(nBlockHeight);
-    //LogPrintf("signing strMessage %s \n", strMessage.c_str());
-    //LogPrintf("signing privkey %s \n", strMasterNodePrivKey.c_str());
+	CKey key2;
+	CPubKey pubkey2;
+	std::string strMessage = txHash.ToString().c_str() + boost::lexical_cast<std::string>(nBlockHeight);
+	//LogPrintf("signing strMessage %s \n", strMessage.c_str());
+	//LogPrintf("signing privkey %s \n", strMasterNodePrivKey.c_str());
 
-    if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, key2, pubkey2))
-    {
-        LogPrintf("CConsensusVote::Sign() - ERROR: Invalid masternodeprivkey: '%s'\n", errorMessage.c_str());
-        return false;
-    }
+	if(!mnEngineSigner.SetKey(strMasterNodePrivKey, errorMessage, key2, pubkey2))
+	{
+		LogPrintf("CConsensusVote::Sign() - ERROR: Invalid masternodeprivkey: '%s'\n", errorMessage.c_str());
+		
+		return false;
+	}
 
-    if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, key2)) {
-        LogPrintf("CConsensusVote::Sign() - Sign message failed");
-        return false;
-    }
+	if(!mnEngineSigner.SignMessage(strMessage, errorMessage, vchMasterNodeSignature, key2))
+	{
+		LogPrintf("CConsensusVote::Sign() - Sign message failed");
+		
+		return false;
+	}
 
-    if(!mnEngineSigner.VerifyMessage(pubkey2, vchMasterNodeSignature, strMessage, errorMessage)) {
-        LogPrintf("CConsensusVote::Sign() - Verify message failed");
-        return false;
-    }
+	if(!mnEngineSigner.VerifyMessage(pubkey2, vchMasterNodeSignature, strMessage, errorMessage))
+	{
+		LogPrintf("CConsensusVote::Sign() - Verify message failed");
+		
+		return false;
+	}
 
-    return true;
+	return true;
 }
 

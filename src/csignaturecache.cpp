@@ -46,14 +46,18 @@ void CSignatureCache::Set(const uint256 &hash, const std::vector<unsigned char>&
 		// than our cache size.
 		uint256 randomHash = GetRandHash();
 		std::vector<unsigned char> unused;
-		std::set<sigdata_type>::iterator it =
-			setValid.lower_bound(sigdata_type(randomHash, unused, unused));
+		std::set<sigdata_type>::iterator it = setValid.lower_bound(sigdata_type(randomHash, unused, unused));
+		
 		if (it == setValid.end())
+		{
 			it = setValid.begin();
+		}
+		
 		setValid.erase(*it);
 	}
 
 	sigdata_type k(hash, vchSig, pubKey);
+	
 	setValid.insert(k);
 }
 

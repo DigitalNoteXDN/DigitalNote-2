@@ -3,6 +3,7 @@
 #include "chashwriter.h"
 #include "cautofile.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
 
 #include "cdisktxpos.h"
 
@@ -20,12 +21,9 @@ CDiskTxPos::CDiskTxPos(unsigned int nFileIn, unsigned int nBlockPosIn, unsigned 
 unsigned int CDiskTxPos::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -38,11 +36,7 @@ template<typename Stream>
 void CDiskTxPos::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(FLATDATA(*this));
 }
@@ -51,11 +45,7 @@ template<typename Stream>
 void CDiskTxPos::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(FLATDATA(*this));
 }
@@ -80,9 +70,9 @@ bool CDiskTxPos::IsNull() const
 
 bool operator==(const CDiskTxPos& a, const CDiskTxPos& b)
 {
-	return (a.nFile     == b.nFile &&
+	return (a.nFile == b.nFile &&
 			a.nBlockPos == b.nBlockPos &&
-			a.nTxPos    == b.nTxPos);
+			a.nTxPos == b.nTxPos);
 }
 
 bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b)
@@ -93,8 +83,12 @@ bool operator!=(const CDiskTxPos& a, const CDiskTxPos& b)
 std::string CDiskTxPos::ToString() const
 {
 	if (IsNull())
+	{
 		return "null";
+	}
 	else
+	{
 		return strprintf("(nFile=%u, nBlockPos=%u, nTxPos=%u)", nFile, nBlockPos, nTxPos);
+	}
 }
 

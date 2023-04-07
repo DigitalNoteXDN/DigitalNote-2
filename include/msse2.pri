@@ -1,6 +1,9 @@
 *-g++-32 {
-    message("32 platform, adding -msse2 flag")
+	message("32 platform, adding -m32 flag")
 
-    QMAKE_CXXFLAGS += -msse2
-    QMAKE_CFLAGS += -msse2
+	QMAKE_CXXFLAGS += -m32
+	QMAKE_CFLAGS += -m32
+	QMAKE_LDFLAGS += -m32
+	SECP256K1_FLAGS += -m32
+	LEVELDB_FLAGS += -m32
 }

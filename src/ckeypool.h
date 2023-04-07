@@ -9,17 +9,17 @@
 class CKeyPool
 {
 public:
-    int64_t nTime;
-    CPubKey vchPubKey;
+	int64_t nTime;
+	CPubKey vchPubKey;
 
-    CKeyPool();
-    CKeyPool(const CPubKey& vchPubKeyIn);
-	
+	CKeyPool();
+	CKeyPool(const CPubKey& vchPubKeyIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CKEYPOOL_H

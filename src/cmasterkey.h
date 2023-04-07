@@ -22,26 +22,26 @@ master key's key as the encryption key (see keystore.[ch]).
 class CMasterKey
 {
 public:
-    std::vector<unsigned char> vchCryptedKey;
-    std::vector<unsigned char> vchSalt;
-	
-    // 0 = EVP_sha512()
-    // 1 = scrypt()
-    unsigned int nDerivationMethod;
-    unsigned int nDeriveIterations;
-	
-    // Use this for more parameters to key derivation,
-    // such as the various parameters to scrypt
-    std::vector<unsigned char> vchOtherDerivationParameters;
-	
-    CMasterKey();
-    CMasterKey(unsigned int nDerivationMethodIndex);
-	
+	std::vector<unsigned char> vchCryptedKey;
+	std::vector<unsigned char> vchSalt;
+
+	// 0 = EVP_sha512()
+	// 1 = scrypt()
+	unsigned int nDerivationMethod;
+	unsigned int nDeriveIterations;
+
+	// Use this for more parameters to key derivation,
+	// such as the various parameters to scrypt
+	std::vector<unsigned char> vchOtherDerivationParameters;
+
+	CMasterKey();
+	CMasterKey(unsigned int nDerivationMethodIndex);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CMASTERKEY_H

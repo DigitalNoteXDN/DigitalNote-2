@@ -18,20 +18,24 @@
 // Convert the pnSeeds6 array into usable address objects.
 static void convertSeed6(std::vector<CAddress> &vSeedsOut, const SeedSpec6 *data, unsigned int count)
 {
-    // It'll only connect to one or two seed nodes because once it connects,
-    // it'll get a pile of addresses with newer timestamps.
-    // Seed nodes are given a random 'last seen time' of between one and two
-    // weeks ago.
-    const int64_t nOneWeek = 7*24*60*60;
-	
-    for (unsigned int i = 0; i < count; i++)
-    {
-        struct in6_addr ip;
-        memcpy(&ip, data[i].addr, sizeof(ip));
-        CAddress addr(CService(ip, data[i].port));
-        addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
-        vSeedsOut.push_back(addr);
-    }
+	// It'll only connect to one or two seed nodes because once it connects,
+	// it'll get a pile of addresses with newer timestamps.
+	// Seed nodes are given a random 'last seen time' of between one and two
+	// weeks ago.
+	const int64_t nOneWeek = 7*24*60*60;
+
+	for (unsigned int i = 0; i < count; i++)
+	{
+		struct in6_addr ip;
+		
+		memcpy(&ip, data[i].addr, sizeof(ip));
+		
+		CAddress addr(CService(ip, data[i].port));
+		
+		addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
+		
+		vSeedsOut.push_back(addr);
+	}
 }
 
 CMainParams::CMainParams()
@@ -43,9 +47,11 @@ CMainParams::CMainParams()
 	pchMessageStart[1] = 0xaf;
 	pchMessageStart[2] = 0x9c;
 	pchMessageStart[3] = 0xe3;
+	
 	vAlertPubKey = ParseHex("01b88735a49f1996be6b659c91a94fbfebeb5d517698712acdbef262f7c2f81f85d131a669df3be611393f454852a2d08c6314bba5ca3cbe5616262da3b1a6afed");
 	nDefaultPort = 18092;
 	nRPCPort = 18094;
+	
 	bnProofOfWorkLimit = CBigNum(~uint256(0) >> 14);
 	bnProofOfStakeLimit = CBigNum(~uint256(0) >> 16);
 
@@ -62,9 +68,9 @@ CMainParams::CMainParams()
 	genesis.hashPrevBlock = 0;
 	genesis.hashMerkleRoot = genesis.BuildMerkleTree();
 	genesis.nVersion = 1;
-	genesis.nTime    = timeGenesisBlock; // Sat, December 15, 2018 8:00:00 PM
-	genesis.nBits    = bnProofOfWorkLimit.GetCompact();
-	genesis.nNonce   = 14180;
+	genesis.nTime = timeGenesisBlock; // Sat, December 15, 2018 8:00:00 PM
+	genesis.nBits = bnProofOfWorkLimit.GetCompact();
+	genesis.nNonce = 14180;
 
 	/** Genesis Block MainNet */
 	/*
@@ -81,7 +87,7 @@ CMainParams::CMainParams()
 
 	base58Prefixes[CChainParams_Base58Type::PUBKEY_ADDRESS] = std::vector<unsigned char>(1,90);
 	base58Prefixes[CChainParams_Base58Type::SCRIPT_ADDRESS] = std::vector<unsigned char>(1,140);
-	base58Prefixes[CChainParams_Base58Type::SECRET_KEY] =     std::vector<unsigned char>(1,142);
+	base58Prefixes[CChainParams_Base58Type::SECRET_KEY] = std::vector<unsigned char>(1,142);
 	base58Prefixes[CChainParams_Base58Type::STEALTH_ADDRESS] = std::vector<unsigned char>(1,115);
 	base58Prefixes[CChainParams_Base58Type::EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
 	base58Prefixes[CChainParams_Base58Type::EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();

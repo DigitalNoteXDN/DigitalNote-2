@@ -8,20 +8,20 @@ class uint256;
 class CHashWriter
 {
 private:
-    SHA256_CTX ctx;
+	SHA256_CTX ctx;
 
 public:
-    int nType;
-    int nVersion;
+	int nType;
+	int nVersion;
 
-    CHashWriter(int nTypeIn, int nVersionIn);
-    
+	CHashWriter(int nTypeIn, int nVersionIn);
+
 	void Init();
-    CHashWriter& write(const char *pch, size_t size);
-    uint256 GetHash();
-	
-    template<typename T>
-    CHashWriter& operator<<(const T& obj);
+	CHashWriter& write(const char *pch, size_t size);
+	uint256 GetHash();
+
+	template<typename T>
+	CHashWriter& operator<<(const T& obj);
 };
 
 #endif // CHASHWRITER_H

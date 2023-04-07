@@ -5,12 +5,14 @@
 #include "hash.h"
 #include "csizecomputer.h"
 #include "cdatastream.h"
+#include "serialize.h"
 
 #include "csporkmessage.h"
 
 uint256 CSporkMessage::GetHash()
 {
 	uint256 n = Hash(BEGIN(nSporkID), END(nTimeSigned));
+	
 	return n;
 }
 

@@ -15,31 +15,31 @@ bool operator!=(const CTxOut& a, const CTxOut& b);
 class CTxOut
 {
 public:
-    int64_t nValue;
-    int nRounds;
-    CScript scriptPubKey;
+	int64_t nValue;
+	int nRounds;
+	CScript scriptPubKey;
 
-    CTxOut();
-    CTxOut(int64_t nValueIn, CScript scriptPubKeyIn);
-	
+	CTxOut();
+	CTxOut(int64_t nValueIn, CScript scriptPubKeyIn);
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
-	
-    void SetNull();
-    bool IsNull() const;
-    void SetEmpty();
-    bool IsEmpty() const;
-    uint256 GetHash() const;
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    bool IsDust(int64_t MIN_RELAY_TX_FEE) const;
-    friend bool operator==(const CTxOut& a, const CTxOut& b);
-    friend bool operator!=(const CTxOut& a, const CTxOut& b);
+	void SetNull();
+	bool IsNull() const;
+	void SetEmpty();
+	bool IsEmpty() const;
+	uint256 GetHash() const;
+
+	bool IsDust(int64_t MIN_RELAY_TX_FEE) const;
+	friend bool operator==(const CTxOut& a, const CTxOut& b);
+	friend bool operator!=(const CTxOut& a, const CTxOut& b);
 	//CTxOut& operator=(const CTxOut&) {};
-	
-    std::string ToString() const;
+
+	std::string ToString() const;
 };
 
 #endif // CTXOUT_H

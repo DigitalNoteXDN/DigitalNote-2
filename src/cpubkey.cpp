@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cassert>
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 
@@ -25,206 +26,206 @@
 static int ecdsa_signature_parse_der_lax(const secp256k1_context* ctx, secp256k1_ecdsa_signature* sig,
 		const unsigned char *input, size_t inputlen)
 {
-    size_t rpos, rlen, spos, slen;
-    size_t pos = 0;
-    size_t lenbyte;
-    unsigned char tmpsig[64] = {0};
-    int overflow = 0;
+	size_t rpos, rlen, spos, slen;
+	size_t pos = 0;
+	size_t lenbyte;
+	unsigned char tmpsig[64] = {0};
+	int overflow = 0;
 
-    /* Hack to initialize sig with a correctly-parsed but invalid signature. */
-    secp256k1_ecdsa_signature_parse_compact(ctx, sig, tmpsig);
+	/* Hack to initialize sig with a correctly-parsed but invalid signature. */
+	secp256k1_ecdsa_signature_parse_compact(ctx, sig, tmpsig);
 
-    /* Sequence tag byte */
-    if (pos == inputlen || input[pos] != 0x30)
+	/* Sequence tag byte */
+	if (pos == inputlen || input[pos] != 0x30)
 	{
-        return 0;
-    }
-	
-    pos++;
+		return 0;
+	}
 
-    /* Sequence length bytes */
-    if (pos == inputlen)
-	{
-        return 0;
-    }
-	
-    lenbyte = input[pos++];
-    
-	if (lenbyte & 0x80)
-	{
-        lenbyte -= 0x80;
-        
-		if (pos + lenbyte > inputlen)
-		{
-            return 0;
-        }
-		
-        pos += lenbyte;
-    }
-
-    /* Integer tag byte for R */
-    if (pos == inputlen || input[pos] != 0x02)
-	{
-        return 0;
-    }
-	
-    pos++;
-
-    /* Integer length for R */
-    if (pos == inputlen)
-	{
-        return 0;
-    }
-	
-    lenbyte = input[pos++];
-    
-	if (lenbyte & 0x80)
-	{
-        lenbyte -= 0x80;
-        if (pos + lenbyte > inputlen)
-		{
-            return 0;
-        }
-		
-        while (lenbyte > 0 && input[pos] == 0)
-		{
-            pos++;
-            lenbyte--;
-        }
-		
-        if (lenbyte >= sizeof(size_t))
-		{
-            return 0;
-        }
-		
-        rlen = 0;
-        
-		while (lenbyte > 0)
-		{
-            rlen = (rlen << 8) + input[pos];
-            pos++;
-            lenbyte--;
-        }
-    }
-	else
-	{
-        rlen = lenbyte;
-    }
-	
-    if (rlen > inputlen - pos)
-	{
-        return 0;
-    }
-	
-    rpos = pos;
-    pos += rlen;
-
-    /* Integer tag byte for S */
-    if (pos == inputlen || input[pos] != 0x02)
-	{
-        return 0;
-    }
-    
 	pos++;
 
-    /* Integer length for S */
-    if (pos == inputlen)
+	/* Sequence length bytes */
+	if (pos == inputlen)
 	{
-        return 0;
-    }
-    
+		return 0;
+	}
+
 	lenbyte = input[pos++];
-    
+
 	if (lenbyte & 0x80)
 	{
-        lenbyte -= 0x80;
-        if (pos + lenbyte > inputlen)
-		{
-            return 0;
-        }
+		lenbyte -= 0x80;
 		
-        while (lenbyte > 0 && input[pos] == 0)
+		if (pos + lenbyte > inputlen)
 		{
-            pos++;
-            lenbyte--;
-        }
+			return 0;
+		}
 		
-        if (lenbyte >= sizeof(size_t))
+		pos += lenbyte;
+	}
+
+	/* Integer tag byte for R */
+	if (pos == inputlen || input[pos] != 0x02)
+	{
+		return 0;
+	}
+
+	pos++;
+
+	/* Integer length for R */
+	if (pos == inputlen)
+	{
+		return 0;
+	}
+
+	lenbyte = input[pos++];
+
+	if (lenbyte & 0x80)
+	{
+		lenbyte -= 0x80;
+		if (pos + lenbyte > inputlen)
 		{
-            return 0;
-        }
+			return 0;
+		}
 		
-        slen = 0;
-        
+		while (lenbyte > 0 && input[pos] == 0)
+		{
+			pos++;
+			lenbyte--;
+		}
+		
+		if (lenbyte >= sizeof(size_t))
+		{
+			return 0;
+		}
+		
+		rlen = 0;
+		
 		while (lenbyte > 0)
 		{
-            slen = (slen << 8) + input[pos];
-            pos++;
-            lenbyte--;
-        }
-    }
+			rlen = (rlen << 8) + input[pos];
+			pos++;
+			lenbyte--;
+		}
+	}
 	else
 	{
-        slen = lenbyte;
-    }
-	
-    if (slen > inputlen - pos)
-	{
-        return 0;
-    }
-	
-    spos = pos;
-    pos += slen;
+		rlen = lenbyte;
+	}
 
-    /* Ignore leading zeroes in R */
-    while (rlen > 0 && input[rpos] == 0)
+	if (rlen > inputlen - pos)
 	{
-        rlen--;
-        rpos++;
-    }
-	
-    /* Copy R value */
-    if (rlen > 32)
+		return 0;
+	}
+
+	rpos = pos;
+	pos += rlen;
+
+	/* Integer tag byte for S */
+	if (pos == inputlen || input[pos] != 0x02)
 	{
-        overflow = 1;
-    }
+		return 0;
+	}
+
+	pos++;
+
+	/* Integer length for S */
+	if (pos == inputlen)
+	{
+		return 0;
+	}
+
+	lenbyte = input[pos++];
+
+	if (lenbyte & 0x80)
+	{
+		lenbyte -= 0x80;
+		if (pos + lenbyte > inputlen)
+		{
+			return 0;
+		}
+		
+		while (lenbyte > 0 && input[pos] == 0)
+		{
+			pos++;
+			lenbyte--;
+		}
+		
+		if (lenbyte >= sizeof(size_t))
+		{
+			return 0;
+		}
+		
+		slen = 0;
+		
+		while (lenbyte > 0)
+		{
+			slen = (slen << 8) + input[pos];
+			pos++;
+			lenbyte--;
+		}
+	}
 	else
 	{
-        memcpy(tmpsig + 32 - rlen, input + rpos, rlen);
-    }
+		slen = lenbyte;
+	}
 
-    /* Ignore leading zeroes in S */
-    while (slen > 0 && input[spos] == 0)
+	if (slen > inputlen - pos)
 	{
-        slen--;
-        spos++;
-    }
-    
+		return 0;
+	}
+
+	spos = pos;
+	pos += slen;
+
+	/* Ignore leading zeroes in R */
+	while (rlen > 0 && input[rpos] == 0)
+	{
+		rlen--;
+		rpos++;
+	}
+
+	/* Copy R value */
+	if (rlen > 32)
+	{
+		overflow = 1;
+	}
+	else
+	{
+		memcpy(tmpsig + 32 - rlen, input + rpos, rlen);
+	}
+
+	/* Ignore leading zeroes in S */
+	while (slen > 0 && input[spos] == 0)
+	{
+		slen--;
+		spos++;
+	}
+
 	/* Copy S value */
-    if (slen > 32)
+	if (slen > 32)
 	{
-        overflow = 1;
-    }
+		overflow = 1;
+	}
 	else
 	{
-        memcpy(tmpsig + 64 - slen, input + spos, slen);
-    }
+		memcpy(tmpsig + 64 - slen, input + spos, slen);
+	}
 
-    if (!overflow)
+	if (!overflow)
 	{
-        overflow = !secp256k1_ecdsa_signature_parse_compact(ctx, sig, tmpsig);
-    }
-	
-    if (overflow)
+		overflow = !secp256k1_ecdsa_signature_parse_compact(ctx, sig, tmpsig);
+	}
+
+	if (overflow)
 	{
-        /* Overwrite the result again with a correctly-parsed but invalid
-           signature if parsing failed. */
-        memset(tmpsig, 0, 64);
-        
+		/* Overwrite the result again with a correctly-parsed but invalid
+		   signature if parsing failed. */
+		memset(tmpsig, 0, 64);
+		
 		secp256k1_ecdsa_signature_parse_compact(ctx, sig, tmpsig);
-    }
-	
-    return 1;
+	}
+
+	return 1;
 }
 
 // Comparator implementation.
@@ -273,7 +274,7 @@ template<typename T>
 void CPubKey::Set(const T pbegin, const T pend)
 {
 	int len = pend == pbegin ? 0 : GetLen(pbegin[0]);
-	
+
 	if (len && len == (pend-pbegin))
 	{
 		memcpy(vch, (unsigned char*)&pbegin[0], len);
@@ -373,13 +374,13 @@ bool CPubKey::IsValid() const
 
 bool CPubKey::IsFullyValid() const
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return false;
+		return false;
 	}
-	
-    secp256k1_pubkey pubkey;
-    
+
+	secp256k1_pubkey pubkey;
+
 	return secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size());
 }
 
@@ -391,129 +392,140 @@ bool CPubKey::IsCompressed() const
 
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return false;
+		return false;
 	}
-	
-    secp256k1_pubkey pubkey;
-    secp256k1_ecdsa_signature sig;
-    
+
+	secp256k1_pubkey pubkey;
+	secp256k1_ecdsa_signature sig;
+
 	if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
 	{
-        return false;
-    }
-    
+		return false;
+	}
+
 	if (vchSig.size() == 0)
 	{
-        return false;
-    }
-    
+		return false;
+	}
+
 	if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, &vchSig[0], vchSig.size()))
 	{
-        return false;
-    }
-    
+		return false;
+	}
+
 	/* libsecp256k1's ECDSA verification requires lower-S signatures, which have
-     * not historically been enforced in DigitalNote, so normalize them first. */
-    secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, &sig, &sig);
-    
+	 * not historically been enforced in DigitalNote, so normalize them first. */
+	secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, &sig, &sig);
+
 	return secp256k1_ecdsa_verify(secp256k1_context_verify, &sig, hash.begin(), &pubkey);
 }
 
 /* static */
 bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig)
 {
-    secp256k1_ecdsa_signature sig;
-	
-    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, &vchSig[0], vchSig.size()))
+	secp256k1_ecdsa_signature sig;
+
+	if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, &vchSig[0], vchSig.size()))
 	{
-        return false;
-    }
-	
-    return (!secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, NULL, &sig));
+		return false;
+	}
+
+	return (!secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, NULL, &sig));
 }
 
 bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig)
 {
-    if (vchSig.size() != 65)
+	if (vchSig.size() != 65)
 	{
-        return false;
+		return false;
 	}
-	
-    int recid = (vchSig[0] - 27) & 3;
-    bool fComp = ((vchSig[0] - 27) & 4) != 0;
-    secp256k1_pubkey pubkey;
-    secp256k1_ecdsa_recoverable_signature sig;
-    
+
+	int recid = (vchSig[0] - 27) & 3;
+	bool fComp = ((vchSig[0] - 27) & 4) != 0;
+	secp256k1_pubkey pubkey;
+	secp256k1_ecdsa_recoverable_signature sig;
+
 	if (!secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_context_verify, &sig, &vchSig[1], recid))
 	{
-        return false;
-    }
-    
+		return false;
+	}
+
 	if (!secp256k1_ecdsa_recover(secp256k1_context_verify, &pubkey, &sig, hash.begin()))
 	{
-        return false;
-    }
-    
+		return false;
+	}
+
 	unsigned char pub[65];
-    size_t publen = 65;
-    
-	secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, fComp ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
-    Set(pub, pub + publen);
-    
+	size_t publen = 65;
+
+	secp256k1_ec_pubkey_serialize(
+		secp256k1_context_verify,
+		pub,
+		&publen,
+		&pubkey,
+		fComp ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED
+	);
+	
+	Set(pub, pub + publen);
+
 	return true;
 }
 
 bool CPubKey::Decompress()
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return false;
+		return false;
 	}
-	
-    secp256k1_pubkey pubkey;
-    
+
+	secp256k1_pubkey pubkey;
+
 	if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
 	{
-        return false;
-    }
-	
-    unsigned char pub[65];
-    size_t publen = 65;
-    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
-    Set(pub, pub + publen);
-    return true;
+		return false;
+	}
+
+	unsigned char pub[65];
+	size_t publen = 65;
+
+	secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+
+	Set(pub, pub + publen);
+
+	return true;
 }
 
 bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const
 {
-    assert(IsValid());
-    assert((nChild >> 31) == 0);
-    assert(begin() + 33 == end());
-    
+	assert(IsValid());
+	assert((nChild >> 31) == 0);
+	assert(begin() + 33 == end());
+
 	unsigned char out[64];
-    BIP32Hash(cc, nChild, *begin(), begin()+1, out);
-    
+	BIP32Hash(cc, nChild, *begin(), begin()+1, out);
+
 	memcpy(ccChild, out+32, 32);
-    
+
 	secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
 	{
-        return false;
-    }
-	
-    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out))
+		return false;
+	}
+
+	if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out))
 	{
-        return false;
-    }
-	
-    unsigned char pub[33];
-    size_t publen = 33;
-    
+		return false;
+	}
+
+	unsigned char pub[33];
+	size_t publen = 33;
+
 	secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
-    pubkeyChild.Set(pub, pub + publen);
-    
+	pubkeyChild.Set(pub, pub + publen);
+
 	return true;
 }
 
@@ -521,9 +533,9 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned i
 std::vector<unsigned char> CPubKey::Raw() const
 {
 	std::vector<unsigned char> r;
-	
+
 	r.insert(r.end(), vch, vch+size());
-	
+
 	return r;
 }
 
@@ -537,12 +549,12 @@ unsigned int CPubKey::GetLen(unsigned char chHeader)
 	{
 		return 33;
 	}
-	
+
 	if (chHeader == 4 || chHeader == 6 || chHeader == 7)
 	{
 		return 65;
 	}
-	
+
 	return 0;
 }
 

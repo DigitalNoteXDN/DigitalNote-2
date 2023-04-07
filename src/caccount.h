@@ -9,16 +9,16 @@
 class CAccount
 {
 public:
-    CPubKey vchPubKey;
+	CPubKey vchPubKey;
 
-    CAccount();
-    void SetNull();
-	
+	CAccount();
+	void SetNull();
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 };
 
 #endif // CACCOUNT_H

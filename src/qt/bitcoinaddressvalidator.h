@@ -1,5 +1,5 @@
-#ifndef BITCOINADDRESSVALIDATOR_H
-#define BITCOINADDRESSVALIDATOR_H
+#ifndef ADDRESSVALIDATOR_H
+#define ADDRESSVALIDATOR_H
 
 #include <QValidator>
 
@@ -18,4 +18,4 @@ public:
     static const int MaxAddressLength = 128;
 };
 
-#endif // BITCOINADDRESSVALIDATOR_H
+#endif // ADDRESSVALIDATOR_H

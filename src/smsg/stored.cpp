@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "serialize.h"
 #include "cdatastream.h"
 
@@ -9,12 +11,9 @@ namespace SMSG {
 unsigned int Stored::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -32,11 +31,7 @@ template<typename Stream>
 void Stored::Serialize(Stream& s, int nType, int nVersion) const
 {
 	CSerActionSerialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = true;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(this->timeReceived);
 	READWRITE(this->status);
@@ -50,11 +45,7 @@ template<typename Stream>
 void Stored::Unserialize(Stream& s, int nType, int nVersion)
 {
 	CSerActionUnserialize ser_action;
-	const bool fGetSize = false;
-	const bool fWrite = false;
-	const bool fRead = true;
 	unsigned int nSerSize = 0;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
 	
 	READWRITE(this->timeReceived);
 	READWRITE(this->status);

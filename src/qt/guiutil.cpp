@@ -36,6 +36,7 @@
 #include <QSettings>
 #include <QTextDocument> // For Qt::escape
 #include <QThread>
+#include <QFontDatabase>
 
 #if QT_VERSION < 0x050000
 #include <QUrl>
@@ -71,12 +72,17 @@ QString dateTimeStr(qint64 nTime)
 
 QFont bitcoinAddressFont()
 {
+#ifdef LINUX
+	return QFontDatabase::systemFont(QFontDatabase::FixedFont);
+#endif // LINUX
+
     QFont font("Monospace");
 #if QT_VERSION >= 0x040800
     font.setStyleHint(QFont::Monospace);
-#else
+#else // QT_VERSION
     font.setStyleHint(QFont::TypeWriter);
-#endif
+#endif // QT_VERSION
+
     return font;
 }
 

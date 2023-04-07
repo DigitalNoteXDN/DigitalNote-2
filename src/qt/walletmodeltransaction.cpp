@@ -1,7 +1,3 @@
-// Copyright (c) 2011-2013 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "compat.h"
 
 #include "cwallettx.h"
@@ -13,11 +9,8 @@
 
 #include "walletmodeltransaction.h"
 
-WalletModelTransaction::WalletModelTransaction(const QList<SendCoinsRecipient> &recipients) :
-    recipients(recipients),
-    walletTransaction(0),
-    keyChange(0),
-    fee(0)
+WalletModelTransaction::WalletModelTransaction(const QList<SendCoinsRecipient> &recipients)
+		: recipients(recipients), walletTransaction(0), keyChange(0), fee(0)
 {
     walletTransaction = new CWalletTx();
 }

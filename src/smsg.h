@@ -1,6 +1,3 @@
-// Copyright (c) 2014-2015 The ShadowCoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef SMESSAGE_H
 #define SMESSAGE_H
 
@@ -17,7 +14,7 @@ class CBlockIndex;
 class CKeyID;
 class CPubKey;
 
-#define SMSG_MASK_UNREAD            (1 << 0)
+#define SMSG_MASK_UNREAD		(1 << 0)
 
 namespace DigitalNote
 {

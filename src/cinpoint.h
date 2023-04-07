@@ -7,14 +7,14 @@ class CTransaction;
 class CInPoint
 {
 public:
-    CTransaction* ptx;
-    unsigned int n;
+	CTransaction* ptx;
+	unsigned int n;
 
-    CInPoint();
-    CInPoint(CTransaction* ptxIn, unsigned int nIn);
-	
-    void SetNull();
-    bool IsNull() const;
+	CInPoint();
+	CInPoint(CTransaction* ptxIn, unsigned int nIn);
+
+	void SetNull();
+	bool IsNull() const;
 };
 
 #endif // CINPOINT_H

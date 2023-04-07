@@ -1,6 +1,3 @@
-//#include <boost/variant/apply_visitor.hpp>
-//#include <boost/variant/static_visitor.hpp>
-
 #include "cchainparams.h"
 #include "chainparams.h"
 #include "cdigitalnoteaddressvisitor.h"
@@ -33,74 +30,75 @@ CDigitalNoteAddress::CDigitalNoteAddress(const char* pszAddress)
 
 bool CDigitalNoteAddress::Set(const CKeyID &id)
 {
-    SetData(Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS), &id, 20);
-	
-    return true;
+	SetData(Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS), &id, 20);
+
+	return true;
 }
 
 bool CDigitalNoteAddress::Set(const CScriptID &id)
 {
-    SetData(Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS), &id, 20);
-	
-    return true;
+	SetData(Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS), &id, 20);
+
+	return true;
 }
 
 bool CDigitalNoteAddress::Set(const CTxDestination &dest)
 {
-    return boost::apply_visitor(CDigitalNoteAddressVisitor(this), dest);
+	return boost::apply_visitor(CDigitalNoteAddressVisitor(this), dest);
 }
 
 bool CDigitalNoteAddress::IsValid() const
 {
-    bool fCorrectSize = vchData.size() == 20;
-    bool fKnownVersion = vchVersion == Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS) ||
-                         vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS);
-    
+	bool fCorrectSize = vchData.size() == 20;
+	bool fKnownVersion = vchVersion == Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS) ||
+						 vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS);
+
 	return fCorrectSize && fKnownVersion;
 }
 
 CTxDestination CDigitalNoteAddress::Get() const
 {
-    if (!IsValid())
+	if (!IsValid())
 	{
-        return CNoDestination();
+		return CNoDestination();
 	}
-	
-    uint160 id;
-    
+
+	uint160 id;
+
 	memcpy(&id, &vchData[0], 20);
-    
+
 	if (vchVersion == Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS))
 	{
-        return CKeyID(id);
+		return CKeyID(id);
 	}
-    else if (vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS))
+	else if (vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS))
 	{
-        return CScriptID(id);
+		return CScriptID(id);
 	}
-    else
+	else
 	{
-        return CNoDestination();
+		return CNoDestination();
 	}
 }
 
 bool CDigitalNoteAddress::GetKeyID(CKeyID &keyID) const
 {
-    uint160 id;
-	
-    if (!IsValid() || vchVersion != Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS))
+	uint160 id;
+
+	if (!IsValid() || vchVersion != Params().Base58Prefix(CChainParams_Base58Type::PUBKEY_ADDRESS))
 	{
-        return false;
+		return false;
 	}
-	
-    memcpy(&id, &vchData[0], 20);
-    
+
+	memcpy(&id, &vchData[0], 20);
+
 	keyID = CKeyID(id);
-    
+
 	return true;
 }
 
 bool CDigitalNoteAddress::IsScript() const
 {
-    return IsValid() && vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS);
+	return IsValid() && vchVersion == Params().Base58Prefix(CChainParams_Base58Type::SCRIPT_ADDRESS);
 }
+

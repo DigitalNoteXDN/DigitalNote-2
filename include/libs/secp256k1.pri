@@ -10,7 +10,6 @@ exists($${DIGITALNOTE_SECP256K1_LIB_PATH}/libsecp256k1.a) {
 	}
 }
 
-
 contains(COMPILE_SECP256K1, 1) {
 	#Build Secp256k1
 	# we use QMAKE_CXXFLAGS_RELEASE even without RELEASE=1 because we use RELEASE to indicate linking preferences not -O preferences
@@ -22,9 +21,5 @@ contains(COMPILE_SECP256K1, 1) {
 	QMAKE_EXTRA_TARGETS += extra_secp256k1
 }
 
-##
-## We dont use -l<name> because at linux the gcc compiler takes .so.1 file first instead we need to .a lib file.
-##
-LIBS += $${DIGITALNOTE_SECP256K1_LIB_PATH}/libsecp256k1.a
 INCLUDEPATH += $${DIGITALNOTE_SECP256K1_INCLUDE_PATH}
 DEPENDPATH += $${DIGITALNOTE_SECP256K1_INCLUDE_PATH}

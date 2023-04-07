@@ -3,13 +3,13 @@
 
 enum txnouttype
 {
-    TX_NONSTANDARD,
-    // 'standard' transaction types:
-    TX_PUBKEY,
-    TX_PUBKEYHASH,
-    TX_SCRIPTHASH,
-    TX_MULTISIG,
-    TX_NULL_DATA,
+	TX_NONSTANDARD,
+	// 'standard' transaction types:
+	TX_PUBKEY,
+	TX_PUBKEYHASH,
+	TX_SCRIPTHASH,
+	TX_MULTISIG,
+	TX_NULL_DATA,
 };
 
 #endif // TXNOUTTYPE_H

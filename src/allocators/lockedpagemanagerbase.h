@@ -19,20 +19,20 @@ template <class Locker>
 class LockedPageManagerBase
 {
 private:
-    typedef std::map<size_t, int> Histogram;
-    
+	typedef std::map<size_t, int> Histogram;
+
 	Locker locker;
-    boost::mutex mutex;
-    size_t page_size, page_mask;
-    // map of page base address to lock count
-    Histogram histogram;
+	boost::mutex mutex;
+	size_t page_size, page_mask;
+	// map of page base address to lock count
+	Histogram histogram;
 
 public:
-    LockedPageManagerBase(size_t page_size);
-    ~LockedPageManagerBase();
+	LockedPageManagerBase(size_t page_size);
+	~LockedPageManagerBase();
 
-    // For all pages in affected range, increase lock count
-    void LockRange(void *p, size_t size);
+	// For all pages in affected range, increase lock count
+	void LockRange(void *p, size_t size);
 	void UnlockRange(void *p, size_t size);
 	int GetLockedPageCount();
 };

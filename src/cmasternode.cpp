@@ -24,94 +24,94 @@
 
 CMasternode::CMasternode()
 {
-    LOCK(cs);
-	
-    vin = CTxIn();
-    addr = CService();
-    pubkey = CPubKey();
-    pubkey2 = CPubKey();
-    sig = std::vector<unsigned char>();
-    activeState = MASTERNODE_ENABLED;
-    sigTime = GetAdjustedTime();
-    lastDseep = 0;
-    lastTimeSeen = 0;
-    cacheInputAge = 0;
-    cacheInputAgeBlock = 0;
-    unitTest = false;
-    allowFreeTx = true;
-    protocolVersion = MIN_PEER_PROTO_VERSION;
-    nLastDsq = 0;
-    donationAddress = CScript();
-    donationPercentage = 0;
-    nVote = 0;
-    lastVote = 0;
-    nScanningErrorCount = 0;
-    nLastScanningErrorBlockHeight = 0;
-    //mark last paid as current for new entries
-    nLastPaid = GetAdjustedTime();
-    isPortOpen = true;
-    isOldNode = true;
+	LOCK(cs);
+
+	vin = CTxIn();
+	addr = CService();
+	pubkey = CPubKey();
+	pubkey2 = CPubKey();
+	sig = std::vector<unsigned char>();
+	activeState = MASTERNODE_ENABLED;
+	sigTime = GetAdjustedTime();
+	lastDseep = 0;
+	lastTimeSeen = 0;
+	cacheInputAge = 0;
+	cacheInputAgeBlock = 0;
+	unitTest = false;
+	allowFreeTx = true;
+	protocolVersion = MIN_PEER_PROTO_VERSION;
+	nLastDsq = 0;
+	donationAddress = CScript();
+	donationPercentage = 0;
+	nVote = 0;
+	lastVote = 0;
+	nScanningErrorCount = 0;
+	nLastScanningErrorBlockHeight = 0;
+	//mark last paid as current for new entries
+	nLastPaid = GetAdjustedTime();
+	isPortOpen = true;
+	isOldNode = true;
 }
 
 CMasternode::CMasternode(const CMasternode& other)
 {
-    LOCK(cs);
-	
-    vin = other.vin;
-    addr = other.addr;
-    pubkey = other.pubkey;
-    pubkey2 = other.pubkey2;
-    sig = other.sig;
-    activeState = other.activeState;
-    sigTime = other.sigTime;
-    lastDseep = other.lastDseep;
-    lastTimeSeen = other.lastTimeSeen;
-    cacheInputAge = other.cacheInputAge;
-    cacheInputAgeBlock = other.cacheInputAgeBlock;
-    unitTest = other.unitTest;
-    allowFreeTx = other.allowFreeTx;
-    protocolVersion = other.protocolVersion;
-    nLastDsq = other.nLastDsq;
-    donationAddress = other.donationAddress;
-    donationPercentage = other.donationPercentage;
-    nVote = other.nVote;
-    lastVote = other.lastVote;
-    nScanningErrorCount = other.nScanningErrorCount;
-    nLastScanningErrorBlockHeight = other.nLastScanningErrorBlockHeight;
-    nLastPaid = other.nLastPaid;
-    nLastPaid = GetAdjustedTime();
-    isPortOpen = other.isPortOpen;
-    isOldNode = other.isOldNode;
+	LOCK(cs);
+
+	vin = other.vin;
+	addr = other.addr;
+	pubkey = other.pubkey;
+	pubkey2 = other.pubkey2;
+	sig = other.sig;
+	activeState = other.activeState;
+	sigTime = other.sigTime;
+	lastDseep = other.lastDseep;
+	lastTimeSeen = other.lastTimeSeen;
+	cacheInputAge = other.cacheInputAge;
+	cacheInputAgeBlock = other.cacheInputAgeBlock;
+	unitTest = other.unitTest;
+	allowFreeTx = other.allowFreeTx;
+	protocolVersion = other.protocolVersion;
+	nLastDsq = other.nLastDsq;
+	donationAddress = other.donationAddress;
+	donationPercentage = other.donationPercentage;
+	nVote = other.nVote;
+	lastVote = other.lastVote;
+	nScanningErrorCount = other.nScanningErrorCount;
+	nLastScanningErrorBlockHeight = other.nLastScanningErrorBlockHeight;
+	nLastPaid = other.nLastPaid;
+	nLastPaid = GetAdjustedTime();
+	isPortOpen = other.isPortOpen;
+	isOldNode = other.isOldNode;
 }
 
 CMasternode::CMasternode(CService newAddr, CTxIn newVin, CPubKey newPubkey, std::vector<unsigned char> newSig, int64_t newSigTime, CPubKey newPubkey2,
 		int protocolVersionIn, CScript newDonationAddress, int newDonationPercentage)
 {
-    LOCK(cs);
-    
+	LOCK(cs);
+
 	vin = newVin;
-    addr = newAddr;
-    pubkey = newPubkey;
-    pubkey2 = newPubkey2;
-    sig = newSig;
-    activeState = MASTERNODE_ENABLED;
-    sigTime = newSigTime;
-    lastDseep = 0;
-    lastTimeSeen = 0;
-    cacheInputAge = 0;
-    cacheInputAgeBlock = 0;
-    unitTest = false;
-    allowFreeTx = true;
-    protocolVersion = protocolVersionIn;
-    nLastDsq = 0;
-    donationAddress = newDonationAddress;
-    donationPercentage = newDonationPercentage;
-    nVote = 0;
-    lastVote = 0;
-    nScanningErrorCount = 0;
-    nLastScanningErrorBlockHeight = 0;
-    isPortOpen = true;
-    isOldNode = true;
+	addr = newAddr;
+	pubkey = newPubkey;
+	pubkey2 = newPubkey2;
+	sig = newSig;
+	activeState = MASTERNODE_ENABLED;
+	sigTime = newSigTime;
+	lastDseep = 0;
+	lastTimeSeen = 0;
+	cacheInputAge = 0;
+	cacheInputAgeBlock = 0;
+	unitTest = false;
+	allowFreeTx = true;
+	protocolVersion = protocolVersionIn;
+	nLastDsq = 0;
+	donationAddress = newDonationAddress;
+	donationPercentage = newDonationPercentage;
+	nVote = 0;
+	lastVote = 0;
+	nScanningErrorCount = 0;
+	nLastScanningErrorBlockHeight = 0;
+	isPortOpen = true;
+	isOldNode = true;
 }
 
 void CMasternode::swap(CMasternode& first, CMasternode& second) // nothrow
@@ -168,25 +168,25 @@ bool operator!=(const CMasternode& a, const CMasternode& b)
 //
 uint256 CMasternode::CalculateScore(int mod, int64_t nBlockHeight)
 {
-    if(pindexBest == NULL)
+	if(pindexBest == NULL)
 	{
 		return 0;
 	}
-	
-    uint256 hash = 0;
-    uint256 aux = vin.prevout.hash + vin.prevout.n;
 
-    if(!GetBlockHash(hash, nBlockHeight))
+	uint256 hash = 0;
+	uint256 aux = vin.prevout.hash + vin.prevout.n;
+
+	if(!GetBlockHash(hash, nBlockHeight))
 	{
 		return 0;
 	}
-	
-    uint256 hash2 = Hash(BEGIN(hash), END(hash));
-    uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
 
-    uint256 r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
+	uint256 hash2 = Hash(BEGIN(hash), END(hash));
+	uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
 
-    return r;
+	uint256 r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
+
+	return r;
 }
 
 int64_t CMasternode::SecondsSincePayment()
@@ -348,12 +348,9 @@ std::string CMasternode::Status()
 unsigned int CMasternode::GetSerializeSize(int nType, int nVersion) const
 {
 	CSerActionGetSerializeSize ser_action;
-	const bool fGetSize = true;
-	const bool fWrite = false;
-	const bool fRead = false;
 	unsigned int nSerSize = 0;
 	ser_streamplaceholder s;
-	assert(fGetSize||fWrite||fRead); /* suppress warning */
+
 	s.nType = nType;
 	s.nVersion = nVersion;
 	
@@ -486,3 +483,4 @@ void CMasternode::Unserialize(Stream& s, int nType, int nVersion)
 
 template void CMasternode::Serialize<CDataStream>(CDataStream& s, int nType, int nVersion) const;
 template void CMasternode::Unserialize<CDataStream>(CDataStream& s, int nType, int nVersion);
+

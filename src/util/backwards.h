@@ -4,20 +4,20 @@
 template <class T>
 class backwards
 {
-    T& _obj;
+	T& _obj;
 
 public:
-    backwards(T &obj) : _obj(obj)
+	backwards(T &obj) : _obj(obj)
 	{
 		
 	}
-	
-    auto begin()
+
+	auto begin()
 	{
 		return _obj.rbegin();
 	}
-	
-    auto end()
+
+	auto end()
 	{
 		return _obj.rend();
 	}

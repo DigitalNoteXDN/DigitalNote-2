@@ -113,30 +113,31 @@ unsigned int CNode::GetTotalRecvSize()
 
 bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
 {
-    while (nBytes > 0) {
+	while (nBytes > 0)
+	{
 
-        // get current incomplete message, or create a new one
-        if (vRecvMsg.empty() ||
-            vRecvMsg.back().complete())
-            vRecvMsg.push_back(CNetMessage(SER_NETWORK, nRecvVersion));
+		// get current incomplete message, or create a new one
+		if (vRecvMsg.empty() ||
+			vRecvMsg.back().complete())
+			vRecvMsg.push_back(CNetMessage(SER_NETWORK, nRecvVersion));
 
-        CNetMessage& msg = vRecvMsg.back();
+		CNetMessage& msg = vRecvMsg.back();
 
-        // absorb network data
-        int handled;
-        if (!msg.in_data)
-            handled = msg.readHeader(pch, nBytes);
-        else
-            handled = msg.readData(pch, nBytes);
+		// absorb network data
+		int handled;
+		if (!msg.in_data)
+			handled = msg.readHeader(pch, nBytes);
+		else
+			handled = msg.readData(pch, nBytes);
 
-        if (handled < 0)
-                return false;
+		if (handled < 0)
+				return false;
 
-        pch += handled;
-        nBytes -= handled;
-    }
+		pch += handled;
+		nBytes -= handled;
+	}
 
-    return true;
+	return true;
 }
 
 void CNode::SetRecvVersion(int nVersionIn)
@@ -291,14 +292,18 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
 
 void CNode::PushVersion()
 {
-    /// when NTP implemented, change to just nTime = GetAdjustedTime()
-    int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
-    CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
-    CAddress addrMe = GetLocalAddress(&addr);
-    GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
-    LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%s\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), addr.ToString());
-    PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
-                nLocalHostNonce, strSubVersion, nBestHeight);
+	/// when NTP implemented, change to just nTime = GetAdjustedTime()
+	int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
+	
+	CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
+	CAddress addrMe = GetLocalAddress(&addr);
+	
+	GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
+	
+	LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%s\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), addr.ToString());
+	
+	PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
+				nLocalHostNonce, strSubVersion, nBestHeight);
 }
 
 void CNode::PushMessage(const char* pszCommand)
@@ -336,212 +341,239 @@ void CNode::FulfilledRequest(std::string strRequest)
 
 void CNode::CloseSocketDisconnect()
 {
-    fDisconnect = true;
-    if (hSocket != INVALID_SOCKET)
-    {
-        LogPrint("net", "disconnecting node %s\n", addrName);
-        closesocket(hSocket);
-        hSocket = INVALID_SOCKET;
-    }
+	fDisconnect = true;
+	if (hSocket != INVALID_SOCKET)
+	{
+		LogPrint("net", "disconnecting node %s\n", addrName);
+		closesocket(hSocket);
+		hSocket = INVALID_SOCKET;
+	}
 
-    // in case this fails, we'll empty the recv buffer when the CNode is deleted
-    TRY_LOCK(cs_vRecvMsg, lockRecv);
-    if (lockRecv)
-        vRecvMsg.clear();
+	// in case this fails, we'll empty the recv buffer when the CNode is deleted
+	TRY_LOCK(cs_vRecvMsg, lockRecv);
+	if (lockRecv)
+		vRecvMsg.clear();
 
-    // if this was the sync node, we'll need a new one
-    if (this == pnodeSync)
-        pnodeSync = NULL;
+	// if this was the sync node, we'll need a new one
+	if (this == pnodeSync)
+		pnodeSync = NULL;
 }
 
 void CNode::ClearBanned()
 {
-    LOCK(cs_setBanned);
-    setBanned.clear();
-    setBannedIsDirty = true;
+	LOCK(cs_setBanned);
+	
+	setBanned.clear();
+	setBannedIsDirty = true;
 }
 
 bool CNode::IsBanned(CNetAddr ip)
 {
-    bool fResult = false;
-    {
-        LOCK(cs_setBanned);
-        for (banmap_t::iterator it = setBanned.begin(); it != setBanned.end(); it++)
-        {
-            CSubNet subNet = (*it).first;
-            CBanEntry banEntry = (*it).second;
+	bool fResult = false;
+	
+	{
+		LOCK(cs_setBanned);
+		
+		for (banmap_t::iterator it = setBanned.begin(); it != setBanned.end(); it++)
+		{
+			CSubNet subNet = (*it).first;
+			CBanEntry banEntry = (*it).second;
 
-            if(subNet.Match(ip) && GetTime() < banEntry.nBanUntil)
-                fResult = true;
-        }
-    }
-    return fResult;
+			if(subNet.Match(ip) && GetTime() < banEntry.nBanUntil)
+				fResult = true;
+		}
+	}
+	
+	return fResult;
 }
 
 bool CNode::IsBanned(CSubNet subnet)
 {
-    bool fResult = false;
-    {
-        LOCK(cs_setBanned);
-        banmap_t::iterator i = setBanned.find(subnet);
-        if (i != setBanned.end())
-        {
-            CBanEntry banEntry = (*i).second;
-            if (GetTime() < banEntry.nBanUntil)
-                fResult = true;
-        }
-    }
-    return fResult;
+	bool fResult = false;
+	{
+		LOCK(cs_setBanned);
+		
+		banmap_t::iterator i = setBanned.find(subnet);
+		
+		if (i != setBanned.end())
+		{
+			CBanEntry banEntry = (*i).second;
+			
+			if (GetTime() < banEntry.nBanUntil)
+				fResult = true;
+		}
+	}
+	
+	return fResult;
 }
 
 void CNode::Ban(const CNetAddr& addr, const BanReason &banReason, int64_t bantimeoffset, bool sinceUnixEpoch)
 {
-    CSubNet subNet(addr.ToString()+(addr.IsIPv4() ? "/32" : "/128"));
-    Ban(subNet, banReason, bantimeoffset, sinceUnixEpoch);
+	CSubNet subNet(addr.ToString()+(addr.IsIPv4() ? "/32" : "/128"));
+	Ban(subNet, banReason, bantimeoffset, sinceUnixEpoch);
 }
 
 void CNode::Ban(const CSubNet& subNet, const BanReason &banReason, int64_t bantimeoffset, bool sinceUnixEpoch)
 {
-    CBanEntry banEntry(GetTime());
-    banEntry.banReason = banReason;
-    if (bantimeoffset <= 0)
-    {
-        bantimeoffset = GetArg("-bantime", 60*60*24); // Default 24-hour ban
-        sinceUnixEpoch = false;
-    }
-    banEntry.nBanUntil = (sinceUnixEpoch ? 0 : GetTime() )+bantimeoffset;
+	CBanEntry banEntry(GetTime());
+	banEntry.banReason = banReason;
+	
+	if (bantimeoffset <= 0)
+	{
+		bantimeoffset = GetArg("-bantime", 60*60*24); // Default 24-hour ban
+		sinceUnixEpoch = false;
+	}
+	
+	banEntry.nBanUntil = (sinceUnixEpoch ? 0 : GetTime() )+bantimeoffset;
 
 
-    LOCK(cs_setBanned);
-    if (setBanned[subNet].nBanUntil < banEntry.nBanUntil)
-        setBanned[subNet] = banEntry;
+	LOCK(cs_setBanned);
+	
+	if (setBanned[subNet].nBanUntil < banEntry.nBanUntil)
+		setBanned[subNet] = banEntry;
 
-    setBannedIsDirty = true;
+	setBannedIsDirty = true;
 }
 
 bool CNode::Unban(const CNetAddr &addr)
 {
-    CSubNet subNet(addr.ToString()+(addr.IsIPv4() ? "/32" : "/128"));
-    return Unban(subNet);
+	CSubNet subNet(addr.ToString()+(addr.IsIPv4() ? "/32" : "/128"));
+	
+	return Unban(subNet);
 }
 
 bool CNode::Unban(const CSubNet &subNet)
 {
-    LOCK(cs_setBanned);
-    if (setBanned.erase(subNet))
-    {
-        setBannedIsDirty = true;
-        return true;
-    }
-    return false;
+	LOCK(cs_setBanned);
+	
+	if (setBanned.erase(subNet))
+	{
+		setBannedIsDirty = true;
+		
+		return true;
+	}
+	
+	return false;
 }
 
 void CNode::GetBanned(banmap_t &banMap)
 {
-    LOCK(cs_setBanned);
-    banMap = setBanned; //create a thread safe copy
+	LOCK(cs_setBanned);
+	
+	banMap = setBanned; //create a thread safe copy
 }
 
 void CNode::SetBanned(const banmap_t &banMap)
 {
-    LOCK(cs_setBanned);
-    setBanned = banMap;
-    setBannedIsDirty = true;
+	LOCK(cs_setBanned);
+
+	setBanned = banMap;
+	setBannedIsDirty = true;
 }
 
 bool CNode::BannedSetIsDirty()
 {
-    LOCK(cs_setBanned);
-    return setBannedIsDirty;
+	LOCK(cs_setBanned);
+	
+	return setBannedIsDirty;
 }
 
 void CNode::SetBannedSetDirty(bool dirty)
 {
-    LOCK(cs_setBanned); //reuse setBanned lock for the isDirty flag
-    setBannedIsDirty = dirty;
+	LOCK(cs_setBanned); //reuse setBanned lock for the isDirty flag
+	
+	setBannedIsDirty = dirty;
 }
 
 void CNode::SweepBanned()
 {
-    int64_t now = GetTime();
+	int64_t now = GetTime();
 
-    LOCK(cs_setBanned);
-    banmap_t::iterator it = setBanned.begin();
-    while(it != setBanned.end())
-    {
-        CBanEntry banEntry = (*it).second;
-        if(now > banEntry.nBanUntil)
-        {
-            setBanned.erase(it++);
-            setBannedIsDirty = true;
-        }
-        else
-            ++it;
-    }
+	LOCK(cs_setBanned);
+	
+	banmap_t::iterator it = setBanned.begin();
+	
+	while(it != setBanned.end())
+	{
+		CBanEntry banEntry = (*it).second;
+		
+		if(now > banEntry.nBanUntil)
+		{
+			setBanned.erase(it++);
+			setBannedIsDirty = true;
+		}
+		else
+		{
+			++it;
+		}
+	}
 }
 
 #undef X
 #define X(name) stats.name = name
 void CNode::copyStats(CNodeStats &stats)
 {
-    stats.nodeid = this->GetId();
-    X(nServices);
-    X(nLastSend);
-    X(nLastRecv);
-    X(nTimeConnected);
-    X(nTimeOffset);
-    X(addrName);
-    X(nVersion);
-    X(cleanSubVer);
-    X(strSubVer);
-    X(fInbound);
-    X(nStartingHeight);
-    X(nSendBytes);
-    X(nRecvBytes);
-    stats.fSyncNode = (this == pnodeSync);
+	stats.nodeid = this->GetId();
+	X(nServices);
+	X(nLastSend);
+	X(nLastRecv);
+	X(nTimeConnected);
+	X(nTimeOffset);
+	X(addrName);
+	X(nVersion);
+	X(cleanSubVer);
+	X(strSubVer);
+	X(fInbound);
+	X(nStartingHeight);
+	X(nSendBytes);
+	X(nRecvBytes);
+	stats.fSyncNode = (this == pnodeSync);
 
-    // It is common for nodes with good ping times to suddenly become lagged,
-    // due to a new block arriving or other large transfer.
-    // Merely reporting pingtime might fool the caller into thinking the node was still responsive,
-    // since pingtime does not update until the ping is complete, which might take a while.
-    // So, if a ping is taking an unusually long time in flight,
-    // the caller can immediately detect that this is happening.
-    int64_t nPingUsecWait = 0;
-    if ((0 != nPingNonceSent) && (0 != nPingUsecStart)) {
-        nPingUsecWait = GetTimeMicros() - nPingUsecStart;
-    }
+	// It is common for nodes with good ping times to suddenly become lagged,
+	// due to a new block arriving or other large transfer.
+	// Merely reporting pingtime might fool the caller into thinking the node was still responsive,
+	// since pingtime does not update until the ping is complete, which might take a while.
+	// So, if a ping is taking an unusually long time in flight,
+	// the caller can immediately detect that this is happening.
+	int64_t nPingUsecWait = 0;
+	if ((0 != nPingNonceSent) && (0 != nPingUsecStart)) {
+		nPingUsecWait = GetTimeMicros() - nPingUsecStart;
+	}
 
-    // Raw ping time is in microseconds, but show it to user as whole seconds (DigitalNote users should be well used to small numbers with many decimal places by now :)
-    stats.dPingTime = (((double)nPingUsecTime) / 1e6);
-    stats.dPingWait = (((double)nPingUsecWait) / 1e6);
+	// Raw ping time is in microseconds, but show it to user as whole seconds (DigitalNote users should be well used to small numbers with many decimal places by now :)
+	stats.dPingTime = (((double)nPingUsecTime) / 1e6);
+	stats.dPingWait = (((double)nPingUsecWait) / 1e6);
 
-    // Leave string empty if addrLocal invalid (not filled in yet)
-    stats.addrLocal = addrLocal.IsValid() ? addrLocal.ToString() : "";
+	// Leave string empty if addrLocal invalid (not filled in yet)
+	stats.addrLocal = addrLocal.IsValid() ? addrLocal.ToString() : "";
 }
 #undef X
 
 void CNode::RecordBytesRecv(uint64_t bytes)
 {
-    LOCK(cs_totalBytesRecv);
-    nTotalBytesRecv += bytes;
+	LOCK(cs_totalBytesRecv);
+	
+	nTotalBytesRecv += bytes;
 }
 
 void CNode::RecordBytesSent(uint64_t bytes)
 {
-    LOCK(cs_totalBytesSent);
-    nTotalBytesSent += bytes;
+	LOCK(cs_totalBytesSent);
+	
+	nTotalBytesSent += bytes;
 }
 
 uint64_t CNode::GetTotalBytesRecv()
 {
-    LOCK(cs_totalBytesRecv);
-    return nTotalBytesRecv;
+	LOCK(cs_totalBytesRecv);
+	
+	return nTotalBytesRecv;
 }
 
 uint64_t CNode::GetTotalBytesSent()
 {
-    LOCK(cs_totalBytesSent);
-    return nTotalBytesSent;
+	LOCK(cs_totalBytesSent);
+	
+	return nTotalBytesSent;
 }
-
 

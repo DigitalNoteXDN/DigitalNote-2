@@ -1,7 +1,3 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2013 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef CTXMEMPOOL_H
 #define CTXMEMPOOL_H
 
@@ -25,26 +21,26 @@ class uint256;
 class CTxMemPool
 {
 private:
-    unsigned int nTransactionsUpdated;
+	unsigned int nTransactionsUpdated;
 
 public:
-    mutable CCriticalSection cs;
-	
-    std::map<uint256, CTransaction> mapTx;
-    std::map<COutPoint, CInPoint> mapNextTx;
+	mutable CCriticalSection cs;
 
-    CTxMemPool();
+	std::map<uint256, CTransaction> mapTx;
+	std::map<COutPoint, CInPoint> mapNextTx;
 
-    bool addUnchecked(const uint256& hash, CTransaction &tx);
-    bool remove(const CTransaction &tx, bool fRecursive = false);
-    bool removeConflicts(const CTransaction &tx);
-    void clear();
-    void queryHashes(std::vector<uint256>& vtxid);
-    unsigned int GetTransactionsUpdated() const;
-    void AddTransactionsUpdated(unsigned int n);
-    unsigned long size() const;
-    bool exists(uint256 hash) const;
-    bool lookup(uint256 hash, CTransaction& result) const;
+	CTxMemPool();
+
+	bool addUnchecked(const uint256& hash, CTransaction &tx);
+	bool remove(const CTransaction &tx, bool fRecursive = false);
+	bool removeConflicts(const CTransaction &tx);
+	void clear();
+	void queryHashes(std::vector<uint256>& vtxid);
+	unsigned int GetTransactionsUpdated() const;
+	void AddTransactionsUpdated(unsigned int n);
+	unsigned long size() const;
+	bool exists(uint256 hash) const;
+	bool lookup(uint256 hash, CTransaction& result) const;
 };
 
 #endif // CTXMEMPOOL_H

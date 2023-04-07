@@ -19,35 +19,35 @@ class CScript;
 class CMasternodePayments
 {
 private:
-    std::vector<CMasternodePaymentWinner> vWinning;
-    int nSyncedFromPeer;
-    std::string strMasterPrivKey;
-    std::string strMainPubKey;
-    bool enabled;
-    int nLastBlockHeight;
+	std::vector<CMasternodePaymentWinner> vWinning;
+	int nSyncedFromPeer;
+	std::string strMasterPrivKey;
+	std::string strMainPubKey;
+	bool enabled;
+	int nLastBlockHeight;
 
 public:
-    CMasternodePayments();
-	
-    bool SetPrivKey(const std::string &strPrivKey);
-    bool CheckSignature(CMasternodePaymentWinner& winner);
-    bool Sign(CMasternodePaymentWinner& winner);
+	CMasternodePayments();
 
-    // Deterministically calculate a given "score" for a masternode depending on how close it's hash is
-    // to the blockHeight. The further away they are the better, the furthest will win the election
-    // and get paid this block
-    //
+	bool SetPrivKey(const std::string &strPrivKey);
+	bool CheckSignature(CMasternodePaymentWinner& winner);
+	bool Sign(CMasternodePaymentWinner& winner);
 
-    uint64_t CalculateScore(uint256 blockHash, CTxIn& vin);
-    bool GetWinningMasternode(int nBlockHeight, CTxIn& vinOut);
-    bool AddWinningMasternode(CMasternodePaymentWinner& winner);
-    bool ProcessBlock(int nBlockHeight);
-    void Relay(CMasternodePaymentWinner& winner);
-    void Sync(CNode* node);
-    void CleanPaymentList();
-    int LastPayment(CMasternode& mn);
-    int GetMinMasternodePaymentsProto();
-	
+	// Deterministically calculate a given "score" for a masternode depending on how close it's hash is
+	// to the blockHeight. The further away they are the better, the furthest will win the election
+	// and get paid this block
+	//
+
+	uint64_t CalculateScore(uint256 blockHash, CTxIn& vin);
+	bool GetWinningMasternode(int nBlockHeight, CTxIn& vinOut);
+	bool AddWinningMasternode(CMasternodePaymentWinner& winner);
+	bool ProcessBlock(int nBlockHeight);
+	void Relay(CMasternodePaymentWinner& winner);
+	void Sync(CNode* node);
+	void CleanPaymentList();
+	int LastPayment(CMasternode& mn);
+	int GetMinMasternodePaymentsProto();
+
 	bool GetBlockPayee(int nBlockHeight, CScript& payee, CTxIn& vin);
 };
 

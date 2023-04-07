@@ -5,6 +5,8 @@
 #include "ctransaction.h"
 #include "uint/uint256.h"
 #include "cdatastream.h"
+#include "cflatdata.h"
+#include "cvarint.h"
 
 #include "cautofile.h"
 

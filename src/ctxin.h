@@ -18,27 +18,27 @@ bool operator==(const CTxIn& a, const CTxIn& b);
 class CTxIn
 {
 public:
-    COutPoint prevout;
-    CScript scriptSig;
-    CScript prevPubKey;
-    unsigned int nSequence;
+	COutPoint prevout;
+	CScript scriptSig;
+	CScript prevPubKey;
+	unsigned int nSequence;
 
-    CTxIn();
-    explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(),
+	CTxIn();
+	explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(),
 			unsigned int nSequenceIn=std::numeric_limits<unsigned int>::max());
-    explicit CTxIn(uint256 hashPrevTx, unsigned int nOut, CScript scriptSigIn=CScript(),
+	explicit CTxIn(uint256 hashPrevTx, unsigned int nOut, CScript scriptSigIn=CScript(),
 			unsigned int nSequenceIn=std::numeric_limits<unsigned int>::max());
-	
+
 	unsigned int GetSerializeSize(int nType, int nVersion) const;
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const;
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion);
+	template<typename Stream>
+	void Serialize(Stream& s, int nType, int nVersion) const;
+	template<typename Stream>
+	void Unserialize(Stream& s, int nType, int nVersion);
 
-    bool IsFinal() const;
-    friend bool operator==(const CTxIn& a, const CTxIn& b);
-    friend bool operator!=(const CTxIn& a, const CTxIn& b);
-    std::string ToString() const;
+	bool IsFinal() const;
+	friend bool operator==(const CTxIn& a, const CTxIn& b);
+	friend bool operator!=(const CTxIn& a, const CTxIn& b);
+	std::string ToString() const;
 };
 
 #endif // CTXIN_H
