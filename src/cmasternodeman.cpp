@@ -435,7 +435,7 @@ bool CMasternodeMan::IsPayeeAValidMasternode(CScript payee)
 		
 		CScript currentMasternode = GetScriptForDestination(mn.pubkey.GetID());
 		
-		LogPrintf("* Masternode %d - testing %s\n", mnCount, currentMasternode.ToString().c_str());
+		// LogPrintf("* Masternode %d - testing %s\n", mnCount, currentMasternode.ToString().c_str());
 		
 		if(payee == currentMasternode)
 		{
