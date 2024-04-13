@@ -3852,7 +3852,7 @@ bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsig
 	_txFrom = txFrom.GetHash().ToString();
 	_txTo = txTo.GetHash().ToString();
 
-	LogPrintf("VerifySignature from %s to %s\n", _txFrom.c_str(), _txTo.c_str());
+	// LogPrintf("VerifySignature from %s to %s\n", _txFrom.c_str(), _txTo.c_str());
 
 	assert(nIn < txTo.vin.size());
 
