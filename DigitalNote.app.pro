@@ -2,7 +2,9 @@ include(include/definitions.pri)
 
 TARGET = DigitalNote-qt
 DIGITALNOTE_APP_NAME = app
-DIGITALNOTE_PATH = $$PWD
+isEmpty(DIGITALNOTE_PATH) {
+    DIGITALNOTE_PATH = $$PWD
+}
 
 ## Custom Configurations
 include(DigitalNote_config.pri)

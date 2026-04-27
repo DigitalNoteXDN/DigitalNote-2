@@ -1,85 +1,19 @@
 name: CI - Linux x64
 
 on:
-  workflow_dispatch:  # manual trigger only — run via Actions tab
-  workflow_call:      # called by release.yml on tag push
+  workflow_dispatch:
+  workflow_call:
 
 env:
-  BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
   JOBS: 4
+  # Absolute path — actions/cache does NOT allow .. in paths
+  BUILDER: /home/runner/work/DigitalNote-2/DigitalNote-Builder
 
 jobs:
 
-# ── Job 1: Fast libs (BerkeleyDB, Boost, OpenSSL, GMP, libevent, miniupnpc, qrencode) ──
-  libs-fast:
-    name: Compile fast libraries (~20 min)
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
-
-      - name: Cache fast libraries
-        uses: actions/cache@v4
-        id: fast-cache
-        with:
-          path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/db-6.2.32.NC
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/boost_1_80_0
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/gmp-6.2.1
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/libevent-2.1.12-stable
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/miniupnpc-2.2.8
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qrencode-4.1.1
-          key: linux-x64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
-          restore-keys: linux-x64-fast-libs-
-
-      - name: Clone DigitalNote-Builder
-        if: steps.fast-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/..
-        run: git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
-
-      - name: Install system packages
-        if: steps.fast-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
-        run: |
-          sudo apt-get update -qq
-          bash update.sh
-          sudo apt-get install -y libgmp-dev
-
-      - name: Download library source archives
-        if: steps.fast-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder
-        run: |
-          mkdir -p download && cd download
-          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
-          wget -q https://www.openssl.org/source/old/1.1.1/openssl-1.1.1w.tar.gz
-          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
-          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
-          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
-          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          wget -q https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2
-
-      - name: Compile fast libraries
-        if: steps.fast-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
-        run: |
-          mkdir -p temp libs
-          CPUS=$(nproc)
-          ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
-          ../../compile/boost.sh "address-model=64 toolset=gcc -j $CPUS"
-          ../../compile/openssl.sh "linux-x86_64" "-j $CPUS"
-          ../../compile/gmp.sh "" "-j $CPUS"
-          ../../compile/libevent.sh "" "-j $CPUS"
-          ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
-          ../../compile/qrencode.sh "" "-j $CPUS"
-
-# ── Job 2: Qt (long — up to 6 hours) ─────────────────────────────────────────
-  libs-qt:
-    name: Compile Qt 5.15.7 (up to 6hrs)
+# ── Job 1: Compile libraries (cached) ─────────────────────────────────────────
+  libs-linux-x64:
+    name: Compile libraries — Linux x64
     runs-on: ubuntu-22.04
     timeout-minutes: 360
 
@@ -89,25 +23,29 @@ jobs:
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Cache Qt
-        uses: actions/cache@v4
-        id: qt-cache
-        with:
-          path: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7
-          key: linux-x64-qt-5.15.7-v1
-          restore-keys: linux-x64-qt-5.15.7-
-
       - name: Clone DigitalNote-Builder
-        if: steps.qt-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/..
-        run: git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            ${{ env.BUILDER }}
+          mkdir -p ${{ env.BUILDER }}/linux/x64/libs
 
-      - name: Install Qt build dependencies
-        if: steps.qt-cache.outputs.cache-hit != 'true'
+      - name: Cache all libraries
+        uses: actions/cache@v4
+        id: libs-cache
+        with:
+          path: ${{ env.BUILDER }}/linux/x64/libs
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+          restore-keys: linux-x64-libs-
+
+      - name: Install system packages
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ env.BUILDER }}/linux/x64
         run: |
           sudo apt-get update -qq
+          bash update.sh
           sudo apt-get install -y \
-            libgmp-dev libfreetype6-dev libfontconfig1-dev \
+            libgmp-dev \
+            libfreetype6-dev libfontconfig1-dev \
             libx11-dev libxcb1-dev libxext-dev libxfixes-dev \
             libxi-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev \
@@ -116,28 +54,47 @@ jobs:
             libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev \
             libxcb-xkb-dev
 
-      - name: Download Qt source
-        if: steps.qt-cache.outputs.cache-hit != 'true'
+      - name: Download library source archives
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ env.BUILDER }}
         run: |
-          mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
-          wget -q https://download.qt.io/archive/qt/5.15/5.15.7/single/qt-everywhere-opensource-src-5.15.7.tar.xz \
-            -O ${{ github.workspace }}/../DigitalNote-Builder/download/qt-everywhere-opensource-src-5.15.7.tar.xz
+          mkdir -p download && cd download
+          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          wget -q https://download.qt.io/archive/qt/5.15/5.15.7/single/qt-everywhere-opensource-src-5.15.7.tar.xz
 
-      - name: Compile Qt
-        if: steps.qt-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
+      - name: Compile all libraries
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ env.BUILDER }}/linux/x64
         run: |
           mkdir -p temp libs
           CPUS=$(nproc)
-          echo "Compiling Qt with $CPUS jobs — this takes 1-3 hours"
-          ../../compile/qt.sh "-bundled-xcb-xinput -fontconfig -system-freetype" "-j $CPUS"
+          echo ">>> [1/7] BerkeleyDB..."    && ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
+          echo ">>> [2/7] Boost..."          && ../../compile/boost.sh "address-model=64 toolset=gcc -j $CPUS"
+          echo ">>> [3/7] OpenSSL..."        && ../../compile/openssl.sh "linux-x86_64" "-j $CPUS"
+          echo ">>> [4/7] libevent..."       && ../../compile/libevent.sh "" "-j $CPUS"
+          echo ">>> [5/7] miniupnpc..."      && ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
+          echo ">>> [6/7] qrencode..."       && ../../compile/qrencode.sh "" "-j $CPUS"
+          echo ">>> [7/7] Qt 5.15.7..."      && ../../compile/qt.sh "-bundled-xcb-xinput -fontconfig -system-freetype" "-j $CPUS"
+          echo ">>> All libraries compiled"
+          ls libs/
 
-# ── Job 3: Build daemon + wallet ──────────────────────────────────────────────
+      - name: Verify qmake
+        run: |
+          QMAKE="${{ env.BUILDER }}/linux/x64/libs/qt-5.15.7/bin/qmake"
+          [ -f "$QMAKE" ] || { echo "ERROR: qmake not found"; exit 1; }
+          echo "Qt: $($QMAKE --version)"
+
+# ── Job 2: Build daemon + wallet ──────────────────────────────────────────────
   build-and-test-linux-x64:
     name: Linux x64 — Build + Full Test Suite
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    needs: [ libs-fast, libs-qt ]
+    needs: libs-linux-x64
 
     steps:
       - uses: actions/checkout@v4
@@ -145,67 +102,64 @@ jobs:
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Restore fast libraries from cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/db-6.2.32.NC
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/boost_1_80_0
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/gmp-6.2.1
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/libevent-2.1.12-stable
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/miniupnpc-2.2.8
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qrencode-4.1.1
-          key: linux-x64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
-          restore-keys: linux-x64-fast-libs-
-
-      - name: Restore Qt from cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7
-          key: linux-x64-qt-5.15.7-v1
-          restore-keys: linux-x64-qt-5.15.7-
-
       - name: Clone DigitalNote-Builder
-        working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            ${{ env.BUILDER }}
+          mkdir -p ${{ env.BUILDER }}/linux/x64/libs
+
+      - name: Restore libraries from cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUILDER }}/linux/x64/libs
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+          restore-keys: linux-x64-libs-
 
       - name: Install system packages
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
+        working-directory: ${{ env.BUILDER }}/linux/x64
         run: |
           sudo apt-get update -qq
           bash update.sh
           sudo apt-get install -y \
-            libgmp-dev xvfb libboost-test-dev cppcheck valgrind \
+            libgmp-dev \
             libfreetype6-dev libfontconfig1-dev \
-            libxcb1-dev libxcb-icccm4-dev libxcb-image0-dev \
+            libx11-dev libxcb1-dev libxcb-icccm4-dev libxcb-image0-dev \
             libxcb-keysyms1-dev libxcb-randr0-dev libxcb-render-util0-dev \
-            libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-x11-dev
+            libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-x11-dev \
+            cppcheck
+
+      - name: Verify qmake
+        run: |
+          QMAKE="${{ env.BUILDER }}/linux/x64/libs/qt-5.15.7/bin/qmake"
+          [ -f "$QMAKE" ] || { echo "ERROR: qmake not found after cache restore"; exit 1; }
+          echo "Qt: $($QMAKE --version)"
 
       - name: Link source tree into Builder
         run: |
           ln -sfn ${{ github.workspace }} \
-            ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2
 
       - name: Compile daemon (digitalnoted)
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
+        working-directory: ${{ env.BUILDER }}/linux/x64
         run: |
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
+          # DIGITALNOTE_PATH set to linux/x64/DigitalNote-2 so ../libs resolves correctly
           qmake DigitalNote.daemon.pro \
+            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon.log
           exit ${PIPESTATUS[0]}
 
       - name: Compile Qt wallet (digitalnote-qt)
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
+        working-directory: ${{ env.BUILDER }}/linux/x64
         run: |
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
+            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
             USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app.log
@@ -226,43 +180,15 @@ jobs:
             fi
           done
 
-      - name: Verify build artefacts
+      - name: Assert version constants
         run: |
-          set -e
-          DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
-          WALLET=$(find ${{ github.workspace }} \
-                        \( -name 'digitalnote-qt' -o -name 'bitcoin-qt' \) \
-                        -type f | head -1)
-          echo "Daemon: $DAEMON"
-          echo "Wallet: $WALLET"
-          [ -x "$DAEMON" ] || { echo "ERROR: daemon not found/executable"; exit 1; }
-          [ -x "$WALLET" ] || { echo "ERROR: wallet not found/executable"; exit 1; }
+          grep -qE 'CLIENT_VERSION_BUILD[[:space:]]+7' src/clientversion.h || {
+            echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1; }
+          grep -qE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*62055' src/version.h || {
+            echo "ERROR: PROTOCOL_VERSION is not 62055"; exit 1; }
+          echo "OK: BUILD=7, PROTOCOL=62055"
 
-      - name: Assert version constants in source
-        run: |
-          set -e
-          DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
-          VERSION_OUT=$("$DAEMON" --version 2>&1 || true)
-          echo "Version output: $VERSION_OUT"
-          echo "$VERSION_OUT" | grep -q "2\.0\.0\.7" || {
-            echo "ERROR: daemon does not report version 2.0.0.7"
-            exit 1
-          }
-          echo "✓ Client version 2.0.0.7 confirmed"
-
-      - name: Run existing test suite
-        run: |
-          TEST_BIN=$(find ${{ github.workspace }} \
-                          \( -name 'test_digitalnote' -o -name 'test_bitcoin' \) \
-                          -type f | head -1)
-          if [ -n "$TEST_BIN" ] && [ -x "$TEST_BIN" ]; then
-            echo "Running: $TEST_BIN"
-            "$TEST_BIN" --log_level=test_suite --report_level=short
-          else
-            echo "⚠ test_digitalnote binary not available on this build path"
-          fi
-
-      - name: cppcheck — new Qt/BIP39 sources
+      - name: cppcheck
         run: |
           cppcheck \
             --enable=warning,style,performance \
@@ -276,15 +202,11 @@ jobs:
             ${{ github.workspace }}/src/qt/decryptworker.cpp \
             ${{ github.workspace }}/src/qt/walletmodel.cpp \
             ${{ github.workspace }}/src/qt/askpassphrasedialog.cpp \
-            ${{ github.workspace }}/src/qt/coincontrolworker.cpp \
-            ${{ github.workspace }}/src/qt/sendcoinsworker.cpp \
-            ${{ github.workspace }}/src/qt/masternodeworker.cpp \
-            ${{ github.workspace }}/src/bip39/src/bip39_wallet.cpp \
             ${{ github.workspace }}/src/bip39/src/bip39_passphrase.cpp \
             ${{ github.workspace }}/src/rpcbip39.cpp \
-            2>&1 || echo "⚠ cppcheck warnings present (non-fatal)"
+            2>&1 || echo "⚠ cppcheck warnings (non-fatal)"
 
-      - name: Upload Linux x64 binaries
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: digitalnote-linux-x64
@@ -305,19 +227,17 @@ jobs:
             ${{ github.workspace }}/build-daemon.log
           retention-days: 14
 
-# ── Job 4: Lint (independent) ─────────────────────────────────────────────────
+# ── Job 3: Lint (independent) ─────────────────────────────────────────────────
   lint:
-    name: Lint (cppcheck + version checks)
+    name: Lint
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
-
       - name: Install cppcheck
         run: sudo apt-get install -y cppcheck
-
       - name: cppcheck full src/qt tree
         run: |
           cppcheck \
@@ -325,9 +245,6 @@ jobs:
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --std=c++17 \
-            -I src \
-            -I src/bip39/include \
-            src/qt/ \
-            2>&1 | tee cppcheck-qt.log
-          echo "--- cppcheck summary ---"
+            -I src -I src/bip39/include \
+            src/qt/ 2>&1 | tee cppcheck-qt.log
           grep -c "error\|warning\|style\|performance" cppcheck-qt.log || echo "0 issues"

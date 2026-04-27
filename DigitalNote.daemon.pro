@@ -2,7 +2,9 @@ include(include/definitions.pri)
 
 TARGET = DigitalNoted
 DIGITALNOTE_APP_NAME = daemon
-DIGITALNOTE_PATH = $$PWD
+isEmpty(DIGITALNOTE_PATH) {
+    DIGITALNOTE_PATH = $$PWD
+}
 
 ## Custom Configurations
 include(DigitalNote_config.pri)
