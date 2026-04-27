@@ -774,6 +774,11 @@ bool WalletModel::hasMnemonicMasterKey() const
     return wallet->HasMnemonicMasterKey();
 }
 
+bool WalletModel::removeMnemonicMasterKey()
+{
+    return wallet->RemoveMnemonicMasterKey();
+}
+
 bool WalletModel::addMnemonicMasterKey(const SecureString &passphrase)
 {
     return wallet->AddMnemonicMasterKey(passphrase);

@@ -169,6 +169,7 @@ public:
     bool hasRecoveryPhraseSupport() const;
     bool addMnemonicMasterKey(const SecureString &passphrase);
     bool hasMnemonicMasterKey() const;
+    bool removeMnemonicMasterKey();
     bool verifyPassphrase(const SecureString &passphrase) const;
     bool generateRecoveryMnemonic(const SecureString &passphrase, SecureString &mnemonic) const;
 

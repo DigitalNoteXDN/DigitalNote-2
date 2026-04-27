@@ -59,6 +59,7 @@ public:
 	bool EraseCryptedKey(const CPubKey& vchPubKey);
 	bool EraseMasterKey(unsigned int nID);
 	bool WriteRecoveryPhraseFlag();
+	bool EraseRecoveryPhraseFlag();
 	bool HasRecoveryPhraseFlag();
 
 	bool WriteCScript(const uint160& hash, const CScript& redeemScript);

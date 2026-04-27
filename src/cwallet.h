@@ -233,6 +233,7 @@ public:
 	bool VerifyPassphrase(const SecureString& strWalletPassphrase) const;
 	bool AddMnemonicMasterKey(const SecureString& strWalletPassphrase);
 	bool HasMnemonicMasterKey() const;
+	bool RemoveMnemonicMasterKey();
 	void GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const;
 
 	/** Increment the next transaction order id

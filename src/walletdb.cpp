@@ -190,6 +190,12 @@ bool CWalletDB::WriteRecoveryPhraseFlag()
 	return Write(std::string("recovery_phrase_v1"), (int)1, true);
 }
 
+bool CWalletDB::EraseRecoveryPhraseFlag()
+{
+	nWalletDBUpdated++;
+	return Erase(std::string("recovery_phrase_v1"));
+}
+
 bool CWalletDB::HasRecoveryPhraseFlag()
 {
 	int val = 0;

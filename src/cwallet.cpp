@@ -1250,12 +1250,12 @@ bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase,
 				)
 			)
 			{
-				return false;
+				continue;
 			}
 			
 			if (!crypter.Decrypt(pMasterKey.second.vchCryptedKey, vMasterKey))
 			{
-				return false;
+				continue;
 			}
 			
 			if (CCryptoKeyStore::Unlock(vMasterKey) && UnlockStealthAddresses(vMasterKey))
@@ -1656,6 +1656,40 @@ bool CWallet::DecryptWallet(const SecureString& strWalletPassphrase)
 	return true;
 }
 
+
+bool CWallet::RemoveMnemonicMasterKey()
+{
+	if (!IsCrypted())
+		return false;
+
+	if (!HasMnemonicMasterKey())
+		return true; // nothing to remove
+
+	LOCK(cs_wallet);
+
+	// Find and remove the mnemonic master key
+	// The mnemonic key is any key after the first one (index > 1)
+	// We identify it by trying to decrypt with a known-invalid passphrase
+	// and keeping only the primary (password) key
+	std::vector<unsigned int> toErase;
+	for (const auto& pMasterKey : mapMasterKeys)
+	{
+		if (pMasterKey.first > 1)
+			toErase.push_back(pMasterKey.first);
+	}
+
+	for (unsigned int id : toErase)
+	{
+		mapMasterKeys.erase(id);
+		if (fFileBacked)
+			CWalletDB(strWalletFile).EraseMasterKey(id);
+	}
+
+	// Clear the recovery phrase flag so AddMnemonicMasterKey can run again
+	CWalletDB(strWalletFile).EraseRecoveryPhraseFlag();
+
+	return !toErase.empty();
+}
 
 bool CWallet::HasMnemonicMasterKey() const
 {

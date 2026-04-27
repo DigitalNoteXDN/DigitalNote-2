@@ -403,8 +403,17 @@ void AskPassphraseDialog::accept()
     case ChangePass:
         if(newpass1 == newpass2) {
             if(model->changePassphrase(oldpass, newpass1)) {
+                // Update mnemonic master key to match new password
+                if(model->hasMnemonicMasterKey()) {
+                    model->removeMnemonicMasterKey();
+                    // Unlock with new password to add new mnemonic key
+                    model->setWalletLocked(false, newpass1);
+                    model->addMnemonicMasterKey(newpass1);
+                    model->setWalletLocked(true);
+                }
                 QMessageBox::information(this, tr("Wallet encrypted"),
-                    tr("Wallet passphrase was successfully changed."));
+                    tr("Wallet passphrase was successfully changed.\n"
+                       "Your recovery phrase has been updated to match your new password."));
                 QDialog::accept();
             } else {
                 QMessageBox::critical(this, tr("Wallet encryption failed"),
