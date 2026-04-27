@@ -130,11 +130,20 @@ jobs:
             libxcb-keysyms1-dev libxcb-randr0-dev libxcb-render-util0-dev \
             libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-x11-dev
 
-      - name: Verify qmake
+      - name: Diagnose cache restore
         run: |
-          QMAKE="${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7/bin/qmake"
-          [ -f "$QMAKE" ] || { echo "ERROR: qmake not found after cache restore"; exit 1; }
-          echo "Qt: $($QMAKE --version)"
+          echo "=== github.workspace ==="
+          echo "${{ github.workspace }}"
+          echo "=== Runner home ==="
+          echo "$HOME"
+          echo "=== Directory listing ==="
+          ls -la ${{ github.workspace }}/../
+          echo "=== DigitalNote-Builder contents ==="
+          ls -la ${{ github.workspace }}/../DigitalNote-Builder/ 2>/dev/null || echo "DigitalNote-Builder NOT FOUND"
+          echo "=== linux/x64/libs ==="
+          ls -la ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/ 2>/dev/null || echo "libs dir NOT FOUND"
+          echo "=== find qmake ==="
+          find ${{ github.workspace }}/../DigitalNote-Builder -name qmake 2>/dev/null || echo "qmake not found anywhere"
 
       - name: Link source tree into Builder
         run: |
