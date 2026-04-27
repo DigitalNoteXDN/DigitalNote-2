@@ -30,7 +30,6 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/db-6.2.32.NC
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/boost_1_80_0
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/gmp-6.2.1
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qrencode-4.1.1
@@ -56,12 +55,12 @@ jobs:
         run: |
           mkdir -p download && cd download
           wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
-          wget -q https://www.openssl.org/source/old/1.1.1/openssl-1.1.1w.tar.gz
+          wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
           wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
           wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
           wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          wget -q https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2
+          # GMP: use libgmp-dev system package (see Install system packages step)
 
       - name: Compile fast libraries
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -72,7 +71,6 @@ jobs:
           ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
           ../../compile/boost.sh "address-model=64 toolset=gcc -j $CPUS"
           ../../compile/openssl.sh "linux-x86_64" "-j $CPUS"
-          ../../compile/gmp.sh "" "-j $CPUS"
           ../../compile/libevent.sh "" "-j $CPUS"
           ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
           ../../compile/qrencode.sh "" "-j $CPUS"
@@ -152,7 +150,6 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/db-6.2.32.NC
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/boost_1_80_0
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/gmp-6.2.1
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qrencode-4.1.1
