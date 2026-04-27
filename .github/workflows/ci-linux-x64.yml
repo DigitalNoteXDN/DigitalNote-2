@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v4
         id: libs-cache
         with:
-          path: /home/runner/work/DigitalNote-2/DigitalNote-Builder/linux/x64/libs
+          path: ${{ env.BUILDER }}/linux/x64/libs
           key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
           restore-keys: linux-x64-libs-
 
@@ -111,7 +111,7 @@ jobs:
       - name: Restore libraries from cache
         uses: actions/cache@v4
         with:
-          path: /home/runner/work/DigitalNote-2/DigitalNote-Builder/linux/x64/libs
+          path: ${{ env.BUILDER }}/linux/x64/libs
           key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
           restore-keys: linux-x64-libs-
 
