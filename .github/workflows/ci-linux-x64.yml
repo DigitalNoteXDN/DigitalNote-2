@@ -143,6 +143,12 @@ jobs:
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
+      - name: Clone DigitalNote-Builder
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+          mkdir -p DigitalNote-Builder/linux/x64/libs
+
       - name: Restore fast libraries from cache
         uses: actions/cache@v4
         with:
@@ -163,11 +169,6 @@ jobs:
           key: linux-x64-qt-5.15.7-v1
           restore-keys: linux-x64-qt-5.15.7-
 
-      - name: Clone DigitalNote-Builder
-        working-directory: ${{ github.workspace }}/..
-        run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
-
       - name: Install system packages
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
         run: |
@@ -185,10 +186,22 @@ jobs:
           ln -sfn ${{ github.workspace }} \
             ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/DigitalNote-2
 
+      - name: Verify Qt installation
+        run: |
+          QMAKE="${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7/bin/qmake"
+          if [ ! -f "$QMAKE" ]; then
+            echo "ERROR: qmake not found at $QMAKE"
+            echo "Qt cache contents:"
+            ls -la ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/ 2>/dev/null || echo "libs dir not found"
+            exit 1
+          fi
+          echo "Qt found: $($QMAKE --version)"
+
       - name: Compile daemon (digitalnoted)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
         run: |
-          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          QTBIN="${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7/bin"
+          export PATH="$QTBIN:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.daemon.pro \
@@ -199,7 +212,8 @@ jobs:
       - name: Compile Qt wallet (digitalnote-qt)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64
         run: |
-          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          QTBIN="${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7/bin"
+          export PATH="$QTBIN:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
