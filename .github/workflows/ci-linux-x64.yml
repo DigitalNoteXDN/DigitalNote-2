@@ -129,6 +129,9 @@ jobs:
           CPUS=$(nproc)
           echo "Compiling Qt with $CPUS jobs — this takes 1-3 hours"
           ../../compile/qt.sh "-bundled-xcb-xinput -fontconfig -system-freetype" "-j $CPUS"
+          echo "=== Qt install location ==="
+          ls -la ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/ || echo "libs dir not found"
+          ls -la ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/libs/qt-5.15.7/bin/qmake || echo "qmake not found"
 
 # ── Job 3: Build daemon + wallet ──────────────────────────────────────────────
   build-and-test-linux-x64:
