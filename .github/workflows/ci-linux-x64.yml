@@ -145,7 +145,9 @@ jobs:
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
+          # DIGITALNOTE_PATH set to linux/x64/DigitalNote-2 so ../libs resolves correctly
           qmake DigitalNote.daemon.pro \
+            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon.log
           exit ${PIPESTATUS[0]}
@@ -157,6 +159,7 @@ jobs:
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
+            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
             USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app.log
