@@ -1,100 +1,197 @@
 name: CI - macOS x64 + arm64
 
 on:
-  push:
-    branches: [ master, main, develop, 2.0.0.7-testing ]
-  pull_request:
-    branches: [ master, main, develop, 2.0.0.7-testing ]
-  workflow_call:  # allow release.yml to call this workflow
+  workflow_dispatch:  # manual trigger only — run via Actions tab
+  workflow_call:      # called by release.yml on tag push
 
 env:
   BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
   JOBS: 4
 
 jobs:
+
+# ══════════════════════════════════════════════════════════════════════════════
+# macOS x64 (Intel)
+# ══════════════════════════════════════════════════════════════════════════════
+
+  libs-fast-macos-x64:
+    name: Compile fast libraries — macOS x64 (~20 min)
+    runs-on: macos-13
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Cache fast libraries
+        uses: actions/cache@v4
+        id: fast-cache
+        with:
+          path: |
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/gmp-6.2.1
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          restore-keys: macos-x64-fast-libs-
+
+      - name: Clone DigitalNote-Builder
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
+
+      - name: Install Homebrew packages
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: bash update.sh
+
+      - name: Download library source archives
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
+          cd ${{ github.workspace }}/../DigitalNote-Builder/download
+          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          wget -q https://www.openssl.org/source/old/1.1.1/openssl-1.1.1w.tar.gz
+          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          wget -q https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2
+
+      - name: Compile fast libraries
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: |
+          mkdir -p temp libs
+          CPUS=$(sysctl -n hw.logicalcpu)
+          bash ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
+          bash ../../compile/boost.sh "address-model=64 toolset=clang -j $CPUS"
+          bash ../../compile/openssl.sh "darwin64-x86_64-cc" "-j $CPUS"
+          bash ../../compile/gmp.sh "" "-j $CPUS"
+          bash ../../compile/libevent.sh "" "-j $CPUS"
+          bash ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
+          bash ../../compile/qrencode.sh "" "-j $CPUS"
+
+  libs-qt-macos-x64:
+    name: Compile Qt 5.15.7 — macOS x64 (up to 6hrs)
+    runs-on: macos-13
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Cache Qt
+        uses: actions/cache@v4
+        id: qt-cache
+        with:
+          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          key: macos-x64-qt-5.15.7-v1
+          restore-keys: macos-x64-qt-5.15.7-
+
+      - name: Clone DigitalNote-Builder
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
+
+      - name: Install Homebrew packages
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: brew install perl freetype fontconfig
+
+      - name: Download Qt source
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
+          wget -q https://download.qt.io/archive/qt/5.15/5.15.7/single/qt-everywhere-opensource-src-5.15.7.tar.xz \
+            -O ${{ github.workspace }}/../DigitalNote-Builder/download/qt-everywhere-opensource-src-5.15.7.tar.xz
+
+      - name: Compile Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: |
+          mkdir -p temp libs
+          CPUS=$(sysctl -n hw.logicalcpu)
+          echo "Compiling Qt with $CPUS jobs — this takes 1-3 hours"
+          bash ../../compile/qt.sh "" "-j $CPUS"
+
   build-macos-x64:
     name: macOS x64 (Intel) — Build + Test
     runs-on: macos-13
-    timeout-minutes: 240
+    timeout-minutes: 60
+    needs: [ libs-fast-macos-x64, libs-qt-macos-x64 ]
 
     steps:
-      - name: Checkout DigitalNote-2
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          submodules: false  # BIP39 merged into main repo - no longer a submodule
+          submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Cache compiled libraries
+      - name: Restore fast libraries from cache
         uses: actions/cache@v4
-        id: libs-cache
         with:
           path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/libs
-            ${{ github.workspace }}/../DigitalNote-Builder/download
-          key: macos-x64-libs-${{ hashFiles('.gitmodules') }}-v5
-          restore-keys: macos-x64-libs-
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/gmp-6.2.1
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          restore-keys: macos-x64-fast-libs-
+
+      - name: Restore Qt from cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          key: macos-x64-qt-5.15.7-v1
+          restore-keys: macos-x64-qt-5.15.7-
 
       - name: Clone DigitalNote-Builder
         working-directory: ${{ github.workspace }}/..
         run: |
-          if [ ! -d DigitalNote-Builder ]; then
-            git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
-          else
-            cd DigitalNote-Builder && git pull origin master
-          fi
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
 
-      - name: Download library archives
-        if: steps.libs-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder
-        run: bash download.sh
-
-      # Matches macos/x64/update.sh packages
       - name: Install Homebrew packages
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
-        run: |
-          bash update.sh
-          brew install cmake || true
+        run: bash update.sh
 
-      # Note: macos compile_libs.sh should include secp256k1, leveldb, mnemonic
-      # alongside the existing libs. Qt is built from source here via qt.sh.
-      - name: Compile static libraries
-        if: steps.libs-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
-        run: bash compile_libs.sh "-j ${{ env.JOBS }}"
-
-      - name: Link source tree into Builder
+      - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
             ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
 
-      # Matches macos/x64/compile_deamon.sh + USE_BIP39=1
-      - name: Compile daemon (digitalnoted)
+      - name: Compile daemon
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
         run: |
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.daemon.pro \
-            USE_UPNP=1 \
-            USE_BUILD_INFO=1 \
-            USE_BIP39=1 \
-            RELEASE=1
+            USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon-macos.log
           exit ${PIPESTATUS[0]}
 
-      # Matches macos/x64/compile_app.sh + USE_BIP39=1
-      - name: Compile Qt wallet (digitalnote-qt)
+      - name: Compile Qt wallet
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
         run: |
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
-            USE_UPNP=1 \
-            USE_QRCODE=1 \
-            USE_BUILD_INFO=1 \
-            USE_BIP39=1 \
-            RELEASE=1
+            USE_UPNP=1 USE_QRCODE=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app-macos.log
           exit ${PIPESTATUS[0]}
 
@@ -113,29 +210,16 @@ jobs:
             fi
           done
 
-      - name: Assert client version 2.0.0.7
+      - name: Assert version
         run: |
           DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
-          VERSION_OUT=$("$DAEMON" --version 2>&1 || true)
-          echo "Version output: $VERSION_OUT"
-          echo "$VERSION_OUT" | grep -q "2\.0\.0\.7" || {
+          "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
             echo "ERROR: daemon does not report version 2.0.0.7"; exit 1
           }
-          echo "OK: client version 2.0.0.7"
-
-      - name: Assert PROTOCOL_VERSION = 62055
-        run: |
           grep -qE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*62055' src/version.h || {
-            echo "ERROR: PROTOCOL_VERSION is not 62055"; grep PROTOCOL src/version.h; exit 1
+            echo "ERROR: PROTOCOL_VERSION not 62055"; exit 1
           }
-          echo "OK: PROTOCOL_VERSION = 62055"
-
-      - name: Assert CLIENT_VERSION_BUILD = 7
-        run: |
-          grep -qE 'CLIENT_VERSION_BUILD[[:space:]]+7' src/clientversion.h || {
-            echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1
-          }
-          echo "OK: CLIENT_VERSION_BUILD = 7"
+          echo "OK: v2.0.0.7 / protocol 62055"
 
       - name: Upload macOS x64 artefacts
         uses: actions/upload-artifact@v4
@@ -156,41 +240,163 @@ jobs:
             ${{ github.workspace }}/build-daemon-macos.log
           retention-days: 14
 
-  build-macos-arm64:
-    name: macOS arm64 (Apple Silicon) — Build + Test
+# ══════════════════════════════════════════════════════════════════════════════
+# macOS arm64 (Apple Silicon)
+# ══════════════════════════════════════════════════════════════════════════════
+
+  libs-fast-macos-arm64:
+    name: Compile fast libraries — macOS arm64 (~20 min)
     runs-on: macos-14
-    timeout-minutes: 240
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: false  # BIP39 merged into main repo - no longer a submodule
+          submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Cache compiled libraries (arm64)
+      - name: Cache fast libraries
         uses: actions/cache@v4
-        id: libs-cache
+        id: fast-cache
         with:
           path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/libs
-            ${{ github.workspace }}/../DigitalNote-Builder/download
-          key: macos-arm64-libs-${{ hashFiles('.gitmodules') }}-v5
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/gmp-6.2.1
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          restore-keys: macos-arm64-fast-libs-
 
-      - name: Clone Builder + install packages
+      - name: Clone DigitalNote-Builder
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/..
         run: |
-          cd ..
           git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
             2>/dev/null || (cd DigitalNote-Builder && git pull)
-          cd DigitalNote-Builder
-          bash download.sh 2>/dev/null || true
-          cd macos/x64
-          bash update.sh
-          brew install cmake || true
 
-      - name: Compile static libraries (arm64)
-        if: steps.libs-cache.outputs.cache-hit != 'true'
+      - name: Install Homebrew packages
+        if: steps.fast-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
-        run: bash compile_libs.sh "-j ${{ env.JOBS }}"
+        run: bash update.sh
+
+      - name: Download library source archives
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
+          cd ${{ github.workspace }}/../DigitalNote-Builder/download
+          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          wget -q https://www.openssl.org/source/old/1.1.1/openssl-1.1.1w.tar.gz
+          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          wget -q https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2
+
+      - name: Compile fast libraries
+        if: steps.fast-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: |
+          mkdir -p temp libs
+          CPUS=$(sysctl -n hw.logicalcpu)
+          bash ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
+          bash ../../compile/boost.sh "address-model=64 toolset=clang -j $CPUS"
+          bash ../../compile/openssl.sh "darwin64-arm64-cc" "-j $CPUS"
+          bash ../../compile/gmp.sh "" "-j $CPUS"
+          bash ../../compile/libevent.sh "" "-j $CPUS"
+          bash ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
+          bash ../../compile/qrencode.sh "" "-j $CPUS"
+
+  libs-qt-macos-arm64:
+    name: Compile Qt 5.15.7 — macOS arm64 (up to 6hrs)
+    runs-on: macos-14
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Cache Qt arm64
+        uses: actions/cache@v4
+        id: qt-cache
+        with:
+          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          key: macos-arm64-qt-5.15.7-v1
+          restore-keys: macos-arm64-qt-5.15.7-
+
+      - name: Clone DigitalNote-Builder
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
+
+      - name: Install Homebrew packages
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: brew install perl freetype fontconfig
+
+      - name: Download Qt source
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
+          wget -q https://download.qt.io/archive/qt/5.15/5.15.7/single/qt-everywhere-opensource-src-5.15.7.tar.xz \
+            -O ${{ github.workspace }}/../DigitalNote-Builder/download/qt-everywhere-opensource-src-5.15.7.tar.xz
+
+      - name: Compile Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: |
+          mkdir -p temp libs
+          CPUS=$(sysctl -n hw.logicalcpu)
+          echo "Compiling Qt with $CPUS jobs — this takes 1-3 hours"
+          bash ../../compile/qt.sh "" "-j $CPUS"
+
+  build-macos-arm64:
+    name: macOS arm64 (Apple Silicon) — Build + Test
+    runs-on: macos-14
+    timeout-minutes: 60
+    needs: [ libs-fast-macos-arm64, libs-qt-macos-arm64 ]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Restore fast libraries from cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/gmp-6.2.1
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          restore-keys: macos-arm64-fast-libs-
+
+      - name: Restore Qt from cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          key: macos-arm64-qt-5.15.7-v1
+          restore-keys: macos-arm64-qt-5.15.7-
+
+      - name: Clone DigitalNote-Builder
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
+
+      - name: Install Homebrew packages
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: bash update.sh
 
       - name: Link source tree
         run: |
@@ -201,8 +407,8 @@ jobs:
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
         run: |
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
-
           cd DigitalNote-2
+
           rm -rf build Makefile
           qmake DigitalNote.daemon.pro \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
@@ -213,7 +419,7 @@ jobs:
             USE_UPNP=1 USE_QRCODE=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }}
 
-      - name: Assert version (arm64)
+      - name: Assert version
         run: |
           DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
           "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {

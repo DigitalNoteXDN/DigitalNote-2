@@ -1,22 +1,14 @@
 name: CI - Windows x64
 
 on:
-  push:
-    branches: [ master, main, develop, 2.0.0.7-testing ]
-  pull_request:
-    branches: [ master, main, develop, 2.0.0.7-testing ]
-  workflow_call:  # allow release.yml to call this workflow
+  workflow_dispatch:  # manual trigger only — run via Actions tab
+  workflow_call:      # called by release.yml on tag push
 
 env:
   BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
   JOBS: 4
   # Pre-built Qt 5.15.7 static for MinGW64 — published to GitHub Releases.
-  # HOW TO PUBLISH: build Qt locally then:
-  #   cd DigitalNote-Builder/windows/x64
-  #   tar -czf qt-5.15.7-static-mingw64.tar.gz libs/qt-5.15.7/
-  # Upload to: Releases > qt-static-5.15.7-mingw64
   QT_RELEASE_URL_X64: https://github.com/rubber-duckie-au/DigitalNote-Builder/releases/download/qt-static-5.15.7-mingw64/qt-5.15.7-static-mingw64.tar.gz
-  QT_RELEASE_URL_X86: https://github.com/rubber-duckie-au/DigitalNote-Builder/releases/download/qt-static-5.15.7-mingw32/qt-5.15.7-static-mingw32.tar.gz
 
 jobs:
   build-windows-x64:
@@ -33,11 +25,10 @@ jobs:
       - name: Checkout DigitalNote-2
         uses: actions/checkout@v4
         with:
-          submodules: false  # BIP39 merged into main repo - no longer a submodule
+          submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
       # ── 2. MSYS2 MinGW64 ───────────────────────────────────────────────────
-      # Matches windows/x64/update.sh packages
       - name: Set up MSYS2 MinGW64
         uses: msys2/setup-msys2@v2
         with:
@@ -49,7 +40,6 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pcre2
             mingw-w64-x86_64-gmp
-            mingw-w64-x86_64-cmake
             perl
             bzip2
             libtool
@@ -69,8 +59,6 @@ jobs:
           mkdir -p ~/DigitalNote-Builder/windows/x64/libs
 
       # ── 4. Qt — cached then downloaded from GitHub Release ─────────────────
-      # Qt is NOT built from source in CI — use pre-built artifact.
-      # This avoids the 60-120 minute Qt build on every run.
       - name: Cache Qt 5.15.7 static build
         id: cache-qt
         uses: actions/cache@v4
@@ -78,25 +66,22 @@ jobs:
           path: ~/DigitalNote-Builder/windows/x64/libs/qt-5.15.7
           key: qt-5.15.7-static-mingw64-v1
 
-      # Download Qt using PowerShell (gh CLI is not available inside MSYS2)
-      # PowerShell step runs before MSYS2 shell steps
       - name: Download pre-built Qt 5.15.7 (PowerShell)
         if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          Write-Host "Downloading pre-built Qt 5.15.7 via gh CLI..."
+          Write-Host "Downloading pre-built Qt 5.15.7..."
           gh release download qt-static-5.15.7-mingw64 `
             --repo rubber-duckie-au/DigitalNote-Builder `
             --pattern "qt-5.15.7-static-mingw64.tar.gz" `
             --output "C:\\qt-prebuilt.tar.gz"
-          Write-Host "Download complete: $((Get-Item C:\\qt-prebuilt.tar.gz).Length) bytes"
+          Write-Host "Download complete: $((Get-Item C:\qt-prebuilt.tar.gz).Length) bytes"
 
       - name: Extract Qt 5.15.7
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ~/DigitalNote-Builder/windows/x64/libs
           tar -xzf /c/qt-prebuilt.tar.gz \
               -C ~/DigitalNote-Builder/windows/x64/
           rm /c/qt-prebuilt.tar.gz
@@ -115,57 +100,32 @@ jobs:
             ~/DigitalNote-Builder/windows/x64/libs/libevent-2.1.12-stable
             ~/DigitalNote-Builder/windows/x64/libs/miniupnpc-2.2.8
             ~/DigitalNote-Builder/windows/x64/libs/qrencode-4.1.1
-            ~/DigitalNote-Builder/windows/x64/libs/mnemonic
-          key: windows-x64-libs-${{ hashFiles('include/libs/bip39.pri', 'include/libs.pri') }}-v6
+          key: windows-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v6
 
       # ── 6. Download source archives ────────────────────────────────────────
-      # Qt tarball NOT downloaded — we use the pre-built Release artifact.
-      # secp256k1 and leveldb are git submodules — no download needed.
-      # BIP39 is now compiled directly into the wallet via bip39.pri
       - name: Download library source archives
         if: steps.libs-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/DigitalNote-Builder/download
           cd ~/DigitalNote-Builder/download
-
           wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
           wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
           wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
           wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" \
             -O miniupnpc-2.2.8.tar.gz
-          # qrencode: script expects exactly v4.1.1.tar.gz as filename
           wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-
           echo "Downloads complete:"
           ls -lh ~/DigitalNote-Builder/download/
 
       # ── 7. Compile static libraries ────────────────────────────────────────
-      # Argument mapping (from actual script inspection):
-      #   berkeleydb.sh  $1=build_dir  $2=configure_flags  $3=make_jobs
-      #   boost.sh       $1=combined "toolset=gcc address-model=64 -j N" string
-      #   gmp.sh         no args (uses pacman package mingw-w64-x86_64-gmp)
-      #   leveldb.sh     $1=make_jobs  (built from DigitalNote-2/src/leveldb/)
-      #   libevent.sh    $1=configure_extra  $2=make_jobs
-      #   miniupnpc.sh   $1=libname  $2=make_jobs  (uses Makefile.mingw on Windows)
-      #   openssl.sh     $1=platform(mingw64)  $2=make_jobs
-      #   qrencode.sh    $1=configure_extra  $2=make_jobs
-      #   secp256k1.sh   $1=configure_extra  $2=make_jobs  (built from submodule)
-      #   (BIP39 now compiled directly via bip39.pri — no mnemonic.sh needed)
-      # NOTE: qt.sh is intentionally NOT called — we use the pre-built artifact.
+      # BIP39 is now compiled directly into the wallet via bip39.pri
+      # mnemonic.sh is no longer needed
       - name: Compile static libraries
         if: steps.libs-cache.outputs.cache-hit != 'true'
         run: |
-          # Convert Windows workspace path to MSYS2 POSIX path for symlinks
           MSYS_WORKSPACE=$(cygpath -u '${{ github.workspace }}')
-
-          # download/ lives at Builder root — scripts look for ../../../download
-          # from windows/x64/temp/, which resolves to Builder root/download/
-          # No symlink needed — download.sh already puts files in the right place
-          # Just make sure the download dir exists
           mkdir -p ~/DigitalNote-Builder/download
-
-          # Link DigitalNote-2 source using POSIX path
           ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/DigitalNote-2
 
           cd ~/DigitalNote-Builder/windows/x64
@@ -174,14 +134,13 @@ jobs:
 
           echo "=== BerkeleyDB ===" && ../../compile/berkeleydb.sh "build_windows" "--enable-mingw" "-j $J"
           echo "=== Boost ===" && ../../compile/boost.sh "toolset=gcc address-model=64 -j $J"
-          echo "=== GMP ===" && ../../compile/gmp.sh
+          echo "=== GMP ===" && bash gmp.sh
           echo "=== LevelDB ===" && ../../compile/leveldb.sh "-j $J"
           echo "=== libevent ===" && ../../compile/libevent.sh "" "-j $J"
           echo "=== miniupnpc ===" && ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $J"
           echo "=== OpenSSL ===" && ../../compile/openssl.sh "mingw64" "-j $J"
           echo "=== qrencode ===" && ../../compile/qrencode.sh "" "-j $J"
           echo "=== secp256k1 ===" && ../../compile/secp256k1.sh "" "-j $J"
-          # BIP39 now compiled directly via bip39.pri — no separate build step needed
           echo "=== All libraries built ==="
 
       # ── 8. Link source tree ────────────────────────────────────────────────
@@ -191,7 +150,6 @@ jobs:
           ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/DigitalNote-2
 
       # ── 9. Compile daemon ──────────────────────────────────────────────────
-      # Matches windows/x64/compile_deamon.sh exactly + USE_BIP39=1
       - name: Compile daemon (digitalnoted.exe)
         run: |
           cd ~/DigitalNote-Builder/windows/x64
@@ -207,7 +165,6 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       # ── 10. Compile Qt wallet ──────────────────────────────────────────────
-      # Matches windows/x64/compile_app.sh exactly + USE_BIP39=1
       - name: Compile Qt wallet (DigitalNote-qt.exe)
         run: |
           cd ~/DigitalNote-Builder/windows/x64
@@ -240,7 +197,7 @@ jobs:
             fi
           done
 
-      # ── 12. cppcheck static analysis — new Qt/BIP39 sources ───────────────
+      # ── 12. cppcheck static analysis ──────────────────────────────────────
       - name: cppcheck — new Qt/BIP39 sources
         run: |
           pacman -S --noconfirm mingw-w64-x86_64-cppcheck 2>/dev/null || true
@@ -292,7 +249,7 @@ jobs:
             echo "WARNING: digitalnoted.exe not found — skipping runtime version check"
           fi
 
-      # ── 13. Collect binaries ───────────────────────────────────────────────
+      # ── 14. Collect and upload binaries ───────────────────────────────────
       - name: Collect Windows executables
         shell: pwsh
         run: |
@@ -301,7 +258,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
           Get-ChildItem -Path $src -Recurse -Include "*.exe" |
             Copy-Item -Destination $dst
-          # Also collect logs
           Copy-Item "$env:USERPROFILE\build-app.log"    $dst -ErrorAction SilentlyContinue
           Copy-Item "$env:USERPROFILE\build-daemon.log" $dst -ErrorAction SilentlyContinue
 
