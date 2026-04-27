@@ -34,7 +34,7 @@ jobs:
         id: libs-cache
         with:
           path: ${{ env.BUILDER }}/linux/x64/libs
-          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: linux-x64-libs-
 
       - name: Install system packages
@@ -112,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.BUILDER }}/linux/x64/libs
-          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: linux-x64-libs-
 
       - name: Install system packages
@@ -134,10 +134,15 @@ jobs:
           [ -f "$QMAKE" ] || { echo "ERROR: qmake not found after cache restore"; exit 1; }
           echo "Qt: $($QMAKE --version)"
 
-      - name: Link source tree into Builder
+      - name: Link source tree and libs
         run: |
+          # Link source into Builder (for compile scripts)
           ln -sfn ${{ github.workspace }} \
             ${{ env.BUILDER }}/linux/x64/DigitalNote-2
+          # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly
+          # $$PWD = github.workspace, so ../libs = parent/libs
+          ln -sfn ${{ env.BUILDER }}/linux/x64/libs \
+            ${{ github.workspace }}/../libs
 
       - name: Compile daemon (digitalnoted)
         working-directory: ${{ env.BUILDER }}/linux/x64
@@ -145,9 +150,7 @@ jobs:
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
-          # DIGITALNOTE_PATH set to linux/x64/DigitalNote-2 so ../libs resolves correctly
           qmake DigitalNote.daemon.pro \
-            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon.log
           exit ${PIPESTATUS[0]}
@@ -159,7 +162,6 @@ jobs:
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
-            DIGITALNOTE_PATH=${{ env.BUILDER }}/linux/x64/DigitalNote-2 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
             USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app.log
