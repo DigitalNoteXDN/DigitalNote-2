@@ -168,7 +168,7 @@ jobs:
       - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
-            ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/DigitalNote-2
 
       - name: Compile daemon
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
@@ -395,7 +395,7 @@ jobs:
       - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
-            ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
+            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/DigitalNote-2
 
       - name: Compile daemon + wallet (arm64)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64

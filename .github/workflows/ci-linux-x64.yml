@@ -183,7 +183,7 @@ jobs:
       - name: Link source tree into Builder
         run: |
           ln -sfn ${{ github.workspace }} \
-            ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
+            ${{ github.workspace }}/../DigitalNote-Builder/linux/x64/DigitalNote-2
 
       - name: Compile daemon (digitalnoted)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/x64

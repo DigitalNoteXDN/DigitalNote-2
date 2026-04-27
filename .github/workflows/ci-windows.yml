@@ -126,7 +126,7 @@ jobs:
         run: |
           MSYS_WORKSPACE=$(cygpath -u '${{ github.workspace }}')
           mkdir -p ~/DigitalNote-Builder/download
-          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/DigitalNote-2
+          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/windows/x64/DigitalNote-2
 
           cd ~/DigitalNote-Builder/windows/x64
           export TARGET_OS=NATIVE_WINDOWS
@@ -147,7 +147,7 @@ jobs:
       - name: Link source tree into Builder
         run: |
           MSYS_WORKSPACE=$(cygpath -u '${{ github.workspace }}')
-          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/DigitalNote-2
+          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/windows/x64/DigitalNote-2
 
       # ── 9. Compile daemon ──────────────────────────────────────────────────
       - name: Compile daemon (digitalnoted.exe)

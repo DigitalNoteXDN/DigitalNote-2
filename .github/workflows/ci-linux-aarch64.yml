@@ -204,7 +204,7 @@ jobs:
       - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
-            ${{ github.workspace }}/../DigitalNote-Builder/DigitalNote-2
+            ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/DigitalNote-2
 
       - name: Compile daemon (aarch64)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64
