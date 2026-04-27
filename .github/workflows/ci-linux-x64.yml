@@ -34,7 +34,7 @@ jobs:
         id: libs-cache
         with:
           path: ${{ env.BUILDER }}/linux/x64/libs
-          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
           restore-keys: linux-x64-libs-
 
       - name: Install system packages
@@ -112,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.BUILDER }}/linux/x64/libs
-          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+          key: linux-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
           restore-keys: linux-x64-libs-
 
       - name: Install system packages
