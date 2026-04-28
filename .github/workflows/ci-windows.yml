@@ -57,6 +57,7 @@ jobs:
             mingw-w64-x86_64-double-conversion
             mingw-w64-x86_64-zstd
             mingw-w64-x86_64-libwinpthread
+            mingw-w64-x86_64-md4c
             perl
             bzip2
             libtool
