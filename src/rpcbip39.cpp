@@ -1,7 +1,7 @@
 #include <bip39.h>
 #include <bip39/mnemonic.h>
 #include <bip39/seed.h>
-#include "bip39/bip39_passphrase.h"
+#include <bip39/bip39_passphrase.h>
 
 #include "util.h"
 #include "json/json_spirit_value.h"

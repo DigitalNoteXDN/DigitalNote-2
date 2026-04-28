@@ -12,7 +12,7 @@
 #include "allocators.h" /* for SecureString */
 #include "instantx.h"
 #include "cwallet.h"
-#include "bip39/bip39_wallet.h"
+#include <bip39/bip39_wallet.h>
 #include "serialize.h"
 #include "walletmodeltransaction.h"
 

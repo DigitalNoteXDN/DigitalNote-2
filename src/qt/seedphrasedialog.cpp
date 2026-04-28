@@ -9,7 +9,7 @@
 #include <QApplication>
 #include "walletmodel.h"
 #include "guiutil.h"
-#include "bip39/bip39_wallet.h"
+#include <bip39/bip39_wallet.h>
 #include <openssl/crypto.h>
 
 #include <QCloseEvent>
@@ -37,7 +37,7 @@ SeedPhraseDialog::SeedPhraseDialog(WalletModel *model, QWidget *parent)
     , m_model(model)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    setWindowTitle(tr("Wallet Seed Phrase (BIP39)"));
+    setWindowTitle(tr(>Wallet Seed Phrase (BIP39)"));
     setMinimumSize(680, 520);
     setModal(true);
     setAttribute(Qt::WA_DeleteOnClose, false);  // caller owns lifetime

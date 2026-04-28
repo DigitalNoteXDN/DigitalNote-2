@@ -23,7 +23,7 @@
 #include <QTimer>
 #include <QString>
 
-#include "bip39/bip39_wallet.h"   // BIP39Wallet::WordCount, Result
+#include <bip39/bip39_wallet.h>   // BIP39Wallet::WordCount, Result
 
 namespace Ui { class SeedPhraseDialog; }
 

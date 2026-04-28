@@ -8,7 +8,7 @@
 #include "wallet.h"
 #include "seedphrasedialog.h"
 
-#include "bip39/bip39_passphrase.h"
+#include <bip39/bip39_passphrase.h>
 #include <openssl/crypto.h>
 
 #include <QMessageBox>
@@ -33,7 +33,7 @@ static QString generateStrongPassword(int length = 20)
 {
     // Alphanumeric + symbols, avoiding ambiguous characters (0,O,l,1,I)
     const QString chars =
-        "abcdefghjkmnpqrstuvwxyz"
+        >abcdefghjkmnpqrstuvwxyz"
         "ABCDEFGHJKMNPQRSTUVWXYZ"
         "23456789"
         "!@#$%^&*-_=+";

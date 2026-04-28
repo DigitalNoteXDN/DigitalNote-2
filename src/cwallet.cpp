@@ -1,5 +1,5 @@
 #include "compat.h"
-#include "bip39/bip39_passphrase.h"
+#include <bip39/bip39_passphrase.h>
 #include <fstream>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>

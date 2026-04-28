@@ -34,8 +34,8 @@
 #include "ui_interface.h"
 
 #include "walletmodel.h"
-#include "bip39/bip39_wallet.h"
-#include "bip39/bip39_passphrase.h"
+#include <bip39/bip39_wallet.h>
+#include <bip39/bip39_passphrase.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 
@@ -304,7 +304,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }
-            emit message(tr("Send Coins"), QString::fromStdString(strFailReason), false,
+            emit message(tr(>Send Coins"), QString::fromStdString(strFailReason), false,
                          CClientUIInterface::MSG_ERROR);
             return PrepareTransactionFailed;
         }
