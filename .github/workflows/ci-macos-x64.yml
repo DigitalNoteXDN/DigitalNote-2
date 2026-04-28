@@ -221,6 +221,10 @@ jobs:
         run: |
           ln -sfn ${{ github.workspace }} \
             ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/DigitalNote-2
+          # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly
+          # $$PWD = github.workspace, so ../libs = parent/libs
+          ln -sfn ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs \
+            ${{ github.workspace }}/../libs
 
       - name: Compile daemon
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64

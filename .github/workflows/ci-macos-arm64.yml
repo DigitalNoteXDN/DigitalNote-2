@@ -114,8 +114,8 @@ jobs:
         id: qt-cache
         with:
           path: ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/qt-5.15.7
-          key: macos-arm64-qt-5.15.7-v1
-          restore-keys: macos-arm64-qt-5.15.7-
+          key: macos-arm64-qt-5.15.7-v2
+          restore-keys: macos-arm64-qt-5.15.7-v2-
           save-always: true
 
       - name: Clone DigitalNote-Builder
@@ -154,7 +154,9 @@ jobs:
           mkdir -p temp libs
           CPUS=$(sysctl -n hw.logicalcpu)
           echo "Compiling Qt with $CPUS jobs — this takes 1-3 hours"
-          bash ../../compile/qt.sh "" "-j $CPUS"
+          # Qt 5.15.7's configure defaults to x86_64 even on Apple Silicon hosts.
+          # QMAKE_APPLE_DEVICE_ARCHS=arm64 forces a native arm64 build.
+          bash ../../compile/qt.sh "QMAKE_APPLE_DEVICE_ARCHS=arm64" "-j $CPUS"
 
   build-macos-arm64:
     name: macOS arm64 (Apple Silicon) — Build + Test
@@ -187,8 +189,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/qt-5.15.7
-          key: macos-arm64-qt-5.15.7-v1
-          restore-keys: macos-arm64-qt-5.15.7-
+          key: macos-arm64-qt-5.15.7-v2
+          restore-keys: macos-arm64-qt-5.15.7-v2-
           save-always: true
 
       - name: Clone DigitalNote-Builder
@@ -216,6 +218,10 @@ jobs:
         run: |
           ln -sfn ${{ github.workspace }} \
             ${{ github.workspace }}/../DigitalNote-Builder/macos/arm64/DigitalNote-2
+          # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly
+          # $$PWD = github.workspace, so ../libs = parent/libs
+          ln -sfn ${{ github.workspace }}/../DigitalNote-Builder/macos/arm64/libs \
+            ${{ github.workspace }}/../libs
 
       - name: Compile daemon (arm64)
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/arm64
