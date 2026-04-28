@@ -22,10 +22,14 @@ env:
 jobs:
 
 # ── Job 1: Fast libs ──────────────────────────────────────────────────────────
+# NOTE: aarch64 is DEFERRED for v2.0.0.7 — Qt cross-compile fails on
+# fontconfig/freetype/llvm-config. continue-on-error lets release.yml
+# proceed without this platform. To re-enable: see README / docs for fix.
   libs-fast-aarch64:
     name: Compile fast libraries aarch64 (~30 min)
     runs-on: ubuntu-22.04
     timeout-minutes: 90
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -106,6 +110,7 @@ jobs:
     name: Compile Qt 5.15.7 aarch64 (up to 6hrs)
     runs-on: ubuntu-22.04
     timeout-minutes: 360
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -166,6 +171,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     needs: [ libs-fast-aarch64, libs-qt-aarch64 ]
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4

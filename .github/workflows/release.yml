@@ -49,6 +49,9 @@ jobs:
 
   build-linux-aarch64:
     name: Build Linux aarch64
+    # DEFERRED for v2.0.0.7: aarch64 Qt cross-compile fails; allowed to fail
+    # without blocking the release. Remove this line when aarch64 is fixed.
+    continue-on-error: true
     uses: ./.github/workflows/ci-linux-aarch64.yml
     secrets: inherit
     with:
@@ -131,19 +134,20 @@ jobs:
           path: dist/macos-x64
         continue-on-error: true
 
-      - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: digitalnote-macos-arm64
-          path: dist/macos-arm64
-        continue-on-error: true
+      # NOTE: macOS arm64 (Apple Silicon) is intentionally NOT downloaded here.
+      # The CI workflow builds and uploads it as a workflow artifact (visible
+      # via the Actions tab) for internal testing on Apple Silicon hardware.
+      # Once validated, add a "Download macOS arm64 artifact" step matching
+      # the macos-x64 one above, add 'macos-arm64' to the platform loop in the
+      # next step, and add the row back to the release notes table at the
+      # bottom of this file.
 
       - name: Package artifacts
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           mkdir -p release
           cd dist
-          for platform in windows-x64 linux-x64 linux-aarch64 macos-x64 macos-arm64; do
+          for platform in windows-x64 linux-x64 linux-aarch64 macos-x64; do
             if [ -d "$platform" ] && [ "$(ls -A $platform 2>/dev/null)" ]; then
               ZIP="../release/DigitalNote-${TAG}-${platform}.zip"
               zip -r "$ZIP" "$platform/"
@@ -246,9 +250,15 @@ jobs:
             |---|---|
             | Windows x64 | `DigitalNote-${{ steps.tag.outputs.tag }}-windows-x64.zip` |
             | Linux x64 | `DigitalNote-${{ steps.tag.outputs.tag }}-linux-x64.zip` |
-            | Linux aarch64 (ARM) | `DigitalNote-${{ steps.tag.outputs.tag }}-linux-aarch64.zip` |
             | macOS Intel | `DigitalNote-${{ steps.tag.outputs.tag }}-macos-x64.zip` |
-            | macOS Apple Silicon | `DigitalNote-${{ steps.tag.outputs.tag }}-macos-arm64.zip` |
+
+            > **Note on platforms not listed above:**
+            > * **macOS Apple Silicon (M1/M2/M3/M4):** Intel binaries above run
+            >   on Apple Silicon via Rosetta 2 with no functionality loss.
+            >   Native Apple Silicon builds are validated separately and will
+            >   be added to this release once smoke-tested.
+            > * **Linux aarch64 (ARM, including Raspberry Pi):** deferred to a
+            >   follow-up release. Build from source until then.
 
             ### SHA256 Checksums
             See `SHA256SUMS.txt` attached below.
