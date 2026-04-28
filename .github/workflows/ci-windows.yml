@@ -165,6 +165,10 @@ jobs:
           ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/windows/x64/DigitalNote-2
 
       # ── 9. Compile daemon ──────────────────────────────────────────────────
+      # NB: use mingw32-make, not make. qmake's win32 generator emits
+      # Windows-style commands (del, copy, *.bat invocations) for things
+      # like build.h regeneration. mingw32-make runs them via cmd.exe;
+      # MSYS2 'make' runs them via /bin/sh, which has no 'del' and fails.
       - name: Compile daemon (digitalnoted.exe)
         run: |
           cd ~/DigitalNote-Builder/windows/x64
@@ -176,10 +180,11 @@ jobs:
             USE_BUILD_INFO=1 \
             USE_BIP39=1 \
             RELEASE=1
-          make -j${{ env.JOBS }} 2>&1 | tee ~/build-daemon.log
+          mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-daemon.log
           exit ${PIPESTATUS[0]}
 
       # ── 10. Compile Qt wallet ──────────────────────────────────────────────
+      # See note on step 9 — mingw32-make is required for Windows-style rules.
       - name: Compile Qt wallet (DigitalNote-qt.exe)
         run: |
           cd ~/DigitalNote-Builder/windows/x64
@@ -193,7 +198,7 @@ jobs:
             USE_BUILD_INFO=1 \
             USE_BIP39=1 \
             RELEASE=1
-          make -j${{ env.JOBS }} 2>&1 | tee ~/build-app.log
+          mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-app.log
           exit ${PIPESTATUS[0]}
 
       # ── 11. Warning analysis ───────────────────────────────────────────────

@@ -57,9 +57,22 @@ jobs:
     with:
       branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
-  build-macos:
-    name: Build macOS
-    uses: ./.github/workflows/ci-macos.yml
+  build-macos-x64:
+    name: Build macOS x64 (Intel)
+    uses: ./.github/workflows/ci-macos-x64.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-macos-arm64:
+    name: Build macOS arm64 (Apple Silicon)
+    # Apple Silicon binary is built but NOT included in the release zip set
+    # until validated on real Apple Silicon hardware. continue-on-error so
+    # an arm64 build failure doesn't block the rest of the release.
+    # The artifact is uploaded by the CI workflow and accessible via the
+    # Actions tab for testing — see release.yml comments below.
+    continue-on-error: true
+    uses: ./.github/workflows/ci-macos-arm64.yml
     secrets: inherit
     with:
       branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
@@ -72,7 +85,8 @@ jobs:
       - build-windows
       - build-linux-x64
       - build-linux-aarch64
-      - build-macos
+      - build-macos-x64
+      - build-macos-arm64
     # Run even if some builds fail — publish whatever succeeded.
     # The "Verify at least one artifact" step below will still fail the job
     # if every platform failed.
