@@ -57,6 +57,9 @@ jobs:
             libtool
             make
             autoconf
+            automake
+            automake-wrapper
+            pkg-config
 
       # ── 3. Clone DigitalNote-Builder ───────────────────────────────────────
       - name: Clone DigitalNote-Builder
