@@ -1,7 +1,12 @@
 name: CI - Linux aarch64
 
 on:
-  workflow_dispatch:  # manual trigger only — run via Actions tab
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build"
+        required: false
+        default: "2.0.0.7-testing"
   workflow_call:      # called by release.yml on tag push
 
 env:
@@ -19,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
@@ -98,6 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
@@ -157,6 +164,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
@@ -164,6 +172,13 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
+
+      - name: Clone DigitalNote-Builder
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          mkdir -p DigitalNote-Builder/linux/aarch64/libs
 
       - name: Restore fast libraries from cache
         uses: actions/cache@v4
@@ -184,12 +199,6 @@ jobs:
           path: ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qt-5.15.7
           key: linux-aarch64-qt-5.15.7-v1
           restore-keys: linux-aarch64-qt-5.15.7-
-
-      - name: Clone DigitalNote-Builder
-        working-directory: ${{ github.workspace }}/..
-        run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
 
       - name: Install cross-compile toolchain
         run: |

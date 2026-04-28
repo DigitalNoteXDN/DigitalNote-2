@@ -2,6 +2,11 @@ name: CI - Linux x64
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build"
+        required: false
+        default: "2.0.0.7-testing"
   workflow_call:
 
 env:
@@ -20,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
@@ -99,6 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
 
@@ -236,6 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch || github.ref }}
           submodules: false
           token: ${{ secrets.PAT_TOKEN }}
       - name: Install cppcheck
