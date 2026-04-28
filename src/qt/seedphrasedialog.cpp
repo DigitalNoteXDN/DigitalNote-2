@@ -37,7 +37,7 @@ SeedPhraseDialog::SeedPhraseDialog(WalletModel *model, QWidget *parent)
     , m_model(model)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    setWindowTitle(tr(>Wallet Seed Phrase (BIP39)"));
+    setWindowTitle(tr("Wallet Seed Phrase (BIP39)"));
     setMinimumSize(680, 520);
     setModal(true);
     setAttribute(Qt::WA_DeleteOnClose, false);  // caller owns lifetime

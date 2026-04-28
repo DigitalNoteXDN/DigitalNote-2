@@ -304,7 +304,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }
-            emit message(tr(>Send Coins"), QString::fromStdString(strFailReason), false,
+            emit message(tr("Send Coins"), QString::fromStdString(strFailReason), false,
                          CClientUIInterface::MSG_ERROR);
             return PrepareTransactionFailed;
         }
