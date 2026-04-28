@@ -27,7 +27,7 @@ jobs:
 
   libs-fast-macos-x64:
     name: Compile fast libraries — macOS x64 (~20 min)
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 90
 
     steps:
@@ -50,6 +50,7 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
           key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: macos-x64-fast-libs-
+          save-always: true
 
       - name: Clone DigitalNote-Builder
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -91,7 +92,7 @@ jobs:
 
   libs-qt-macos-x64:
     name: Compile Qt 5.15.7 — macOS x64 (up to 6hrs)
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 360
 
     steps:
@@ -108,6 +109,7 @@ jobs:
           path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
           key: macos-x64-qt-5.15.7-v1
           restore-keys: macos-x64-qt-5.15.7-
+          save-always: true
 
       - name: Clone DigitalNote-Builder
         if: steps.qt-cache.outputs.cache-hit != 'true'
@@ -138,7 +140,7 @@ jobs:
 
   build-macos-x64:
     name: macOS x64 (Intel) — Build + Test
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 60
     needs: [ libs-fast-macos-x64, libs-qt-macos-x64 ]
 
@@ -161,6 +163,7 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
           key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: macos-x64-fast-libs-
+          save-always: true
 
       - name: Restore Qt from cache
         uses: actions/cache@v4
@@ -168,6 +171,7 @@ jobs:
           path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
           key: macos-x64-qt-5.15.7-v1
           restore-keys: macos-x64-qt-5.15.7-
+          save-always: true
 
       - name: Clone DigitalNote-Builder
         working-directory: ${{ github.workspace }}/..
