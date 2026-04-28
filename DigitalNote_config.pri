@@ -43,6 +43,9 @@ win32 {
 	## Miniupnp library
 	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/include
 	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/lib
+	## miniupnpc 2.2.8 = API version 18 — set explicitly since
+	## Makefile.mingw does not define MINIUPNPC_API_VERSION correctly on Linux
+	DEFINES += MINIUPNPC_API_VERSION=18
 	
 	## QREncode library
 	DIGITALNOTE_QRENCODE_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1/include
@@ -81,6 +84,9 @@ macx {
 	## Miniupnp library
 	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/include
 	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/lib
+	## miniupnpc 2.2.8 = API version 18 — set explicitly since
+	## Makefile.mingw does not define MINIUPNPC_API_VERSION correctly on Linux
+	DEFINES += MINIUPNPC_API_VERSION=18
 	
 	## QREncode library
 	DIGITALNOTE_QRENCODE_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1/include
@@ -119,6 +125,9 @@ linux:!macx {
 	## Miniupnp library
 	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/include
 	DIGITALNOTE_MINIUPNP_LIB_PATH     = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/lib
+	## miniupnpc 2.2.8 = API version 18 — set explicitly since
+	## Makefile.mingw does not define MINIUPNPC_API_VERSION correctly on Linux
+	DEFINES += MINIUPNPC_API_VERSION=18
 	
 	## QREncode library
 	DIGITALNOTE_QRENCODE_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/qrencode-4.1.1/include
