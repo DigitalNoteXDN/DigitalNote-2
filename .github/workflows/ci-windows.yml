@@ -229,30 +229,31 @@ jobs:
       - name: cppcheck — new Qt/BIP39 sources
         run: |
           pacman -S --noconfirm mingw-w64-x86_64-cppcheck 2>/dev/null || true
+          WS=$(cygpath -u '${{ github.workspace }}')
           cppcheck \
             --enable=warning,style,performance \
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --error-exitcode=0 \
             --std=c++17 \
-            -I ~/DigitalNote-Builder/DigitalNote-2/src/bip39/include \
-            -I ~/DigitalNote-Builder/DigitalNote-2/src \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/seedphrasedialog.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/decryptworker.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/walletmodel.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/askpassphrasedialog.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/coincontrolworker.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/sendcoinsworker.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/qt/masternodeworker.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/bip39/src/bip39_wallet.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/bip39/src/bip39_passphrase.cpp \
-            ~/DigitalNote-Builder/DigitalNote-2/src/rpcbip39.cpp \
+            -I "$WS/src/bip39/include" \
+            -I "$WS/src" \
+            "$WS/src/qt/seedphrasedialog.cpp" \
+            "$WS/src/qt/decryptworker.cpp" \
+            "$WS/src/qt/walletmodel.cpp" \
+            "$WS/src/qt/askpassphrasedialog.cpp" \
+            "$WS/src/qt/coincontrolworker.cpp" \
+            "$WS/src/qt/sendcoinsworker.cpp" \
+            "$WS/src/qt/masternodeworker.cpp" \
+            "$WS/src/bip39/src/bip39_wallet.cpp" \
+            "$WS/src/bip39/src/bip39_passphrase.cpp" \
+            "$WS/src/rpcbip39.cpp" \
             2>&1 || echo "⚠ cppcheck warnings present (non-fatal)"
 
       # ── 13. Version assertions ─────────────────────────────────────────────
       - name: Assert version constants in source
         run: |
-          cd ~/DigitalNote-Builder/DigitalNote-2
+          cd "$(cygpath -u '${{ github.workspace }}')"
           grep -qE 'CLIENT_VERSION_BUILD[[:space:]]+7' src/clientversion.h || {
             echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1
           }
@@ -266,8 +267,8 @@ jobs:
 
       - name: Assert daemon advertises 2.0.0.7
         run: |
-          DAEMON=$(find ~/DigitalNote-Builder/DigitalNote-2 \
-                        -name 'digitalnoted.exe' -type f | head -1)
+          WS=$(cygpath -u '${{ github.workspace }}')
+          DAEMON=$(find "$WS" -name 'digitalnoted.exe' -type f | head -1)
           if [ -n "$DAEMON" ]; then
             "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
               echo "ERROR: daemon.exe does not report version 2.0.0.7"; exit 1
