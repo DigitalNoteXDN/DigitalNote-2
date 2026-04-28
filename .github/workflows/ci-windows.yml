@@ -50,9 +50,13 @@ jobs:
             git
             base-devel
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-libs
             mingw-w64-x86_64-make
             mingw-w64-x86_64-pcre2
             mingw-w64-x86_64-gmp
+            mingw-w64-x86_64-double-conversion
+            mingw-w64-x86_64-zstd
+            mingw-w64-x86_64-libwinpthread
             perl
             bzip2
             libtool
@@ -81,6 +85,7 @@ jobs:
         with:
           path: ~/DigitalNote-Builder/windows/x64/libs/qt-5.15.7
           key: qt-5.15.7-static-mingw64-v1
+          save-always: true
 
       - name: Download pre-built Qt 5.15.7 (PowerShell)
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -117,6 +122,7 @@ jobs:
             ~/DigitalNote-Builder/windows/x64/libs/miniupnpc-2.2.8
             ~/DigitalNote-Builder/windows/x64/libs/qrencode-4.1.1
           key: windows-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v6
+          save-always: true
 
       # ── 6. Download source archives ────────────────────────────────────────
       - name: Download library source archives
