@@ -33,7 +33,7 @@ static QString generateStrongPassword(int length = 20)
 {
     // Alphanumeric + symbols, avoiding ambiguous characters (0,O,l,1,I)
     const QString chars =
-        >abcdefghjkmnpqrstuvwxyz"
+        "abcdefghjkmnpqrstuvwxyz"
         "ABCDEFGHJKMNPQRSTUVWXYZ"
         "23456789"
         "!@#$%^&*-_=+";
