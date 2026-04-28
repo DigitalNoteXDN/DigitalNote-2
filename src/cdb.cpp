@@ -296,6 +296,7 @@ template bool CDB::Erase<std::pair<std::string, CScript>>(const std::pair<std::s
 template bool CDB::Erase<std::pair<std::string, CPubKey>>(const std::pair<std::string, CPubKey>&);
 template bool CDB::Erase<std::pair<std::string, CKeyID>>(const std::pair<std::string, CKeyID>&);
 template bool CDB::Erase<std::pair<std::string, uint256>>(const std::pair<std::string, uint256>&);
+template bool CDB::Erase<std::string>(const std::string&);
 
 template<typename K>
 bool CDB::Exists(const K& key)
