@@ -52,8 +52,19 @@ jobs:
         if: steps.fast-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          mkdir -p DigitalNote-Builder
+          cd DigitalNote-Builder
+          if [ -d .git ]; then
+            git pull
+          else
+            # Directory exists from cache restore (libs/ subtree) but no .git.
+            # Initialize in place and pull the repo on top — cached untracked
+            # files in libs/ are preserved.
+            git init -q
+            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git fetch -q --depth=1 origin master
+            git reset -q --hard origin/master
+          fi
 
       - name: Install Homebrew packages
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -111,8 +122,19 @@ jobs:
         if: steps.qt-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          mkdir -p DigitalNote-Builder
+          cd DigitalNote-Builder
+          if [ -d .git ]; then
+            git pull
+          else
+            # Directory exists from cache restore (libs/ subtree) but no .git.
+            # Initialize in place and pull the repo on top — cached untracked
+            # files in libs/ are preserved.
+            git init -q
+            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git fetch -q --depth=1 origin master
+            git reset -q --hard origin/master
+          fi
 
       - name: Install Homebrew packages
         if: steps.qt-cache.outputs.cache-hit != 'true'
@@ -172,8 +194,19 @@ jobs:
       - name: Clone DigitalNote-Builder
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          mkdir -p DigitalNote-Builder
+          cd DigitalNote-Builder
+          if [ -d .git ]; then
+            git pull
+          else
+            # Directory exists from cache restore (libs/ subtree) but no .git.
+            # Initialize in place and pull the repo on top — cached untracked
+            # files in libs/ are preserved.
+            git init -q
+            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git fetch -q --depth=1 origin master
+            git reset -q --hard origin/master
+          fi
 
       - name: Install Homebrew packages
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/arm64
