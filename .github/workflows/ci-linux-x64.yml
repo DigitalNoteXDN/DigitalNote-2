@@ -8,6 +8,12 @@ on:
         required: false
         default: "2.0.0.7-testing"
   workflow_call:
+    inputs:
+      branch:
+        description: "Branch / ref to build (passed by release.yml)"
+        required: false
+        type: string
+        default: ""
 
 env:
   JOBS: 4
@@ -195,7 +201,9 @@ jobs:
             echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1; }
           grep -qE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*62055' src/version.h || {
             echo "ERROR: PROTOCOL_VERSION is not 62055"; exit 1; }
-          echo "OK: BUILD=7, PROTOCOL=62055"
+          grep -qE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*62052' src/version.h || {
+            echo "ERROR: MIN_PEER_PROTO_VERSION is not 62052"; exit 1; }
+          echo "OK: BUILD=7, PROTOCOL=62055, PEER_PROTO=62052"
 
       - name: cppcheck
         run: |
@@ -211,6 +219,10 @@ jobs:
             ${{ github.workspace }}/src/qt/decryptworker.cpp \
             ${{ github.workspace }}/src/qt/walletmodel.cpp \
             ${{ github.workspace }}/src/qt/askpassphrasedialog.cpp \
+            ${{ github.workspace }}/src/qt/coincontrolworker.cpp \
+            ${{ github.workspace }}/src/qt/sendcoinsworker.cpp \
+            ${{ github.workspace }}/src/qt/masternodeworker.cpp \
+            ${{ github.workspace }}/src/bip39/src/bip39_wallet.cpp \
             ${{ github.workspace }}/src/bip39/src/bip39_passphrase.cpp \
             ${{ github.workspace }}/src/rpcbip39.cpp \
             2>&1 || echo "⚠ cppcheck warnings (non-fatal)"

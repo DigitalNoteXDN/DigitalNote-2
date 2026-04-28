@@ -8,6 +8,12 @@ on:
         required: false
         default: "2.0.0.7-testing"
   workflow_call:      # called by release.yml on tag push
+    inputs:
+      branch:
+        description: "Branch / ref to build (passed by release.yml)"
+        required: false
+        type: string
+        default: ""
 
 env:
   BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git

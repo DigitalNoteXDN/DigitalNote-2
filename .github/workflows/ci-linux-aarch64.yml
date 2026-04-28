@@ -8,6 +8,12 @@ on:
         required: false
         default: "2.0.0.7-testing"
   workflow_call:      # called by release.yml on tag push
+    inputs:
+      branch:
+        description: "Branch / ref to build (passed by release.yml)"
+        required: false
+        type: string
+        default: ""
 
 env:
   BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
@@ -39,7 +45,7 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qrencode-4.1.1
-          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: linux-aarch64-fast-libs-
 
       - name: Set up QEMU for arm64 emulation
@@ -190,7 +196,7 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qrencode-4.1.1
-          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri') }}-v1
+          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: linux-aarch64-fast-libs-
 
       - name: Restore Qt from cache
@@ -246,7 +252,10 @@ jobs:
           grep -qE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*62055' src/version.h || {
             echo "ERROR: PROTOCOL_VERSION is not 62055"; exit 1
           }
-          echo "OK: BUILD=7, PROTOCOL=62055"
+          grep -qE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*62052' src/version.h || {
+            echo "ERROR: MIN_PEER_PROTO_VERSION is not 62052"; exit 1
+          }
+          echo "OK: BUILD=7, PROTOCOL=62055, PEER_PROTO=62052"
 
       - name: Warning analysis
         if: always()
