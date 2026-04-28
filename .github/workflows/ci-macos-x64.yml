@@ -42,12 +42,12 @@ jobs:
         id: fast-cache
         with:
           path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
           key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: macos-x64-fast-libs-
           save-always: true
@@ -106,7 +106,7 @@ jobs:
         uses: actions/cache@v4
         id: qt-cache
         with:
-          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          path: ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qt-5.15.7
           key: macos-x64-qt-5.15.7-v1
           restore-keys: macos-x64-qt-5.15.7-
           save-always: true
@@ -155,12 +155,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/boost_1_80_0
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
-            ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/db-6.2.32.NC
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/boost_1_80_0
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/openssl-1.1.1w
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
           key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
           restore-keys: macos-x64-fast-libs-
           save-always: true
@@ -168,7 +168,7 @@ jobs:
       - name: Restore Qt from cache
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64/libs/qt-5.15.7
+          path: ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qt-5.15.7
           key: macos-x64-qt-5.15.7-v1
           restore-keys: macos-x64-qt-5.15.7-
           save-always: true
