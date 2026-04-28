@@ -59,10 +59,14 @@ win32 {
 macx {
 	QMAKE_MACOSX_DEPLOYMENT_TARGET = 12.00
 
-	## Boost
-	DIGITALNOTE_BOOST_INCLUDE_PATH    = /usr/local/Cellar/boost/1.80.0/include
-	DIGITALNOTE_BOOST_LIB_PATH        = /usr/local/Cellar/boost/1.80.0/lib
-	DIGITALNOTE_BOOST_SUFFIX          = -mt
+	## Boost — built from source by CI's libs job into Builder/macos/<arch>/libs/
+	## (formerly Homebrew at /usr/local/Cellar — that path doesn't exist on the
+	## arm64 runner, and boost@1.80 is no longer in Homebrew. The libs symlink
+	## ${{ github.workspace }}/../libs -> Builder/macos/<arch>/libs makes
+	## $${DIGITALNOTE_PATH}/../libs/ resolve correctly here.)
+	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/include
+	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/lib
+	DIGITALNOTE_BOOST_SUFFIX          =
 	
 	## OpenSSL library
 	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1w/include
