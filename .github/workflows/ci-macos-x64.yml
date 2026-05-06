@@ -217,6 +217,30 @@ jobs:
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
         run: bash update.sh
 
+      # ── Configure macOS SDK ────────────────────────────────────────────────
+      # On macos-15-intel runners with Xcode 15.4 + macOS 14.5 SDK, plain
+      # `clang` invocations from leveldb's hand-rolled Makefile (and a few
+      # other places that don't go through Qt) fail with:
+      #   "fatal error: 'string' file not found"
+      # The runner ships clang without an auto-resolving SDK, so we resolve
+      # one once via xcrun and export it for every subsequent step. Writing
+      # to $GITHUB_ENV makes it available across step boundaries.
+      - name: Configure macOS SDK
+        run: |
+          SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          if [ -z "$SDKROOT" ] || [ ! -d "$SDKROOT" ]; then
+            echo "ERROR: could not resolve macOS SDK via xcrun"
+            xcrun --sdk macosx --show-sdk-path || true
+            xcode-select -p || true
+            exit 1
+          fi
+          echo "Resolved SDKROOT=$SDKROOT"
+          echo "SDKROOT=$SDKROOT" >> "$GITHUB_ENV"
+          # MACOSX_DEPLOYMENT_TARGET avoids the "Qt has only been tested with
+          # version 11.0 of the platform SDK, you're using ." warning chain by
+          # giving Qt's qmake an explicit deployment target to compare against.
+          echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> "$GITHUB_ENV"
+
       - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
