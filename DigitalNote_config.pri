@@ -22,7 +22,16 @@ win32 {
 	## Boost
 	DIGITALNOTE_BOOST_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/include/boost-1_80
 	DIGITALNOTE_BOOST_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/boost_1_80_0/lib
-	DIGITALNOTE_BOOST_SUFFIX          = -mgw15-mt-s-x64-1_80
+	## Boost b2 stamps the toolset major version into the static lib filename
+	## (versioned-layout): libboost_system-mgw<MAJOR>-mt-s-x64-1_80.a
+	## We auto-detect MAJOR from g++ at qmake time so MSYS2 GCC bumps (15->16
+	## happened during v2.0.0.7 testing; future bumps will too) don't require
+	## editing this file. Falls back to mgw16 if detection fails.
+	DIGITALNOTE_GCC_MAJOR             = $$system(g++ -dumpversion 2>NUL)
+	DIGITALNOTE_GCC_MAJOR             = $$section(DIGITALNOTE_GCC_MAJOR, ., 0, 0)
+	isEmpty(DIGITALNOTE_GCC_MAJOR): DIGITALNOTE_GCC_MAJOR = 16
+	DIGITALNOTE_BOOST_SUFFIX          = -mgw$${DIGITALNOTE_GCC_MAJOR}-mt-s-x64-1_80
+	message(Boost suffix: $${DIGITALNOTE_BOOST_SUFFIX})
 	
 	## OpenSSL library
 	DIGITALNOTE_OPENSSL_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/openssl-1.1.1w/include
