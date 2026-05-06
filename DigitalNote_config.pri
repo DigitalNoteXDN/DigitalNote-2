@@ -68,6 +68,17 @@ win32 {
 macx {
 	QMAKE_MACOSX_DEPLOYMENT_TARGET = 12.00
 
+	## libc++ on Xcode 15+ / macOS SDK 14+ removed std::unary_function and
+	## related C++17-deprecated symbols that Boost 1.80 still references
+	## (boost/container_hash/hash.hpp uses std::unary_function). Apple's
+	## libc++ provides feature-test macros to keep the deprecated symbols
+	## available; we set the broad one which covers unary_function,
+	## binary_function, random_shuffle, auto_ptr, etc. Until Boost is
+	## upgraded to 1.81+ (which dropped the dependency) this is the
+	## supported workaround.
+	DEFINES += _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
+	DEFINES += _LIBCPP_ENABLE_CXX17_REMOVED_FEATURES
+
 	## Boost — built from source by CI's libs job into Builder/macos/<arch>/libs/
 	## (formerly Homebrew at /usr/local/Cellar — that path doesn't exist on the
 	## arm64 runner, and boost@1.80 is no longer in Homebrew. The libs symlink
