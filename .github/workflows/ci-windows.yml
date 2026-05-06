@@ -270,13 +270,17 @@ jobs:
           # NOTE: DigitalNoted has no --version flag — the source-header
           # checks above prove the build is at version 2.0.0.7. This step
           # is just a sanity check that the binary actually exists.
-          WS=$(cygpath -u '${{ github.workspace }}')
-          DAEMON=$(find "$WS" -iname 'DigitalNoted.exe' -type f | head -1)
+          # The build writes to MSYS2 home, not github.workspace — same
+          # path the Collect step uses below.
+          SRC="$HOME/DigitalNote-Builder/windows/x64/DigitalNote-2"
+          DAEMON=$(find "$SRC" -iname 'DigitalNoted.exe' -type f | head -1)
           if [ -z "$DAEMON" ]; then
-            echo "ERROR: DigitalNoted.exe not found"; exit 1
+            echo "ERROR: DigitalNoted.exe not found under $SRC"
+            ls -la "$SRC" 2>/dev/null || echo "(directory does not exist)"
+            exit 1
           fi
           echo "OK: DigitalNoted.exe built at $DAEMON"
-          file "$DAEMON" 2>/dev/null || ls -lh "$DAEMON"
+          ls -lh "$DAEMON"
 
       # ── 14. Collect and upload binaries ───────────────────────────────────
       # NB: We run this step in MSYS2 bash, NOT pwsh, even though the rest of
