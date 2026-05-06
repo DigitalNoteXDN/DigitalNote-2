@@ -300,7 +300,7 @@ jobs:
 
       - name: Assert version
         run: |
-          DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
+          DAEMON=$(find ${{ github.workspace }} -name 'DigitalNoted' -type f | head -1)
           "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
             echo "ERROR: arm64 daemon version mismatch"; exit 1
           }
@@ -335,7 +335,7 @@ jobs:
           name: digitalnote-macos-arm64
           path: |
             **/DigitalNote-Qt-arm64.dmg
-            **/digitalnoted
+            **/DigitalNoted
           retention-days: 14
 
       - name: Upload build logs

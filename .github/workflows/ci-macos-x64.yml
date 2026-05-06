@@ -302,7 +302,7 @@ jobs:
 
       - name: Assert version
         run: |
-          DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
+          DAEMON=$(find ${{ github.workspace }} -name 'DigitalNoted' -type f | head -1)
           "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
             echo "ERROR: daemon does not report version 2.0.0.7"; exit 1
           }
@@ -341,7 +341,7 @@ jobs:
           name: digitalnote-macos-x64
           path: |
             **/DigitalNote-Qt-x64.dmg
-            **/digitalnoted
+            **/DigitalNoted
           retention-days: 14
 
       - name: Upload build logs
