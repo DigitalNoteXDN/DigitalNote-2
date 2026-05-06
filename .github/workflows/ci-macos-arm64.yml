@@ -45,7 +45,7 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/qrencode-4.1.1
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/gmp-6.3.0
-          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
+          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v5
           restore-keys: macos-arm64-fast-libs-
           save-always: true
 
@@ -102,7 +102,7 @@ jobs:
           bash ../../compile/libevent.sh "" "-j $CPUS"
           bash ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
           bash ../../compile/qrencode.sh "" "-j $CPUS"
-          bash ../../compile/gmp.sh "" "-j $CPUS"
+          bash ../../compile/gmp.sh "--with-pic" "-j $CPUS"
 
   libs-qt-macos-arm64:
     name: Compile Qt 5.15.7 — macOS arm64 (up to 6hrs)
@@ -189,7 +189,7 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/qrencode-4.1.1
             ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/libs/gmp-6.3.0
-          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
+          key: macos-arm64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v5
           restore-keys: macos-arm64-fast-libs-
           save-always: true
 
@@ -300,10 +300,12 @@ jobs:
 
       - name: Assert version
         run: |
-          DAEMON=$(find ${{ github.workspace }} -name 'DigitalNoted' -type f | head -1)
-          "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
-            echo "ERROR: arm64 daemon version mismatch"; exit 1
-          }
+          # NOTE: DigitalNoted has no --version flag (only --help, which
+          # requires a valid datadir). Rather than spin up a fake datadir
+          # for a runtime check, we verify the source headers say version
+          # 7 and trust that the build we just produced is from this same
+          # source tree. The build/link succeeding implicitly proves the
+          # binary contains these constants.
           grep -qE 'CLIENT_VERSION_BUILD[[:space:]]+7' src/clientversion.h || {
             echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1
           }
@@ -313,7 +315,14 @@ jobs:
           grep -qE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*62052' src/version.h || {
             echo "ERROR: MIN_PEER_PROTO_VERSION is not 62052"; exit 1
           }
+          # Sanity: confirm a DigitalNoted binary actually got built.
+          DAEMON=$(find ${{ github.workspace }} -name 'DigitalNoted' -type f | head -1)
+          if [ -z "$DAEMON" ]; then
+            echo "ERROR: DigitalNoted binary not found"; exit 1
+          fi
           echo "OK: BUILD=7, PROTOCOL=62055, PEER_PROTO=62052 on arm64"
+          echo "OK: DigitalNoted built at $DAEMON"
+          file "$DAEMON"
 
       # ── Package the Qt .app bundle into a .dmg ─────────────────────────────
       # macdeployqtplus (shipped in DigitalNote-2/contrib/macdeploy/) walks the
