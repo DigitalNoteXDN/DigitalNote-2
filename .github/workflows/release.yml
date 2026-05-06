@@ -49,9 +49,12 @@ jobs:
 
   build-linux-aarch64:
     name: Build Linux aarch64
-    # DEFERRED for v2.0.0.7: aarch64 Qt cross-compile fails; allowed to fail
-    # without blocking the release. Remove this line when aarch64 is fixed.
-    continue-on-error: true
+    # aarch64 cross-compile is being stabilized in v2.0.0.7. The publish
+    # step's per-binary place() helper handles missing artifacts gracefully,
+    # so a failure here doesn't block other platforms — they ship and the
+    # arm64 row simply doesn't appear in the release. NOTE: GitHub Actions
+    # does NOT allow continue-on-error on reusable-workflow callers (jobs
+    # with `uses:`). Failure tolerance lives in publish's place() helper.
     uses: ./.github/workflows/ci-linux-aarch64.yml
     secrets: inherit
     with:
@@ -66,11 +69,8 @@ jobs:
 
   build-macos-arm64:
     name: Build macOS arm64 (Apple Silicon)
-    # Apple Silicon binary is built and INCLUDED in the release if the build
-    # succeeds. continue-on-error so a failure here doesn't block the rest of
-    # the release — the publish job's per-binary rename logic just skips
-    # macos-arm64 cleanly when the artifact is missing.
-    continue-on-error: true
+    # See aarch64 note re: failure tolerance via publish's place() helper.
+    # continue-on-error is not allowed on reusable-workflow callers.
     uses: ./.github/workflows/ci-macos-arm64.yml
     secrets: inherit
     with:

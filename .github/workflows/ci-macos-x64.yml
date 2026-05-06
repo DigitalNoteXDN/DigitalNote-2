@@ -48,7 +48,8 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
-          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/gmp-6.3.0
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v5
           restore-keys: macos-x64-fast-libs-
           save-always: true
 
@@ -80,13 +81,18 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/../DigitalNote-Builder/download
           cd ${{ github.workspace }}/../DigitalNote-Builder/download
-          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
-          wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
-          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
-          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
-          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
-          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          # GMP: use libgmp-dev system package (see Install system packages step)
+          # --tries=3 --timeout=60 fails fast on flaky CDNs (esp. miniupnp.free.fr,
+          # gmplib.org) instead of hanging the whole job. Keeping output verbose
+          # so a future failure shows the actual URL/HTTP code.
+          WGET="wget --tries=3 --timeout=60 --no-verbose"
+          $WGET https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          $WGET https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          $WGET http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          $WGET https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          $WGET "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          $WGET https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          # GNU's mirror is more reliable from GitHub Actions IP ranges than gmplib.org
+          $WGET https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz
 
       - name: Compile fast libraries
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -100,6 +106,7 @@ jobs:
           bash ../../compile/libevent.sh "" "-j $CPUS"
           bash ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
           bash ../../compile/qrencode.sh "" "-j $CPUS"
+          bash ../../compile/gmp.sh "--with-pic" "-j $CPUS"
 
   libs-qt-macos-x64:
     name: Compile Qt 5.15.7 — macOS x64 (up to 6hrs)
@@ -118,7 +125,7 @@ jobs:
         id: qt-cache
         with:
           path: ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qt-5.15.7
-          key: macos-x64-qt-5.15.7-v1
+          key: macos-x64-qt-5.15.7-v2
           restore-keys: macos-x64-qt-5.15.7-
           save-always: true
 
@@ -183,7 +190,8 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
-          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/gmp-6.3.0
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v5
           restore-keys: macos-x64-fast-libs-
           save-always: true
 
@@ -191,7 +199,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qt-5.15.7
-          key: macos-x64-qt-5.15.7-v1
+          key: macos-x64-qt-5.15.7-v2
           restore-keys: macos-x64-qt-5.15.7-
           save-always: true
 
@@ -217,6 +225,30 @@ jobs:
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
         run: bash update.sh
 
+      # ── Configure macOS SDK ────────────────────────────────────────────────
+      # On macos-15-intel runners with Xcode 15.4 + macOS 14.5 SDK, plain
+      # `clang` invocations from leveldb's hand-rolled Makefile (and a few
+      # other places that don't go through Qt) fail with:
+      #   "fatal error: 'string' file not found"
+      # The runner ships clang without an auto-resolving SDK, so we resolve
+      # one once via xcrun and export it for every subsequent step. Writing
+      # to $GITHUB_ENV makes it available across step boundaries.
+      - name: Configure macOS SDK
+        run: |
+          SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          if [ -z "$SDKROOT" ] || [ ! -d "$SDKROOT" ]; then
+            echo "ERROR: could not resolve macOS SDK via xcrun"
+            xcrun --sdk macosx --show-sdk-path || true
+            xcode-select -p || true
+            exit 1
+          fi
+          echo "Resolved SDKROOT=$SDKROOT"
+          echo "SDKROOT=$SDKROOT" >> "$GITHUB_ENV"
+          # MACOSX_DEPLOYMENT_TARGET avoids the "Qt has only been tested with
+          # version 11.0 of the platform SDK, you're using ." warning chain by
+          # giving Qt's qmake an explicit deployment target to compare against.
+          echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> "$GITHUB_ENV"
+
       - name: Link source tree
         run: |
           ln -sfn ${{ github.workspace }} \
@@ -232,7 +264,11 @@ jobs:
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
+          # QMAKE_APPLE_DEVICE_ARCHS=x86_64 makes the target arch explicit
+          # rather than relying on Qt's mkspec default. Symmetric with the
+          # arm64 build's override.
           qmake DigitalNote.daemon.pro \
+            QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon-macos.log
           exit ${PIPESTATUS[0]}
@@ -244,6 +280,7 @@ jobs:
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
+            QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
             USE_UPNP=1 USE_QRCODE=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app-macos.log
           exit ${PIPESTATUS[0]}
@@ -265,10 +302,12 @@ jobs:
 
       - name: Assert version
         run: |
-          DAEMON=$(find ${{ github.workspace }} -name 'digitalnoted' -type f | head -1)
-          "$DAEMON" --version 2>&1 | grep -q "2\.0\.0\.7" || {
-            echo "ERROR: daemon does not report version 2.0.0.7"; exit 1
-          }
+          # NOTE: DigitalNoted has no --version flag (only --help, which
+          # requires a valid datadir). Rather than spin up a fake datadir
+          # for a runtime check, we verify the source headers say version
+          # 7 and trust that the build we just produced is from this same
+          # source tree. The build/link succeeding implicitly proves the
+          # binary contains these constants.
           grep -qE 'CLIENT_VERSION_BUILD[[:space:]]+7' src/clientversion.h || {
             echo "ERROR: CLIENT_VERSION_BUILD is not 7"; exit 1
           }
@@ -278,7 +317,14 @@ jobs:
           grep -qE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*62052' src/version.h || {
             echo "ERROR: MIN_PEER_PROTO_VERSION is not 62052"; exit 1
           }
+          # Sanity: confirm a DigitalNoted binary actually got built.
+          DAEMON=$(find ${{ github.workspace }} -name 'DigitalNoted' -type f | head -1)
+          if [ -z "$DAEMON" ]; then
+            echo "ERROR: DigitalNoted binary not found"; exit 1
+          fi
           echo "OK: BUILD=7, PROTOCOL=62055, PEER_PROTO=62052"
+          echo "OK: DigitalNoted built at $DAEMON"
+          file "$DAEMON"
 
       # ── Package the Qt .app bundle into a .dmg ─────────────────────────────
       # macdeployqtplus (shipped in DigitalNote-2/contrib/macdeploy/) walks the
@@ -304,7 +350,7 @@ jobs:
           name: digitalnote-macos-x64
           path: |
             **/DigitalNote-Qt-x64.dmg
-            **/digitalnoted
+            **/DigitalNoted
           retention-days: 14
 
       - name: Upload build logs
