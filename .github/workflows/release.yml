@@ -66,11 +66,10 @@ jobs:
 
   build-macos-arm64:
     name: Build macOS arm64 (Apple Silicon)
-    # Apple Silicon binary is built but NOT included in the release zip set
-    # until validated on real Apple Silicon hardware. continue-on-error so
-    # an arm64 build failure doesn't block the rest of the release.
-    # The artifact is uploaded by the CI workflow and accessible via the
-    # Actions tab for testing — see release.yml comments below.
+    # Apple Silicon binary is built and INCLUDED in the release if the build
+    # succeeds. continue-on-error so a failure here doesn't block the rest of
+    # the release — the publish job's per-binary rename logic just skips
+    # macos-arm64 cleanly when the artifact is missing.
     continue-on-error: true
     uses: ./.github/workflows/ci-macos-arm64.yml
     secrets: inherit
@@ -148,47 +147,94 @@ jobs:
           path: dist/macos-x64
         continue-on-error: true
 
-      # NOTE: macOS arm64 (Apple Silicon) is intentionally NOT downloaded here.
-      # The CI workflow builds and uploads it as a workflow artifact (visible
-      # via the Actions tab) for internal testing on Apple Silicon hardware.
-      # Once validated, add a "Download macOS arm64 artifact" step matching
-      # the macos-x64 one above, add 'macos-arm64' to the platform loop in the
-      # next step, and add the row back to the release notes table at the
-      # bottom of this file.
+      # macOS arm64 (Apple Silicon) is included in the release if it built.
+      # The macos-arm64 build job is continue-on-error so a failure there does
+      # not block the publish; if no artifact was uploaded this download is a
+      # no-op and the rename step below skips macos-arm64 cleanly.
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-macos-arm64
+          path: dist/macos-arm64
+        continue-on-error: true
 
       - name: Package artifacts
         run: |
+          # Strip the leading 'v' so files are named e.g. DigitalNote-qt-2.0.0.7-...
+          # rather than ...-v2.0.0.7-...
           TAG="${{ steps.tag.outputs.tag }}"
+          VER="${TAG#v}"
           mkdir -p release
-          cd dist
-          for platform in windows-x64 linux-x64 linux-aarch64 macos-x64; do
-            if [ -d "$platform" ] && [ "$(ls -A $platform 2>/dev/null)" ]; then
-              ZIP="../release/DigitalNote-${TAG}-${platform}.zip"
-              zip -r "$ZIP" "$platform/"
-              echo "Packaged: DigitalNote-${TAG}-${platform}.zip"
+
+          # ── Helper: copy a file matching a glob inside a platform dir to a
+          #    final release filename. Quietly no-ops if the source is missing
+          #    so a partial build (e.g. aarch64 failed) doesn't abort the run.
+          place() {
+            local src_glob="$1"
+            local dst_name="$2"
+            local found
+            found=$(find dist -path "$src_glob" -type f 2>/dev/null | head -1)
+            if [ -n "$found" ]; then
+              cp "$found" "release/$dst_name"
+              echo "  + $dst_name  <-  $found"
             else
-              echo "Skipping $platform - no artifacts found"
+              echo "  - $dst_name  (skipped: source not found)"
             fi
-          done
-          cd ..
-          if ls release/*.zip 1>/dev/null 2>&1; then
-            sha256sum release/*.zip > release/SHA256SUMS.txt
+          }
+
+          echo "=== Renaming binaries into release/ ==="
+
+          # ── Windows x64 ────────────────────────────────────────────────────
+          place "dist/windows-x64/*DigitalNote-qt.exe" "DigitalNote-qt-${VER}-win-x64.exe"
+          place "dist/windows-x64/*DigitalNoted.exe"   "DigitalNoted-${VER}-win-x64.exe"
+
+          # ── Linux x64 ──────────────────────────────────────────────────────
+          # Linux uploads use a glob root; binaries land somewhere under dist/linux-x64/
+          place "dist/linux-x64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64"
+          place "dist/linux-x64/*digitalnoted"   "DigitalNoted-${VER}-linux-x64"
+
+          # ── Linux aarch64 → published as 'linux-arm64' ────────────────────
+          # Internal artifact name kept as 'aarch64' to avoid disturbing the
+          # cache key in ci-linux-aarch64.yml; release filename uses 'arm64'
+          # to match the OS/arch token convention used everywhere else.
+          place "dist/linux-aarch64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-arm64"
+          place "dist/linux-aarch64/*digitalnoted"   "DigitalNoted-${VER}-linux-arm64"
+
+          # ── macOS x64 (Intel) ──────────────────────────────────────────────
+          # Qt wallet is shipped as a .dmg produced by Builder/macos/x64/deploy.sh
+          # (which calls macdeployqtplus). The daemon ships as a bare binary.
+          place "dist/macos-x64/*DigitalNote-Qt-x64.dmg" "DigitalNote-qt-${VER}-macos-x64.dmg"
+          place "dist/macos-x64/*digitalnoted"           "DigitalNoted-${VER}-macos-x64"
+
+          # ── macOS arm64 (Apple Silicon) ────────────────────────────────────
+          # continue-on-error in the build job + here means a missing arm64
+          # artifact just skips these two lines without failing the release.
+          place "dist/macos-arm64/*DigitalNote-Qt-arm64.dmg" "DigitalNote-qt-${VER}-macos-arm64.dmg"
+          place "dist/macos-arm64/*digitalnoted"             "DigitalNoted-${VER}-macos-arm64"
+
+          echo
+          echo "=== Final release/ contents ==="
+          ls -lh release/
+
+          # ── Checksums over every file we ended up shipping ─────────────────
+          if [ -n "$(ls -A release/ 2>/dev/null)" ]; then
+            (cd release && sha256sum * > SHA256SUMS.txt)
             echo "=== Checksums ==="
             cat release/SHA256SUMS.txt
           fi
-          ls -lh release/
 
       # Refuse to publish a release with no binaries attached.
       # If every single platform failed, abort the job here so we don't end up
       # with an empty/misleading release on GitHub.
       - name: Verify at least one artifact exists
         run: |
-          if ! ls release/*.zip 1>/dev/null 2>&1; then
+          # Count anything in release/ except the checksums file itself.
+          COUNT=$(find release -type f ! -name SHA256SUMS.txt 2>/dev/null | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
             echo "ERROR: no platform produced a build artifact — aborting release"
             exit 1
           fi
-          COUNT=$(ls release/*.zip | wc -l)
-          echo "OK: $COUNT platform zip(s) ready for upload"
+          echo "OK: $COUNT binary file(s) ready for upload"
 
       - name: Generate changelog
         id: changelog
@@ -247,7 +293,6 @@ jobs:
             - Password generator button in the encrypt wallet dialog
             - "Forgot password?" recovery phrase link in the unlock dialog
             - Staking-only checkbox hidden by default in standard unlock mode
-            - Decrypt Wallet option added to Settings menu
 
             ### ⚠️ Upgrade Notes
             **Recovery phrase is only available for wallets encrypted with v2.0.0.7 or later.**
@@ -260,19 +305,21 @@ jobs:
             4. Full nodes last
 
             ### Platform Downloads
-            | Platform | File |
-            |---|---|
-            | Windows x64 | `DigitalNote-${{ steps.tag.outputs.tag }}-windows-x64.zip` |
-            | Linux x64 | `DigitalNote-${{ steps.tag.outputs.tag }}-linux-x64.zip` |
-            | macOS Intel | `DigitalNote-${{ steps.tag.outputs.tag }}-macos-x64.zip` |
 
-            > **Note on platforms not listed above:**
-            > * **macOS Apple Silicon (M1/M2/M3/M4):** Intel binaries above run
-            >   on Apple Silicon via Rosetta 2 with no functionality loss.
-            >   Native Apple Silicon builds are validated separately and will
-            >   be added to this release once smoke-tested.
-            > * **Linux aarch64 (ARM, including Raspberry Pi):** deferred to a
-            >   follow-up release. Build from source until then.
+            Replace `${{ steps.tag.outputs.tag }}` with the version number when the assets are listed below (the leading `v` is stripped from filenames — so v2.0.0.7 produces files named `…-2.0.0.7-…`).
+
+            | Platform | GUI Wallet | Daemon |
+            |---|---|---|
+            | Windows x64 | `DigitalNote-qt-<ver>-win-x64.exe` | `DigitalNoted-<ver>-win-x64.exe` |
+            | Linux x64 | `DigitalNote-qt-<ver>-linux-x64` | `DigitalNoted-<ver>-linux-x64` |
+            | Linux ARM64 | `DigitalNote-qt-<ver>-linux-arm64` | `DigitalNoted-<ver>-linux-arm64` |
+            | macOS Intel | `DigitalNote-qt-<ver>-macos-x64.dmg` | `DigitalNoted-<ver>-macos-x64` |
+            | macOS Apple Silicon | `DigitalNote-qt-<ver>-macos-arm64.dmg` | `DigitalNoted-<ver>-macos-arm64` |
+
+            > **Notes**
+            > * **Linux ARM64** and **macOS Apple Silicon** builds may be missing if their CI job did not finish — see the Actions tab for build status. The other platforms are unaffected.
+            > * **macOS daemon binaries** are provided for power users running `digitalnoted` from the command line. The standard install path on macOS remains the `.dmg` GUI wallet above.
+            > * **32-bit builds** are not produced for v2.0.0.7. Users on 32-bit systems should remain on v2.0.0.5.
 
             ### SHA256 Checksums
             See `SHA256SUMS.txt` attached below.
@@ -281,7 +328,6 @@ jobs:
             ${{ steps.changelog.outputs.CHANGELOG }}
 
           files: |
-            release/*.zip
-            release/SHA256SUMS.txt
+            release/*
           token: ${{ secrets.PAT_TOKEN }}
           fail_on_unmatched_files: false

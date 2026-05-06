@@ -280,8 +280,7 @@ jobs:
           name: digitalnote-linux-aarch64
           path: |
             **/digitalnoted
-            **/digitalnote-qt
-            **/bitcoin-qt
+            **/DigitalNote-qt
           retention-days: 14
 
       - name: Upload build logs

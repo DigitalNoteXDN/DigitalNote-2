@@ -280,12 +280,30 @@ jobs:
           }
           echo "OK: BUILD=7, PROTOCOL=62055, PEER_PROTO=62052"
 
+      # ── Package the Qt .app bundle into a .dmg ─────────────────────────────
+      # macdeployqtplus (shipped in DigitalNote-2/contrib/macdeploy/) walks the
+      # .app, copies in all required Qt frameworks + dylibs, and wraps the
+      # result into DigitalNote-Qt.dmg. The Builder's deploy.sh just runs that.
+      # We then rename the produced dmg to include the arch so it doesn't
+      # collide with the arm64 build's dmg when both are downloaded together.
+      - name: Package .app into .dmg
+        working-directory: ${{ github.workspace }}/../DigitalNote-Builder/macos/x64
+        run: |
+          # Ensure macdeployqtplus can find the Qt tools (otool, install_name_tool
+          # are system-provided; macdeployqtplus itself just needs python3).
+          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          bash deploy.sh
+          # Builder's deploy.sh leaves DigitalNote-Qt.dmg next to the .app;
+          # rename so it carries the arch tag.
+          mv DigitalNote-2/DigitalNote-Qt.dmg DigitalNote-2/DigitalNote-Qt-x64.dmg
+          ls -lh DigitalNote-2/DigitalNote-Qt-x64.dmg
+
       - name: Upload macOS x64 artefacts
         uses: actions/upload-artifact@v4
         with:
           name: digitalnote-macos-x64
           path: |
-            **/*.app
+            **/DigitalNote-Qt-x64.dmg
             **/digitalnoted
           retention-days: 14
 

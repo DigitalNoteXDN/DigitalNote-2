@@ -233,8 +233,7 @@ jobs:
           name: digitalnote-linux-x64
           path: |
             **/digitalnoted
-            **/digitalnote-qt
-            **/bitcoin-qt
+            **/DigitalNote-qt
           if-no-files-found: warn
           retention-days: 14
 
