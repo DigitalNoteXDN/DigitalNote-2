@@ -279,16 +279,27 @@ jobs:
           fi
 
       # ── 14. Collect and upload binaries ───────────────────────────────────
+      # NB: We run this step in MSYS2 bash, NOT pwsh, even though the rest of
+      # collect-and-upload looks Windows-y. Reason: the build steps run under
+      # MSYS2 and write to ~/DigitalNote-Builder/... where ~ resolves to
+      # D:\a\_temp\msys64\home\runneradmin\. PowerShell's $env:USERPROFILE
+      # resolves to C:\Users\runneradmin\ — a completely different directory
+      # that doesn't exist. Staying in MSYS2 bash here keeps paths consistent.
+      # The 'cygpath -w' calls convert MSYS2 paths to Windows form for the
+      # upload-artifact step that follows (which does run on the Windows
+      # filesystem and needs backslash paths).
       - name: Collect Windows executables
-        shell: pwsh
         run: |
-          $src = "$env:USERPROFILE\DigitalNote-Builder\windows\x64\DigitalNote-2"
-          $dst = "${{ github.workspace }}\artifacts"
-          New-Item -ItemType Directory -Force -Path $dst | Out-Null
-          Get-ChildItem -Path $src -Recurse -Include "*.exe" |
-            Copy-Item -Destination $dst
-          Copy-Item "$env:USERPROFILE\build-app.log"    $dst -ErrorAction SilentlyContinue
-          Copy-Item "$env:USERPROFILE\build-daemon.log" $dst -ErrorAction SilentlyContinue
+          SRC="$HOME/DigitalNote-Builder/windows/x64/DigitalNote-2"
+          DST="$(cygpath -u '${{ github.workspace }}')/artifacts"
+          mkdir -p "$DST"
+          # Copy every .exe produced by either build (daemon + Qt wallet)
+          find "$SRC" -name '*.exe' -type f -exec cp {} "$DST/" \;
+          # Logs — written to ~/build-*.log by steps 9/10
+          cp "$HOME/build-app.log"    "$DST/" 2>/dev/null || true
+          cp "$HOME/build-daemon.log" "$DST/" 2>/dev/null || true
+          echo "=== Collected artefacts ==="
+          ls -lh "$DST/"
 
       - name: Upload Windows x64 binaries
         uses: actions/upload-artifact@v4
