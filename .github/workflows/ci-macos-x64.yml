@@ -48,7 +48,8 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
-          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v3
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/gmp-6.3.0
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
           restore-keys: macos-x64-fast-libs-
           save-always: true
 
@@ -189,7 +190,8 @@ jobs:
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/libevent-2.1.12-stable
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/miniupnpc-2.2.8
             ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/qrencode-4.1.1
-          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v3
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/x64/libs/gmp-6.3.0
+          key: macos-x64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v4
           restore-keys: macos-x64-fast-libs-
           save-always: true
 
