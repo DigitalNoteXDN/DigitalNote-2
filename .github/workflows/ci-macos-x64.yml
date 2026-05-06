@@ -86,7 +86,7 @@ jobs:
           wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
           wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          wget -q https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2
+          wget -q https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
 
       - name: Compile fast libraries
         if: steps.fast-cache.outputs.cache-hit != 'true'

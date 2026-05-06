@@ -18,18 +18,41 @@ on:
 env:
   BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
   JOBS: 4
+  # Multiarch package list — the aarch64 cross-compile needs arm64-side
+  # versions of every dev library Qt's configure probes for. apt's :arm64
+  # suffix selects the foreign arch package after dpkg --add-architecture.
+  AARCH64_DEV_PACKAGES: >-
+    libfreetype-dev:arm64
+    libfontconfig1-dev:arm64
+    libx11-dev:arm64
+    libxcb1-dev:arm64
+    libxext-dev:arm64
+    libxfixes-dev:arm64
+    libxi-dev:arm64
+    libxrender-dev:arm64
+    libxkbcommon-dev:arm64
+    libxkbcommon-x11-dev:arm64
+    libxcb-glx0-dev:arm64
+    libxcb-keysyms1-dev:arm64
+    libxcb-image0-dev:arm64
+    libxcb-shm0-dev:arm64
+    libxcb-icccm4-dev:arm64
+    libxcb-sync-dev:arm64
+    libxcb-xfixes0-dev:arm64
+    libxcb-shape0-dev:arm64
+    libxcb-randr0-dev:arm64
+    libxcb-render-util0-dev:arm64
+    libxcb-util-dev:arm64
+    libxcb-xinerama0-dev:arm64
+    libxcb-xkb-dev:arm64
 
 jobs:
 
 # ── Job 1: Fast libs ──────────────────────────────────────────────────────────
-# NOTE: aarch64 is DEFERRED for v2.0.0.7 — Qt cross-compile fails on
-# fontconfig/freetype/llvm-config. continue-on-error lets release.yml
-# proceed without this platform. To re-enable: see README / docs for fix.
   libs-fast-aarch64:
     name: Compile fast libraries aarch64 (~30 min)
     runs-on: ubuntu-22.04
     timeout-minutes: 90
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +72,8 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qrencode-4.1.1
-          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+            ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/gmp-6.3.0
+          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v3
           restore-keys: linux-aarch64-fast-libs-
 
       - name: Set up QEMU for arm64 emulation
@@ -61,11 +85,11 @@ jobs:
       - name: Install cross-compile toolchain
         if: steps.fast-cache.outputs.cache-hit != 'true'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            crossbuild-essential-arm64 qemu-user-static \
-            libgmp-dev libboost-test-dev
+            crossbuild-essential-arm64 qemu-user-static
           sudo bash ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/update.sh \
             2>/dev/null || true
 
@@ -87,7 +111,7 @@ jobs:
           wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
           wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
           wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          # GMP: use libgmp-dev system package (see Install system packages step)
+          wget -q https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
 
       - name: Compile fast libraries (cross-compile aarch64)
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -104,13 +128,17 @@ jobs:
           ../../compile/libevent.sh "--host aarch64-linux-gnu" "-j $CPUS"
           ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
           ../../compile/qrencode.sh "--host aarch64-linux-gnu" "-j $CPUS"
+          # GMP cross-compiled for aarch64. --disable-assembly avoids
+          # gmp's hand-tuned aarch64 asm needing a newer host as/ld than
+          # ubuntu-22.04 ships. Slight perf hit, but a static .a we can
+          # actually link.
+          ../../compile/gmp.sh "--host=aarch64-linux-gnu --disable-assembly" "-j $CPUS"
 
 # ── Job 2: Qt aarch64 ─────────────────────────────────────────────────────────
   libs-qt-aarch64:
     name: Compile Qt 5.15.7 aarch64 (up to 6hrs)
     runs-on: ubuntu-22.04
     timeout-minutes: 360
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -124,24 +152,23 @@ jobs:
         id: qt-cache
         with:
           path: ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qt-5.15.7
-          key: linux-aarch64-qt-5.15.7-v1
+          key: linux-aarch64-qt-5.15.7-v2
           restore-keys: linux-aarch64-qt-5.15.7-
 
-      - name: Install cross-compile toolchain + Qt deps
+      - name: Install cross-compile toolchain + Qt deps (host + arm64 multiarch)
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
+          # Cross-compiler + host-side build tools
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            crossbuild-essential-arm64 \
-            libgmp-dev libfreetype6-dev libfontconfig1-dev \
-            libx11-dev libxcb1-dev libxext-dev libxfixes-dev \
-            libxi-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev \
-            libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev \
-            libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev \
-            libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev \
-            libxcb-xkb-dev
+            crossbuild-essential-arm64
+          # arm64 multiarch dev libs Qt configure probes for. The :arm64
+          # suffix selects the foreign-arch package version. apt installs
+          # these to /usr/lib/aarch64-linux-gnu/ where the cross-toolchain's
+          # sysroot finds them.
+          sudo apt-get install -y ${{ env.AARCH64_DEV_PACKAGES }}
 
       - name: Clone DigitalNote-Builder
         if: steps.qt-cache.outputs.cache-hit != 'true'
@@ -163,6 +190,11 @@ jobs:
         run: |
           mkdir -p temp libs
           echo "Compiling Qt for aarch64 — this takes 1-3 hours"
+          # PKG_CONFIG_LIBDIR points pkg-config at the arm64 multiarch
+          # paths so configure tests succeed. PKG_CONFIG_SYSROOT_DIR=/
+          # avoids accidental path rewriting on this same-rootfs setup.
+          export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+          export PKG_CONFIG_SYSROOT_DIR=/
           ../../compile/qt.sh "-platform linux-g++ -xplatform linux-aarch64-gnu-g++ -bundled-xcb-xinput -fontconfig -system-freetype" ""
 
 # ── Job 3: Build + Test aarch64 ───────────────────────────────────────────────
@@ -171,7 +203,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     needs: [ libs-fast-aarch64, libs-qt-aarch64 ]
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -202,23 +233,27 @@ jobs:
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/libevent-2.1.12-stable
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/miniupnpc-2.2.8
             ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qrencode-4.1.1
-          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v2
+            ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/gmp-6.3.0
+          key: linux-aarch64-fast-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v3
           restore-keys: linux-aarch64-fast-libs-
 
       - name: Restore Qt from cache
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/libs/qt-5.15.7
-          key: linux-aarch64-qt-5.15.7-v1
+          key: linux-aarch64-qt-5.15.7-v2
           restore-keys: linux-aarch64-qt-5.15.7-
 
-      - name: Install cross-compile toolchain
+      - name: Install cross-compile toolchain + arm64 runtime libs
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            crossbuild-essential-arm64 qemu-user-static \
-            libgmp-dev libboost-test-dev
+            crossbuild-essential-arm64 qemu-user-static
+          # The build job also needs the arm64 runtime/dev libs for
+          # qmake's own probes during the daemon/wallet compile.
+          sudo apt-get install -y ${{ env.AARCH64_DEV_PACKAGES }}
           sudo bash ${{ github.workspace }}/../DigitalNote-Builder/linux/aarch64/update.sh \
             2>/dev/null || true
 
@@ -233,7 +268,12 @@ jobs:
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
+          # TARGET_ARCH=aarch64 lets config.pri pick the cross-compiled
+          # GMP at Builder/linux/aarch64/libs/gmp-6.3.0/ instead of the
+          # default x86_64 multiarch path.
           qmake DigitalNote.daemon.pro \
+            -spec linux-aarch64-gnu-g++ \
+            TARGET_ARCH=aarch64 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon-aarch64.log
           exit ${PIPESTATUS[0]}
@@ -245,6 +285,8 @@ jobs:
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
+            -spec linux-aarch64-gnu-g++ \
+            TARGET_ARCH=aarch64 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
             USE_BIP39=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app-aarch64.log
@@ -279,7 +321,7 @@ jobs:
         with:
           name: digitalnote-linux-aarch64
           path: |
-            **/digitalnoted
+            **/DigitalNoted
             **/DigitalNote-qt
           retention-days: 14
 

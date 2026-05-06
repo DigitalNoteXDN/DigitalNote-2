@@ -49,8 +49,10 @@ jobs:
 
   build-linux-aarch64:
     name: Build Linux aarch64
-    # DEFERRED for v2.0.0.7: aarch64 Qt cross-compile fails; allowed to fail
-    # without blocking the release. Remove this line when aarch64 is fixed.
+    # aarch64 cross-compile is being stabilized in v2.0.0.7 (was previously
+    # deferred). continue-on-error remains until 2-3 successful CI runs
+    # confirm the cross-compile chain produces a valid binary; then this
+    # line should be removed and the row promoted to a hard release dep.
     continue-on-error: true
     uses: ./.github/workflows/ci-linux-aarch64.yml
     secrets: inherit
