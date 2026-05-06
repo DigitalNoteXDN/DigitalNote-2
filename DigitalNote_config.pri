@@ -79,22 +79,11 @@ macx {
 	DEFINES += _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
 	DEFINES += _LIBCPP_ENABLE_CXX17_REMOVED_FEATURES
 
-	## Clang 15+/16+ added several diagnostics that Boost 1.80's headers trip,
-	## and -Wfatal-errors elsewhere in the build turns the first one into a
-	## hard stop. These suppressions are Boost-1.80-specific and only apply
-	## where the Boost headers are seen by Apple Clang. Drop them once Boost
-	## moves to >= 1.81 (the upstream fixes landed in 1.81 mpl/integral_wrapper
-	## and 1.83 throughout). Refs:
-	##   - boost::mpl prior<>/next<> uses static_cast on enums — Clang 16 made
-	##     -Wenum-constexpr-conversion a hard error (not a warning).
-	##   - Boost asio / lexical_cast / etc. have deprecated builtins / decls.
-	##   - leveldb's c.cc has unused-but-set-variable false positives Clang 14+
-	##     diagnoses by default.
-	QMAKE_CXXFLAGS += -Wno-enum-constexpr-conversion
-	QMAKE_CXXFLAGS += -Wno-deprecated-builtins
-	QMAKE_CXXFLAGS += -Wno-deprecated-declarations
-	QMAKE_CXXFLAGS += -Wno-unused-but-set-variable
-	QMAKE_CFLAGS   += -Wno-unused-but-set-variable
+	## NB: Clang 14+/15+/16+ also produces fatal warnings inside Boost 1.80
+	## headers (-Wenum-constexpr-conversion, -Wdeprecated-builtins,
+	## -Wdeprecated-declarations, -Wunused-but-set-variable). Those are
+	## suppressed in include/compiler_settings.pri's macx scope so they live
+	## next to the other QMAKE_CXXFLAGS_WARN_ON entries — see that file.
 
 	## Boost — built from source by CI's libs job into Builder/macos/<arch>/libs/
 	## (formerly Homebrew at /usr/local/Cellar — that path doesn't exist on the
