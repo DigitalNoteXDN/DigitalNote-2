@@ -369,8 +369,16 @@ jobs:
 
       - name: Link source tree
         run: |
+          # Link source into Builder (for compile scripts)
           ln -sfn ${{ github.workspace }} \
             ${{ runner.workspace }}/DigitalNote-Builder/linux/aarch64/DigitalNote-2
+          # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly.
+          # qmake's $$PWD resolves symlinks, so it returns github.workspace
+          # (the real source path), not the Builder symlink. Without this
+          # second symlink, ${DIGITALNOTE_PATH}/../libs in config.pri would
+          # resolve to /home/runner/work/DigitalNote-2/libs which is empty.
+          ln -sfn ${{ runner.workspace }}/DigitalNote-Builder/linux/aarch64/libs \
+            ${{ github.workspace }}/../libs
 
       - name: Compile daemon (aarch64)
         working-directory: ${{ runner.workspace }}/DigitalNote-Builder/linux/aarch64
