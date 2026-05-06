@@ -148,6 +148,7 @@ HEADERS += src/util.h
 HEADERS += src/velocity.h
 HEADERS += src/version.h
 HEADERS += src/walletdb.h
+HEADERS += src/walletrebuild.h
 HEADERS += src/wallet.h
 HEADERS += src/ui_interface.h
 HEADERS += src/ui_translate.h
@@ -309,9 +310,14 @@ HEADERS += src/qt/blockbrowser.h
 HEADERS += src/qt/plugins/mrichtexteditor/mrichtextedit.h
 HEADERS += src/qt/qvalidatedtextedit.h
 HEADERS += src/qt/seedphrasedialog.h
+HEADERS += src/qt/rotatephrasedialog.h
 HEADERS += src/qt/coincontrolworker.h
 HEADERS += src/qt/sendcoinsworker.h
 HEADERS += src/qt/decryptworker.h
+HEADERS += src/qt/recoveryphraseupgradedialog.h
+HEADERS += src/qt/guistate.h
+HEADERS += src/qt/removewatchonlydialog.h
+HEADERS += src/qt/watchonlyworker.h
 
 macx {
 	HEADERS += src/qt/macdockiconhandler.h

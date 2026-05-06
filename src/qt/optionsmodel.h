@@ -3,6 +3,8 @@
 
 #include <QAbstractListModel>
 
+#include "types/camount.h"
+
 extern bool fUseDarkTheme;
 
 /** Interface from Qt to configuration data structure for DigitalNote client.
@@ -67,7 +69,12 @@ private:
 
 signals:
     void displayUnitChanged(int unit);
-    void transactionFeeChanged(qint64);
+    // NOTE: declared as CAmount (not qint64) to match the connect at
+    // sendcoinsdialog.cpp.  Qt's string-based old-style connect compares
+    // the literal type names; "CAmount" and "qint64" don't match even
+    // though both are int64_t typedefs, and the failed connect was
+    // logged at startup as a "no such signal" warning.
+    void transactionFeeChanged(CAmount);
     void reserveBalanceChanged(qint64);
     void coinControlFeaturesChanged(bool);
     void mnengineRoundsChanged(int);

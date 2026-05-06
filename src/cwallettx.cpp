@@ -984,4 +984,3 @@ void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
 
 	mapValue["n"] = i64tostr(nOrderPos);
 }
-

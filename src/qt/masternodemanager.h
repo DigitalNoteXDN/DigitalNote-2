@@ -41,6 +41,14 @@ public:
 
 private:
     QMenu* contextMenu;
+    /** B2: separate context menu for the user's own configured
+     *  masternodes (tableWidget_2).  Holds Lock/Unlock collateral
+     *  actions, enabled selectively based on the current row's UTXO
+     *  lock state.  Distinct from the "Copy address / Copy pubkey"
+     *  contextMenu which is for tableWidgetMasternodes. */
+    QMenu* ownContextMenu;
+    QAction* lockCollateralAction;
+    QAction* unlockCollateralAction;
     
 public slots:
     void updateNodeList();
@@ -61,8 +69,20 @@ private:
     WalletModel *walletModel;
     CCriticalSection cs_adrenaline;
 
+    /** B2: refresh the Collateral column for one row.  Reads the
+     *  lock state from CWallet via the model and updates the cell. */
+    void refreshCollateralCell(int row);
+
 private slots:
     void showContextMenu(const QPoint&);
+    /** B2: show lock/unlock context menu over tableWidget_2.  Enables
+     *  Lock or Unlock based on whether the selected row's collateral
+     *  UTXO is currently locked. */
+    void showOwnContextMenu(const QPoint&);
+    /** B2: lock the collateral UTXO for the currently-selected row. */
+    void lockSelectedCollateral();
+    /** B2: unlock the collateral UTXO for the currently-selected row. */
+    void unlockSelectedCollateral();
     void on_createButton_clicked();
     void on_startButton_clicked();
     void on_startAllButton_clicked();

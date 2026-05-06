@@ -234,7 +234,16 @@ bool CActiveMasternode::StopMasterNode(std::string& errorMessage)
 bool CActiveMasternode::StopMasterNode(CTxIn vin, CService service, CKey keyMasternode, CPubKey pubKeyMasternode,
 		std::string& errorMessage)
 {
-	pwalletMain->UnlockCoin(vin.prevout);
+	// NOTE: previously this called pwalletMain->UnlockCoin(vin.prevout) here
+	// to release the collateral lock when stopping the masternode.  That
+	// behavior was wrong: locks are user data, not masternode lifecycle
+	// state.  Auto-unlocking on stop silently undid user-set locks
+	// (including persistent locks set via the lockunspent RPC or via
+	// future GUI lock controls).  The user must now explicitly unlock
+	// the collateral via lockunspent true [...] when they actually want
+	// to spend it.  The lock on masternode START (in ManageStatus) is
+	// retained -- that protects the collateral while the masternode is
+	// running, but is no longer rolled back automatically on stop.
 
 	return Dseep(vin, service, keyMasternode, pubKeyMasternode, errorMessage, true);
 }
@@ -665,4 +674,3 @@ bool CActiveMasternode::EnableHotColdMasterNode(CTxIn& newVin, CService& newServ
 
 	return true;
 }
-

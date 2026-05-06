@@ -150,6 +150,7 @@ HEADERS += src/util.h
 HEADERS += src/velocity.h
 HEADERS += src/version.h
 HEADERS += src/walletdb.h
+HEADERS += src/walletrebuild.h
 HEADERS += src/wallet.h
 HEADERS += src/ui_interface.h
 HEADERS += src/ui_translate.h

@@ -22,6 +22,7 @@
 #include "ctxout.h"
 #include "ctransaction.h"
 #include "cmnenginequeue.h"
+#include "coutpoint.h"
 #include "uint/uint160.h"
 #include "uint/uint256.h"
 #include "csporkmessage.h"
@@ -533,6 +534,10 @@ template CDataStream& CDataStream::operator<< <CAccount>(CAccount const&);
 template CDataStream& CDataStream::operator<< <CMasterKey>(CMasterKey const&);
 template CDataStream& CDataStream::operator<< <CKeyPool>(CKeyPool const&);
 
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template CDataStream& CDataStream::operator<< <COutPoint>(COutPoint const&);
+template CDataStream& CDataStream::operator<< <std::pair<std::string, COutPoint>>(std::pair<std::string, COutPoint> const&);
+
 template<typename T>
 CDataStream& CDataStream::operator>>(T& obj)
 {
@@ -594,6 +599,9 @@ template CDataStream& CDataStream::operator>><DigitalNote::SMSG::Stored>(Digital
 template CDataStream& CDataStream::operator>><mapValue_t>(mapValue_t&);
 template CDataStream& CDataStream::operator>><uint160>(uint160&);
 template CDataStream& CDataStream::operator>><uint256>(uint256&);
+
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template CDataStream& CDataStream::operator>><COutPoint>(COutPoint&);
 
 void CDataStream::GetAndClear(CSerializeData &data)
 {

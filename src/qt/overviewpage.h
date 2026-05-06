@@ -65,6 +65,7 @@ private slots:
     void handleTransactionClicked(const QModelIndex &index);
     void updateAlerts(const QString &warnings);
     void updateWatchOnlyLabels(bool showWatchOnly);
+    void onManageWatchOnlyClicked();
 };
 
 class TxViewDelegate : public QAbstractItemDelegate

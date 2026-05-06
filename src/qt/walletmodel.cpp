@@ -5,7 +5,9 @@
 #include <QSet>
 #include <QTimer>
 #include <boost/bind.hpp>
+#include <boost/filesystem.hpp>
 
+#include "init.h"
 #include "addresstablemodel.h"
 #include "guiconstants.h"
 #include "optionsmodel.h"
@@ -32,8 +34,10 @@
 #include "cscriptid.h"
 #include "cstealthaddress.h"
 #include "ui_interface.h"
+#include "util.h"   // for LogPrintf
 
 #include "walletmodel.h"
+#include "guistate.h"
 #include <bip39/bip39_wallet.h>
 #include <bip39/bip39_passphrase.h>
 #include <openssl/evp.h>
@@ -129,16 +133,151 @@ CAmount WalletModel::getWatchImmatureBalance() const
     return wallet->GetImmatureWatchOnlyBalance();
 }
 
+std::vector<WalletModel::WatchOnlyEntry> WalletModel::getWatchOnlyEntries() const
+{
+    std::vector<WatchOnlyEntry> result;
+
+    std::set<CScript> setScripts;
+    {
+        // GetWatchOnly takes cs_KeyStore internally, no need to wrap.
+        wallet->GetWatchOnly(setScripts);
+    }
+
+    if (setScripts.empty())
+    {
+        return result;
+    }
+
+    // Look up labels under cs_wallet (mapAddressBook is wallet state).
+    LOCK(wallet->cs_wallet);
+
+    for (const CScript& script : setScripts)
+    {
+        WatchOnlyEntry entry;
+        entry.script = script;
+
+        CTxDestination dest;
+        if (ExtractDestination(script, dest))
+        {
+            CDigitalNoteAddress addr(dest);
+            entry.displayAddress = QString::fromStdString(addr.ToString());
+
+            // Look up address book label
+            auto it = wallet->mapAddressBook.find(dest);
+            if (it != wallet->mapAddressBook.end())
+            {
+                entry.label = QString::fromStdString(it->second);
+            }
+        }
+        else
+        {
+            // Script doesn't extract to a single destination (e.g. a raw
+            // P2SH redeem script imported in hex form via importaddress).
+            // Show "(script)" so the user can still distinguish entries
+            // even without a friendly address.
+            entry.displayAddress = tr("(script)");
+        }
+
+        result.push_back(entry);
+    }
+
+    return result;
+}
+
+bool WalletModel::removeWatchOnly(const CScript &script)
+{
+    LOCK2(cs_main, wallet->cs_wallet);
+
+    if (!wallet->HaveWatchOnly(script))
+    {
+        // Already gone (race with another remover, or stale dialog state)
+        return false;
+    }
+
+    if (!wallet->RemoveWatchOnly(script))
+    {
+        return false;
+    }
+
+    wallet->MarkDirty();
+    return true;
+}
+
+bool WalletModel::removeWatchOnly(const CScript &script, const RemoveWatchOnlyProgressFn& progressCb)
+{
+    LOCK2(cs_main, wallet->cs_wallet);
+
+    if (!wallet->HaveWatchOnly(script))
+    {
+        // Already gone (race with another remover, or stale dialog state)
+        return false;
+    }
+
+    // Pass the callback through to CWallet::RemoveWatchOnly, which
+    // reports per-phase progress (scan/erase/refresh) so the dialog
+    // bar can move while a single watch-only address with thousands
+    // of historical transactions is being removed.
+    if (!wallet->RemoveWatchOnly(script, progressCb))
+    {
+        return false;
+    }
+
+    wallet->MarkDirty();
+    return true;
+}
+
 void WalletModel::updateStatus()
 {
     EncryptionStatus newEncryptionStatus = getEncryptionStatus();
-
-    if(cachedEncryptionStatus != newEncryptionStatus)
+ 
+    LogPrintf("WalletModel::updateStatus: cached=%d new=%d\n",
+              (int)cachedEncryptionStatus, (int)newEncryptionStatus);
+        // Detect any transition INTO Unlocked state, regardless of where we
+        // came from.  This handles three scenarios:
+        //   - User just typed their password to unlock (Locked -> Unlocked)
+        //   - Wallet was loaded already-unlocked at startup, e.g. just-encrypted
+        //     (Unencrypted -> Unlocked, the first time we observe state)
+        //   - Initial cache miss: cachedEncryptionStatus was the constructor
+        //     default Unencrypted but the user unlocked between wallet load
+        //     and the first updateStatus poll
+        //
+        // In all three, the moment the wallet becomes (or is observed as)
+        // unlocked is the right time to consider the upgrade prompt.  The
+        // needsRecoveryPhraseUpgrade() check inside the if-block ensures
+        // we don't actually emit unless the wallet truly needs it.
+        if(cachedEncryptionStatus != newEncryptionStatus) {
+        bool justUnlocked = (newEncryptionStatus    == Unlocked
+                      && cachedEncryptionStatus != Unlocked);
+ 
+        LogPrintf("WalletModel::updateStatus: TRANSITION (justUnlocked=%d)\n",
+                  (int)justUnlocked);
+ 
         emit encryptionStatusChanged(newEncryptionStatus);
+        cachedEncryptionStatus = newEncryptionStatus;
+ 
+        if (justUnlocked) {
+            bool needs = needsRecoveryPhraseUpgrade();
+            LogPrintf("WalletModel::updateStatus: justUnlocked, needsUpgrade=%d\n",
+                      (int)needs);
+            if (needs) {
+                LogPrintf("WalletModel::updateStatus: emitting recoveryPhraseUpgradeAvailable\n");
+                emit recoveryPhraseUpgradeAvailable();
+            }
+        }
+    }
 }
 
 void WalletModel::pollBalanceChanged()
 {
+    // Defence-in-depth: skip polling until wallet load + ReacceptWalletTransactions
+    // have completed. WalletModel itself is constructed after AppInit2 returns,
+    // so this gate would not normally fire -- but if anything ever wires up an
+    // earlier WalletModel construction, this guard prevents the same kind of
+    // partial-keystore cache poisoning that the staking-icon poll caused in
+    // v2.0.0.7 (see bitcoingui.cpp:updateWeight for the original symptom).
+    if (!fWalletLoadComplete)
+        return;
+
     // Get required locks upfront. This avoids the GUI from getting stuck on
     // periodical polls if the core is holding the locks for a longer time -
     // for example, during a wallet rescan.
@@ -214,7 +353,32 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
 void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
 {
     fHaveWatchOnly = fHaveWatchonly;
+    // Watch-only state change implies balance figures need to be
+    // recomputed (newly-imported addresses may have credits, removed
+    // addresses leave behind stale cached values).  Without forcing a
+    // recheck, balance polling won't notice until the next block tick.
+    fForceCheckBalanceChanged = true;
     emit notifyWatchonlyChanged(fHaveWatchonly);
+}
+
+void WalletModel::refreshWatchOnlyState()
+{
+    // Read fresh state from the wallet itself, bypassing the cached
+    // fHaveWatchOnly flag.  Take cs_wallet to ensure we read consistent
+    // state -- HaveWatchOnly() iterates setWatchOnly which can be
+    // mutated by other threads.
+    bool freshState;
+    {
+        LOCK(wallet->cs_wallet);
+        freshState = wallet->HaveWatchOnly();
+    }
+
+    fHaveWatchOnly = freshState;
+    fForceCheckBalanceChanged = true;
+
+    // Synchronous emission -- subscribers on the same thread (overview,
+    // transaction view) update immediately, no event loop wait.
+    emit notifyWatchonlyChanged(freshState);
 }
 
 bool WalletModel::validateAddress(const QString &address)
@@ -596,6 +760,7 @@ static void NotifyAddressBookChanged(WalletModel *walletmodel, CWallet *wallet,
 }
 
 // queue notifications to show a non freezing progress dialog e.g. for rescan
+// queue notifications to show a non freezing progress dialog e.g. for rescan
 static bool fQueueNotifications = false;
 static std::vector<std::pair<uint256, ChangeType> > vQueueNotifications;
 static void NotifyTransactionChanged(WalletModel *walletmodel, CWallet *wallet, const uint256 &hash, ChangeType status)
@@ -621,28 +786,40 @@ static void ShowProgress(WalletModel *walletmodel, const std::string &title, int
                               Q_ARG(QString, QString::fromStdString(title)),
                               Q_ARG(int, nProgress));
     if (nProgress == 0)
+    {
     	fQueueNotifications = true;
+        // Set the batch flag synchronously (not via QueuedConnection)
+        // because transactiontablemodel's boost handler -- which fires
+        // first in registration order -- queues table updates that
+        // ultimately trigger incomingTransaction.  If we deferred the
+        // flag set, those incomingTransaction calls would see flag=false
+        // and fire per-tx toasts.  Synchronous set via the public
+        // accessor; bool write is atomic enough for our purposes.
+        walletmodel->setProcessingQueuedTransactions(true);
+    }
 
     if (nProgress == 100)
     {
-          fQueueNotifications = false;
-        for(const std::pair<uint256, ChangeType>& notification : vQueueNotifications)
-        {
-			NotifyTransactionChanged(walletmodel, NULL, notification.first, notification.second);
-		}
-		if (vQueueNotifications.size() > 10) // prevent balloon spam, show maximum 10 balloons
-            QMetaObject::invokeMethod(walletmodel, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, true));
+        fQueueNotifications = false;
+        // A9: keep fProcessingQueuedTransactions=true for the entire
+        // drain so that incomingTransaction (in bitcoingui.cpp) treats
+        // every drained tx as part of the batch.  The single summary
+        // toast for the whole batch is fired from
+        // DigitalNoteGUI::showProgress(100) -> maybeEmitBatchSummary.
         for (unsigned int i = 0; i < vQueueNotifications.size(); ++i)
         {
-            if (vQueueNotifications.size() - i <= 10)
-                QMetaObject::invokeMethod(walletmodel, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, false));
-
             NotifyTransactionChanged(walletmodel, NULL, vQueueNotifications[i].first, vQueueNotifications[i].second);
         }
         std::vector<std::pair<uint256, ChangeType> >().swap(vQueueNotifications); // clear
+        // Drain complete -- restore the flag via QueuedConnection so
+        // the unset happens AFTER all the queued updateTransaction
+        // events (and their cascading rowsInserted -> incomingTransaction
+        // chain) have been processed on the main thread.  If we unset
+        // synchronously here, real-time txs arriving immediately after
+        // would race with the still-draining queue.
+        QMetaObject::invokeMethod(walletmodel, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, false));
     }
 }
-
 
 static void NotifyWatchonlyChanged(WalletModel *walletmodel, bool fHaveWatchonly)
 {
@@ -692,7 +869,7 @@ void WalletModel::subscribeToCoreSignals()
 		)
 	);
 	
-    wallet->NotifyWatchonlyChanged.disconnect(
+    wallet->NotifyWatchonlyChanged.connect(
 		boost::bind(
 			&NotifyWatchonlyChanged,
 			this,
@@ -769,9 +946,45 @@ bool WalletModel::hasRecoveryPhraseSupport() const
     return wallet->HasRecoveryPhraseFlag();
 }
 
+bool WalletModel::needsRecoveryPhraseUpgrade() const
+{
+    // Decision is made in the Qt layer rather than CWallet because the
+    // "declined" half is a UI preference stored in QSettings, not wallet
+    // data.  CWallet exposes only the two cryptographic facts we need:
+    // is the wallet encrypted, and does it already have CMasterKey[2].
+    if (!wallet->IsCrypted())          return false;
+    if (wallet->HasMnemonicMasterKey()) return false;
+
+    // Per-wallet dismissal lookup -- key is the absolute wallet path,
+    // hashed inside GuiState for QSettings-key safety.
+    const std::string walletPath =
+        (GetDataDir() / boost::filesystem::path(wallet->strWalletFile)).string();
+    if (GuiState::isRecoveryPhraseUpgradeDeclined(walletPath)) return false;
+
+    return true;
+}
+
+void WalletModel::setRecoveryPhraseUpgradeDeclined()
+{
+    // Per-wallet dismissal: identifies this specific wallet file by its
+    // full path and records the dismissal in QSettings, not wallet.dat.
+    // A different wallet file (or the same wallet at a different
+    // location) gets prompted afresh.
+    const std::string walletPath =
+        (GetDataDir() / boost::filesystem::path(wallet->strWalletFile)).string();
+    GuiState::setRecoveryPhraseUpgradeDeclined(walletPath);
+}
+
 bool WalletModel::hasMnemonicMasterKey() const
 {
     return wallet->HasMnemonicMasterKey();
+}
+
+bool WalletModel::addMnemonicMasterKey()
+{
+    // D2: no passphrase arg.  The mnemonic is derived from vMasterKey,
+    // which the unlocked wallet already has in memory.
+    return wallet->AddMnemonicMasterKey();
 }
 
 bool WalletModel::removeMnemonicMasterKey()
@@ -779,24 +992,26 @@ bool WalletModel::removeMnemonicMasterKey()
     return wallet->RemoveMnemonicMasterKey();
 }
 
-bool WalletModel::addMnemonicMasterKey(const SecureString &passphrase)
-{
-    return wallet->AddMnemonicMasterKey(passphrase);
-}
-
 bool WalletModel::verifyPassphrase(const SecureString &passphrase) const
 {
     return wallet->VerifyPassphrase(passphrase);
 }
 
-bool WalletModel::generateRecoveryMnemonic(const SecureString &passphrase,
-                                            SecureString &mnemonic) const
+bool WalletModel::getCurrentMnemonic(SecureString &mnemonicOut) const
 {
-    // Derive a 24-word BIP39 recovery mnemonic from the user's passphrase.
-    // The same passphrase always produces the same mnemonic — deterministic.
-    // This does NOT touch wallet key material.
-    BIP39Passphrase::Result res = BIP39Passphrase::mnemonicFromPassphrase(passphrase, mnemonic);
-    return res == BIP39Passphrase::Result::OK;
+    // Wallet must be unlocked for this to work.  We do NOT auto-unlock --
+    // the caller is responsible for prompting the user (via the existing
+    // AskPassphraseDialog flow) before invoking this.
+    return wallet->GetCurrentMnemonic(mnemonicOut);
+}
+
+bool WalletModel::rotateRecoveryPhrase(const SecureString &currentPassword,
+                                        SecureString &newMnemonicOut)
+{
+    // Caller must have shown the wall-of-text consent dialog and obtained
+    // explicit user agreement before reaching here.  We just plumb through
+    // to CWallet::RotateMnemonicMasterKey which does the heavy lifting.
+    return wallet->RotateMnemonicMasterKey(currentPassword, newMnemonicOut);
 }
 
 WalletModel::UnlockContext WalletModel::requestUnlockWithMnemonic(const QString &mnemonic)
@@ -946,4 +1161,12 @@ void WalletModel::listLockedCoins(std::vector<COutPoint>& vOutpts)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     wallet->ListLockedCoins(vOutpts);
+}
+
+void WalletModel::emitCollateralCandidate(const QString &txidHex, int vout)
+{
+    // Trampoline: TransactionTablePriv can't emit directly because it is
+    // not a QObject subclass.  This is invoked from the CT_NEW handling
+    // path with the wallet locks already released.
+    emit collateralCandidateReceived(txidHex, vout);
 }

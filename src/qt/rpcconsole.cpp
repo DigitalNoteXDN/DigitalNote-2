@@ -119,7 +119,18 @@ bool parseCommandLine(std::vector<std::string> &args, const std::string &strComm
             }
             break;
         case STATE_ESCAPE_OUTER: // '\' outside quotes
-            curarg += ch; state = STATE_ARGUMENT;
+            // Preserve '\' literally for non-special characters (Windows
+            // paths typed without quotes work intuitively).  Consume '\'
+            // only as an escape for whitespace and itself, so a user
+            // can still type "foo\ bar" to mean "foo bar" as one arg.
+            // Was previously: curarg += ch unconditionally, which dropped
+            // every '\' and turned c:\temp\test.dmp into c:tempest.dmp.
+            if (ch != '\\' && ch != ' ' && ch != '\t' && ch != '\n')
+            {
+                curarg += '\\';
+            }
+            curarg += ch;
+            state = STATE_ARGUMENT;
             break;
         case STATE_ESCAPE_DOUBLEQUOTED: // '\' in double-quoted text
             if(ch != '"' && ch != '\\') curarg += '\\'; // keep '\' for everything but the quote and '\' itself
@@ -193,7 +204,9 @@ RPCConsole::RPCConsole(QWidget *parent) :
     historyPtr(0),
     cachedNodeid(-1),
     peersTableContextMenu(0),
-    banTableContextMenu(0)
+    banTableContextMenu(0),
+    m_commandInFlight(false),
+    m_inFlightTickTimer(nullptr)
 {
 
     ui->setupUi(this);
@@ -208,6 +221,13 @@ RPCConsole::RPCConsole(QWidget *parent) :
     ui->messagesWidget->installEventFilter(this);
 
     connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clear()));
+
+    // 1Hz in-flight tick timer.  Started by setCommandInFlight(true) and
+    // stopped by setCommandInFlight(false).  Drives onInFlightTick() which
+    // updates the line edit's placeholder text with elapsed seconds.
+    m_inFlightTickTimer = new QTimer(this);
+    m_inFlightTickTimer->setInterval(1000);
+    connect(m_inFlightTickTimer, SIGNAL(timeout()), this, SLOT(onInFlightTick()));
 
     // set OpenSSL version label
     ui->openSSLVersion->setText(SSLeay_version(SSLEAY_VERSION));
@@ -447,12 +467,74 @@ void RPCConsole::message(int category, const QString &message, bool html)
     out += "<table><tr><td class=\"time\" width=\"65\">" + timeString + "</td>";
     out += "<td class=\"icon\" width=\"32\"><img src=\"" + categoryClass(category) + "\"></td>";
     out += "<td class=\"message " + categoryClass(category) + "\" valign=\"middle\">";
+
+    // If this is the reply (or error reply) to a command we marked as
+    // in-flight, prefix the message with the elapsed wall-clock time.
+    // Helpful for users to know how long their importaddress / rescan
+    // actually took.
+    QString prefix;
+    if (m_commandInFlight && (category == CMD_REPLY || category == CMD_ERROR))
+    {
+        qint64 ms = m_inFlightTimer.elapsed();
+        if (ms < 1000)
+        {
+            prefix = QString("[%1 ms] ").arg(ms);
+        }
+        else
+        {
+            double secs = ms / 1000.0;
+            prefix = QString("[%1 s] ").arg(secs, 0, 'f', secs < 10 ? 2 : 1);
+        }
+    }
+
     if(html)
-        out += message;
+        out += prefix + message;
     else
-        out += GUIUtil::HtmlEscape(message, true);
+        out += GUIUtil::HtmlEscape(prefix + message, true);
     out += "</td></tr></table>";
     ui->messagesWidget->append(out);
+
+    // Clear in-flight state on reply or error.  CMD_REQUEST is the user's
+    // own command echo and doesn't end the in-flight period.  MC_ERROR
+    // and MC_DEBUG come from unrelated code paths (e.g. wallet startup,
+    // network events) and shouldn't clear in-flight either.
+    if (m_commandInFlight && (category == CMD_REPLY || category == CMD_ERROR))
+    {
+        setCommandInFlight(false);
+    }
+}
+
+void RPCConsole::setCommandInFlight(bool inFlight)
+{
+    m_commandInFlight = inFlight;
+
+    if (inFlight)
+    {
+        m_inFlightTimer.start();
+        m_inFlightTickTimer->start();
+        // Disable input so the user can't queue a backlog of commands
+        // (the executor runs commands serially).  Use placeholder text
+        // to communicate why.
+        ui->lineEdit->setEnabled(false);
+        ui->lineEdit->setPlaceholderText(tr("Running command…"));
+    }
+    else
+    {
+        m_inFlightTickTimer->stop();
+        ui->lineEdit->setEnabled(true);
+        ui->lineEdit->setPlaceholderText(QString());
+        // Restore focus so the user can type the next command without
+        // clicking back into the field.
+        ui->lineEdit->setFocus();
+    }
+}
+
+void RPCConsole::onInFlightTick()
+{
+    if (!m_commandInFlight)
+        return;
+    qint64 secs = m_inFlightTimer.elapsed() / 1000;
+    ui->lineEdit->setPlaceholderText(tr("Running command… (%1s)").arg(secs));
 }
 
 void RPCConsole::setNumConnections(int count)
@@ -480,6 +562,7 @@ void RPCConsole::on_lineEdit_returnPressed()
     if(!cmd.isEmpty())
     {
         message(CMD_REQUEST, cmd);
+        setCommandInFlight(true);
         emit cmdRequest(cmd);
         // Remove command, if already in history
         history.removeOne(cmd);

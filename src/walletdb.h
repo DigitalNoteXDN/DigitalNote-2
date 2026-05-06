@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/filesystem/path.hpp>
+
 #include "cdb.h"
 #include "enums/dberrors.h"
 #include "types/cprivkey.h"
@@ -26,6 +28,7 @@ class CStealthKeyMetadata;
 class CKeyID;
 class CPubKey;
 class CDBEnv;
+class COutPoint;
 
 /** Access to the wallet database (wallet.dat) */
 class CWalletDB : public CDB
@@ -61,11 +64,22 @@ public:
 	bool WriteRecoveryPhraseFlag();
 	bool EraseRecoveryPhraseFlag();
 	bool HasRecoveryPhraseFlag();
+	bool HasRecoveryPhraseUpgradeDeclined();
+	bool SetRecoveryPhraseUpgradeDeclined();
+	bool EraseRecoveryPhraseUpgradeDeclined();
 
 	bool WriteCScript(const uint160& hash, const CScript& redeemScript);
 
 	bool WriteWatchOnly(const CScript &script);
 	bool EraseWatchOnly(const CScript &script);
+
+	/** Persistent UTXO locks.  Backs CWallet::setLockedCoins.  Each
+	 *  call writes (or erases) a single record keyed by COutPoint;
+	 *  the value is intentionally empty (presence = locked).  Older
+	 *  wallet binaries silently ignore the "lockedoutput" record type
+	 *  on load, so this is forward-compatible. */
+	bool WriteLockedOutput(const COutPoint& output);
+	bool EraseLockedOutput(const COutPoint& output);
 
 	bool WriteBestBlock(const CBlockLocator& locator);
 	bool ReadBestBlock(CBlockLocator& locator);
@@ -94,6 +108,15 @@ public:
 	DBErrors LoadWallet(CWallet* pwallet);
 	static bool Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys);
 	static bool Recover(CDBEnv& dbenv, std::string filename);
+
+	/** Dump every BDB record from filename to dumpfilePath in the
+	 *  rebuild-dump v1 format. See walletrebuild.cpp for the format spec.
+	 *  Read-only on the source wallet. Returns true on success; on failure
+	 *  populates strError and removes any partial dumpfile. */
+	static bool DumpAllRecords(CDBEnv& dbenv,
+	                           const std::string& filename,
+	                           const boost::filesystem::path& dumpfilePath,
+	                           std::string& strError);
 };
 
 bool BackupWallet(const CWallet& wallet, const std::string& strDest);

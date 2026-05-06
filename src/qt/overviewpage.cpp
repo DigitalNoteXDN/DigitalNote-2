@@ -1,6 +1,7 @@
 #include "compat.h"
 
 #include <QPainter>
+#include <QApplication>
 #include <QScrollArea>
 #include <QScroller>
 #include <QSettings>
@@ -16,6 +17,7 @@
 #include "guiconstants.h"
 
 #include "overviewpage.h"
+#include "removewatchonlydialog.h"
 #include "ui_overviewpage.h"
 
 #define DECORATION_SIZE 64
@@ -67,6 +69,25 @@ OverviewPage::OverviewPage(QWidget *parent) :
         ui->labelImmature->setStyleSheet(whiteLabelQSS);
         ui->labelTotal->setStyleSheet(whiteLabelQSS);
     }
+
+    // Style the watch-only manage button (gear icon).  Subtle in both
+    // themes -- it should sit unobtrusively next to the "Watch-only:"
+    // heading when watch-only addresses are present.  Visibility is
+    // managed by updateWatchOnlyLabels().
+    if (fUseDarkTheme)
+    {
+        ui->manageWatchOnlyButton->setStyleSheet(
+            "QToolButton { color: #b0b0b0; border: none; padding: 1px 4px; }"
+            "QToolButton:hover { color: #ffffff; }");
+    }
+    else
+    {
+        ui->manageWatchOnlyButton->setStyleSheet(
+            "QToolButton { color: #555555; border: none; padding: 1px 4px; }"
+            "QToolButton:hover { color: #000000; }");
+    }
+    connect(ui->manageWatchOnlyButton, SIGNAL(clicked()),
+            this, SLOT(onManageWatchOnlyClicked()));
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
@@ -124,6 +145,7 @@ void OverviewPage::updateWatchOnlyLabels(bool showWatchOnly)
 {
     ui->labelSpendable->setVisible(showWatchOnly);      // show spendable label (only when watch-only is active)
     ui->labelWatchonly->setVisible(showWatchOnly);      // show watch-only label
+    ui->manageWatchOnlyButton->setVisible(showWatchOnly); // show gear next to heading
     ui->lineWatchBalance->setVisible(showWatchOnly);    // show watch-only balance separator line
     ui->labelWatchStake->setVisible(showWatchOnly);    // show watch-only balance separator line
     ui->labelWatchAvailable->setVisible(showWatchOnly); // show watch-only available balance
@@ -139,6 +161,35 @@ void OverviewPage::updateWatchOnlyLabels(bool showWatchOnly)
         ui->labelUnconfirmed->setIndent(20);
         ui->labelImmature->setIndent(20);
         ui->labelTotal->setIndent(20);
+    }
+}
+
+void OverviewPage::onManageWatchOnlyClicked()
+{
+    if (!walletModel)
+        return;
+
+    RemoveWatchOnlyDialog dlg(walletModel, this);
+    dlg.exec();
+
+    // After the dialog completes, force a fresh read of watch-only
+    // state from the wallet.  The worker thread fired
+    // NotifyWatchonlyChanged via Qt::QueuedConnection, but that queued
+    // event may not have drained yet by the time we read here.  Relying
+    // on walletModel->haveWatchOnly() (which returns the cached
+    // fHaveWatchOnly) gives stale results.  refreshWatchOnlyState bypasses
+    // the cache entirely and emits notifyWatchonlyChanged synchronously,
+    // so the labels and gear update before this slot returns.
+    walletModel->refreshWatchOnlyState();
+
+    // If watch-only is now empty, also explicitly zero out the watch
+    // balance labels.  The next poll tick will recompute them, but this
+    // avoids a brief flash of stale numbers between dialog close and
+    // the next 250ms poll.
+    if (!walletModel->haveWatchOnly())
+    {
+        setBalance(currentBalance, currentStake, currentUnconfirmedBalance,
+                   currentImmatureBalance, 0, 0, 0, 0);
     }
 }
 
@@ -296,4 +347,3 @@ QSize TxViewDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelI
 {
 	return QSize(DECORATION_SIZE, DECORATION_SIZE);
 }
-

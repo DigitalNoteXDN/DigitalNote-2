@@ -110,10 +110,12 @@ private:
     QAction *backupWalletAction;
     QAction *importPrivateKeyAction;
     QAction *changePassphraseAction;
+    QAction *unlockForStakingAction;
     QAction *unlockWalletAction;
     QAction *lockWalletAction;
 	QAction *checkWalletAction;
 	QAction *repairWalletAction;
+    QAction *compactWalletAction;
     QAction *seedPhraseAction;
     QAction *aboutQtAction;
     QAction *openRPCConsoleAction;
@@ -137,6 +139,16 @@ private:
 
     uint64_t nWeight;
 
+    // A9: count of incoming-tx notifications suppressed during the
+    // current batch period (IBD/catchup or explicit rescan import).
+    // When the batch ends, we fire ONE summary toast naming the count
+    // and the kind, instead of the individual per-tx toasts that were
+    // suppressed.
+    int nBatchTxCount;
+    bool fInBatchMode;
+    enum BatchKind { BATCH_NONE, BATCH_SYNC, BATCH_IMPORT };
+    BatchKind eBatchKind;
+
     /** Create the main UI actions. */
     void createActions();
     /** Create the menu bar and sub-menus. */
@@ -158,6 +170,7 @@ public slots:
        @see WalletModel::EncryptionStatus
     */
     void setEncryptionStatus(int status);
+    void onRecoveryPhraseUpgradeAvailable();
 
     /** Notify the user of an error in the network or transaction handling code. */
     void error(const QString &title, const QString &message, bool modal);
@@ -214,6 +227,16 @@ private slots:
         The new items are those between start and end inclusive, under the given parent item.
     */
     void incomingTransaction(const QModelIndex & parent, int start, int end);
+    /** B1: prompt the user when an incoming transaction creates a fresh
+        masternode-collateral-shaped UTXO (2,000,000 XDN, spendable,
+        not already locked, not globally suppressed for this wallet).
+        Emitted from TransactionTablePriv via WalletModel after CT_NEW. */
+    void onCollateralCandidateReceived(const QString &txidHex, int vout);
+    /** A9: emit a single summary toast naming nBatchTxCount and the
+        recently-finished batch kind, then reset batch state. Called
+        from setNumBlocks() (for IBD-end) and showProgress(100) (for
+        explicit-batch-end). */
+    void maybeEmitBatchSummary();
     /** Show incoming D-Note receipt notification for new secure messages.
         The new items are those between start and end inclusive, under the given parent item.
     */
@@ -224,12 +247,28 @@ private slots:
     void checkWallet();
     /** Repair the wallet */
     void repairWallet();
+    /** Compact (rebuild) the wallet via the maintenance-mode rebuildwallet
+     *  pipeline.  Shows a confirmation dialog explaining that the wallet
+     *  will restart and the original is preserved as wallet.dat.bak; on
+     *  confirm, writes the .rebuildwallet-pending flag file and requests
+     *  app shutdown.  Next launch picks up the flag and runs RebuildWallet
+     *  before LoadWallet. */
+    void compactWallet();
+    /** On first paint after launch, check for a .rebuildwallet-result
+     *  marker (written by the AppInit2 rebuild handler) and surface the
+     *  outcome to the user via a single one-shot dialog.  The marker is
+     *  deleted after consumption so the dialog never re-fires.  Wired
+     *  via QTimer::singleShot(0,...) from setClientModel so it runs once
+     *  the event loop is alive but before any user interaction. */
+    void showRebuildResultIfPresent();
 	/** Backup the wallet */
     void backupWallet();
     /** Import a private key */
     void importPrivateKey();
     /** Change encrypted wallet passphrase */
     void changePassphrase();
+    /** Ask for passphrase to unlock wallet just for staking */
+    void unlockForStaking();
     /** Ask for passphrase to unlock wallet temporarily */
     void unlockWallet();
 

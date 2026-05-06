@@ -18,6 +18,7 @@
 #include <QStatusBar>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QMimeData>
 #include <QProgressBar>
 #include <QProgressDialog>
@@ -57,8 +58,10 @@
 #include "bitcoinunits.h"
 #include "guiconstants.h"
 #include "askpassphrasedialog.h"
+#include "recoveryphraseupgradedialog.h"
 #include "notificator.h"
 #include "guiutil.h"
+#include "guistate.h"
 #include "rpcconsole.h"
 #include "init.h"
 #include "masternodemanager.h"
@@ -71,6 +74,7 @@
 #include "wallet.h"
 #include "net.h"
 #include "cscript.h"
+#include "coutpoint.h"
 #include "main_extern.h"
 #include "thread.h"
 #include "cchainparams.h"
@@ -78,6 +82,8 @@
 #include "cclientuiinterface.h"
 #include "bitcoinunits.h"
 #include "seedphrasedialog.h"
+#include "walletrebuild.h"
+#include "util.h"   // for LogPrintf
 
 #ifdef Q_OS_MAC
 #include "macdockiconhandler.h"
@@ -101,6 +107,7 @@ DigitalNoteGUI::DigitalNoteGUI(QWidget *parent):
     progressDialog(0),
     encryptWalletAction(0),
     changePassphraseAction(0),
+    unlockForStakingAction(0),
     unlockWalletAction(0),
     lockWalletAction(0),
     aboutQtAction(0),
@@ -109,7 +116,10 @@ DigitalNoteGUI::DigitalNoteGUI(QWidget *parent):
     rpcConsole(0),
     prevBlocks(0),
     nWeight(0),
-    seedPhraseDialog(0)
+    seedPhraseDialog(0),
+    nBatchTxCount(0),
+    fInBatchMode(false),
+    eBatchKind(BATCH_NONE)
 {
     resize(900, 520);
     setWindowTitle(tr("DigitalNote") + " - " + tr("Wallet"));
@@ -388,12 +398,17 @@ void DigitalNoteGUI::createActions()
     unlockWalletAction->setToolTip(tr("Unlock wallet"));
     lockWalletAction = new QAction(QIcon(":/icons/lock_closed_toolbar"),tr("&Lock Wallet"), this);
     lockWalletAction->setToolTip(tr("Lock wallet"));
+    unlockForStakingAction = new QAction(QIcon(":/icons/lock_open_toolbar"),tr("Unlock for &Staking..."), this);
+    unlockForStakingAction->setToolTip(tr("Unlock the wallet for staking only — sends still require a full unlock"));
     signMessageAction = new QAction(QIcon(":/icons/edit"), tr("Sign &message..."), this);
     verifyMessageAction = new QAction(QIcon(":/icons/transaction_0"), tr("&Verify message..."), this);
 	checkWalletAction = new QAction(QIcon(":/icons/transaction_confirmed"), tr("&Check Wallet..."), this);
 	checkWalletAction->setStatusTip(tr("Check wallet integrity and report findings"));
 	repairWalletAction = new QAction(QIcon(":/icons/options"), tr("&Repair Wallet..."), this);
 	repairWalletAction->setStatusTip(tr("Fix wallet integrity and remove orphans"));
+
+	compactWalletAction = new QAction(QIcon(":/icons/options"), tr("&Compact Wallet..."), this);
+	compactWalletAction->setStatusTip(tr("Rebuild wallet.dat to reclaim space (restarts the wallet, takes time)"));
 	
     exportAction = new QAction(QIcon(":/icons/export"), tr("&Export..."), this);
     exportAction->setToolTip(tr("Export the data in the current tab to a file"));
@@ -418,10 +433,12 @@ void DigitalNoteGUI::createActions()
     connect(changePassphraseAction, SIGNAL(triggered()), this, SLOT(changePassphrase()));
     connect(unlockWalletAction, SIGNAL(triggered()), this, SLOT(unlockWallet()));
     connect(lockWalletAction, SIGNAL(triggered()), this, SLOT(lockWallet()));
+    connect(unlockForStakingAction, SIGNAL(triggered()), this, SLOT(unlockForStaking()));
     connect(signMessageAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
     connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(gotoVerifyMessageTab()));
 	connect(checkWalletAction, SIGNAL(triggered()), this, SLOT(checkWallet()));
     connect(repairWalletAction, SIGNAL(triggered()), this, SLOT(repairWallet()));
+    connect(compactWalletAction, SIGNAL(triggered()), this, SLOT(compactWallet()));
     connect(editConfigAction, SIGNAL(triggered()), this, SLOT(editConfig()));
     connect(editConfigExtAction, SIGNAL(triggered()), this, SLOT(editConfigExt()));
     connect(openDataDirAction, SIGNAL(triggered()), this, SLOT(openDataDir()));
@@ -429,8 +446,8 @@ void DigitalNoteGUI::createActions()
     seedPhraseAction = new QAction(QIcon(":/icons/key"), tr("&Recovery Phrase..."), this);
     seedPhraseAction->setToolTip(
         tr("View your 24-word wallet recovery phrase.\n\n"
-           "Note: Only available for wallets encrypted in DigitalNote v2.0.0.7+.\n"
-           "To enable for older wallets: Settings \u2192 Decrypt Wallet, then re-encrypt."));
+           "Note: Only available for wallets encrypted in DigitalNote v2.0.0.7 or later.\n"
+           "Older encrypted wallets do not have a recovery phrase stored."));
     connect(seedPhraseAction, SIGNAL(triggered()), this, SLOT(showSeedPhrase()));
 }
 
@@ -456,14 +473,26 @@ void DigitalNoteGUI::createMenuBar()
     settings->addAction(encryptWalletAction);
     settings->addAction(changePassphraseAction);
     settings->addAction(unlockWalletAction);
+    settings->addAction(unlockForStakingAction);
     settings->addAction(lockWalletAction);
     settings->addAction(seedPhraseAction);
     settings->addSeparator();
     settings->addAction(optionsAction);
-    settings->addAction(showBackupsAction);
-	settings->addAction(checkWalletAction);
-    settings->addAction(repairWalletAction);
-		
+
+    // Tools menu: maintenance operations.  Show Backups opens the wallet
+    // backup folder; Check/Repair Wallet validate and recover BDB state
+    // without restart; Compact Wallet is the dump-and-restore rebuild
+    // (long-running, requires restart).  All four were previously in
+    // the Settings menu where they didn't belong (Settings is for
+    // security state and preferences); the Tools menu was added in this
+    // cycle for Compact Wallet and was a logical home for the rest.
+    QMenu *tools = appMenuBar->addMenu(tr("&Tools"));
+    tools->addAction(showBackupsAction);
+    tools->addSeparator();
+    tools->addAction(checkWalletAction);
+    tools->addAction(repairWalletAction);
+    tools->addAction(compactWalletAction);
+
     QMenu *help = appMenuBar->addMenu(tr("&Help"));
     help->addAction(openRPCConsoleAction);
     help->addAction(openDataDirAction);
@@ -584,12 +613,20 @@ void DigitalNoteGUI::setClientModel(ClientModel *clientModel)
 
         // Show progress dialog
         connect(clientModel, SIGNAL(showProgress(QString,int)), this, SLOT(showProgress(QString,int)));
-        connect(walletModel, SIGNAL(showProgress(QString,int)), this, SLOT(showProgress(QString,int)));
+        // NOTE: walletModel showProgress connect moved to setWalletModel().
+        // walletModel is not yet set when setClientModel runs, and the
+        // null-pointer connect logged a Qt warning at startup.
 
         overviewPage->setClientModel(clientModel);
         rpcConsole->setClientModel(clientModel);
         addressBookPage->setOptionsModel(clientModel->getOptionsModel());
         receiveCoinsPage->setOptionsModel(clientModel->getOptionsModel());
+
+        // If a previous launch attempted a Compact Wallet rebuild, surface
+        // the outcome to the user via a one-shot dialog. Deferred via
+        // singleShot so it fires once the window is shown (otherwise the
+        // dialog appears before the main window does, which looks broken).
+        QTimer::singleShot(0, this, SLOT(showRebuildResultIfPresent()));
     }
 }
 
@@ -613,13 +650,22 @@ void DigitalNoteGUI::setWalletModel(WalletModel *walletModel)
 
         setEncryptionStatus(walletModel->getEncryptionStatus());
         connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
-
+                connect(walletModel, SIGNAL(recoveryPhraseUpgradeAvailable()),
+                this, SLOT(onRecoveryPhraseUpgradeAvailable()));
         // Balloon pop-up for new transaction
         connect(walletModel->getTransactionTableModel(), SIGNAL(rowsInserted(QModelIndex,int,int)),
                 this, SLOT(incomingTransaction(QModelIndex,int,int)));
 
+        // B1: prompt to lock fresh masternode-collateral-shaped UTXOs
+        connect(walletModel, SIGNAL(collateralCandidateReceived(QString,int)),
+                this, SLOT(onCollateralCandidateReceived(QString,int)));
+
         // Ask for passphrase if needed
         connect(walletModel, SIGNAL(requireUnlock()), this, SLOT(unlockWallet()));
+
+        // Show progress dialog (moved from setClientModel where walletModel
+        // was still null at the time of the connect).
+        connect(walletModel, SIGNAL(showProgress(QString,int)), this, SLOT(showProgress(QString,int)));
     }
 }
 
@@ -747,6 +793,11 @@ void DigitalNoteGUI::setNumBlocks(int count)
         if (netLabel)
             netLabel->setToolTip(tr("Synced to the XDN Mainnet (Block Height: %1)")
                 .arg(count));
+
+        // A9: catchup just finished -- emit summary toast for any
+        // transactions whose individual toasts were suppressed during
+        // catchup.  No-op if we weren't in a batch.
+        maybeEmitBatchSummary();
     }
     else
     {
@@ -855,6 +906,14 @@ void DigitalNoteGUI::message(const QString &title, const QString &message, bool 
             buttons = QMessageBox::Ok;
 
         QMessageBox mBox((QMessageBox::Icon)nMBoxIcon, strTitle, message, buttons);
+        // Defensive: ensure the message box rises above the splash and any
+        // other top-stay window.  bitcoin.cpp's ThreadSafeMessageBox also
+        // hides the splash before reaching us, but if some other path
+        // bypasses that, this self-raise still gets the dialog visible.
+        mBox.setWindowFlags(mBox.windowFlags() | Qt::WindowStaysOnTopHint);
+        mBox.show();
+        mBox.raise();
+        mBox.activateWindow();
         mBox.exec();
     }
     else
@@ -926,8 +985,27 @@ void DigitalNoteGUI::askFee(qint64 nFeeRequired, bool *payFee)
 void DigitalNoteGUI::incomingTransaction(const QModelIndex & parent, int start, int end)
 {
 	// Prevent balloon-spam when initial block download is in progress
-    if(!walletModel || !clientModel || clientModel->inInitialBlockDownload() || walletModel->processingQueuedTransactions())
+    if(!walletModel || !clientModel)
         return;
+
+    // A9: if we're in a batch (IBD/catchup or explicit
+    // rescan/import), count the tx and suppress the per-tx toast.
+    // The summary toast fires from maybeEmitBatchSummary() when the
+    // batch ends.  The kind is set the first time we see a tx in
+    // this batch and is preserved until the batch ends so the
+    // summary text can name the right activity.
+    bool inIBD = clientModel->inInitialBlockDownload();
+    bool inExplicit = walletModel->processingQueuedTransactions();
+    if (inIBD || inExplicit)
+    {
+        if (!fInBatchMode)
+        {
+            fInBatchMode = true;
+            eBatchKind = inExplicit ? BATCH_IMPORT : BATCH_SYNC;
+        }
+        ++nBatchTxCount;
+        return;
+    }
 
     TransactionTableModel *ttm = walletModel->getTransactionTableModel();
 
@@ -954,6 +1032,112 @@ void DigitalNoteGUI::incomingTransaction(const QModelIndex & parent, int start, 
                           .arg(DigitalNoteUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), amount, true))
                           .arg(type)
                           .arg(address), icon);
+}
+
+// B1: prompt for fresh masternode collateral.  Fired from
+// TransactionTablePriv via WalletModel after a CT_NEW tx that has a
+// 2,000,000-XDN spendable, unlocked vout.  Per-UTXO suppression is
+// implicit (CT_NEW only fires once per UTXO), but the user can opt out
+// of all future prompts FOR THIS WALLET via the third button.
+void DigitalNoteGUI::onCollateralCandidateReceived(const QString &txidHex,
+                                                   int vout)
+{
+    if (!walletModel || !pwalletMain)
+        return;
+
+    // Honour per-wallet suppression: stored in QSettings, keyed by the
+    // hashed absolute wallet path (see GuiState).  No prompt if the
+    // user has previously opted out for this wallet.
+    const std::string walletPath =
+        (GetDataDir() / boost::filesystem::path(pwalletMain->strWalletFile)).string();
+    if (GuiState::is2MCollateralPromptSuppressed(walletPath))
+        return;
+
+    // Defensive re-check: the candidate was qualified inside
+    // TransactionTablePriv under the wallet locks.  We're now on the
+    // GUI thread and the state may have moved on (e.g. a stake spent
+    // it, the user manually locked it).  Re-verify before prompting.
+    uint256 hash;
+    hash.SetHex(txidHex.toStdString());
+    if (walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout)))
+        return;
+
+    QMessageBox box(this);
+    box.setWindowTitle(tr("Masternode collateral received"));
+    box.setIcon(QMessageBox::Question);
+
+    const QString amountStr =
+        DigitalNoteUnits::formatWithUnit(
+            walletModel->getOptionsModel()->getDisplayUnit(),
+            static_cast<qint64>(MasternodeCollateral(nBestHeight)) * COIN,
+            true);
+
+    box.setText(tr(
+        "<p>You have received <b>%1</b> &mdash; the masternode "
+        "collateral amount.</p>"
+        "<p>Lock this UTXO to prevent it from being spent "
+        "accidentally (e.g. as the input to a stake or a regular "
+        "send)?</p>"
+        "<p style=\"color:#888;font-size:90%;\">UTXO: %2:%3</p>"
+    ).arg(amountStr).arg(txidHex).arg(vout));
+
+    QPushButton *lockBtn = box.addButton(
+        tr("Lock as collateral"), QMessageBox::AcceptRole);
+    QPushButton *laterBtn = box.addButton(
+        tr("Not now"), QMessageBox::RejectRole);
+    QPushButton *neverBtn = box.addButton(
+        tr("Don't ask for this wallet"), QMessageBox::DestructiveRole);
+    neverBtn->setStyleSheet("QPushButton { color:#888; }");
+
+    box.setDefaultButton(lockBtn);
+    box.exec();
+
+    QAbstractButton *clicked = box.clickedButton();
+    if (clicked == lockBtn)
+    {
+        COutPoint out(hash, static_cast<unsigned int>(vout));
+        walletModel->lockCoin(out);
+    }
+    else if (clicked == neverBtn)
+    {
+        GuiState::set2MCollateralPromptSuppressed(walletPath);
+    }
+    // laterBtn (or window-close): no action -- user will be prompted
+    // again if another fresh 2M UTXO arrives.
+}
+
+// A9: Called from the spots that detect a batch ending --
+// setNumBlocks() (when sync catches up to wallet's "current" threshold)
+// and showProgress() (when an explicit rescan/import finishes).
+// Emits one summary toast for the batch, resets state, idempotent if
+// no batch was active.
+void DigitalNoteGUI::maybeEmitBatchSummary()
+{
+    if (!fInBatchMode)
+        return;
+
+    if (notificator && nBatchTxCount > 0)
+    {
+        QString title;
+        QString text;
+        switch (eBatchKind)
+        {
+        case BATCH_IMPORT:
+            title = tr("Import complete");
+            text = tr("%n transaction(s) added to wallet during import", "", nBatchTxCount);
+            break;
+        case BATCH_SYNC:
+        default:
+            title = tr("Sync complete");
+            text = tr("%n transaction(s) added to wallet during chain catchup", "", nBatchTxCount);
+            break;
+        }
+        notificator->notify(Notificator::Information, title, text);
+    }
+
+    nBatchTxCount = 0;
+    fInBatchMode = false;
+    eBatchKind = BATCH_NONE;
 }
 
 void DigitalNoteGUI::incomingMessage(const QModelIndex & parent, int start, int end)
@@ -1181,6 +1365,7 @@ void DigitalNoteGUI::setEncryptionStatus(int status)
         changePassphraseAction->setEnabled(false);
         unlockWalletAction->setVisible(true);
         lockWalletAction->setVisible(true);
+        unlockForStakingAction->setVisible(false);  // already in this state
         encryptWalletAction->setEnabled(false);
         fGUIunlock = false;
     }
@@ -1195,6 +1380,7 @@ void DigitalNoteGUI::setEncryptionStatus(int status)
         changePassphraseAction->setEnabled(false);
         unlockWalletAction->setVisible(false);
         lockWalletAction->setVisible(false);
+        unlockForStakingAction->setVisible(false);  // not encrypted, no point
         encryptWalletAction->setEnabled(true);
         encryptWalletAction->setText(tr("&Encrypt Wallet..."));
         fGUIunlock = true;
@@ -1205,6 +1391,7 @@ void DigitalNoteGUI::setEncryptionStatus(int status)
         changePassphraseAction->setEnabled(true);
         unlockWalletAction->setVisible(false);
         lockWalletAction->setVisible(true);
+        unlockForStakingAction->setVisible(false);  // already fully unlocked
         encryptWalletAction->setEnabled(false);
         encryptWalletAction->setText(tr("&Encrypt Wallet..."));
         fGUIunlock = true;
@@ -1215,6 +1402,7 @@ void DigitalNoteGUI::setEncryptionStatus(int status)
         changePassphraseAction->setEnabled(true);
         unlockWalletAction->setVisible(true);
         lockWalletAction->setVisible(false);
+        unlockForStakingAction->setVisible(true);   // primary use case
         encryptWalletAction->setEnabled(false);
         encryptWalletAction->setText(tr("&Decrypt Wallet..."));
         encryptWalletAction->setToolTip(tr("Unlock your wallet first, then use Decrypt Wallet."));
@@ -1223,6 +1411,26 @@ void DigitalNoteGUI::setEncryptionStatus(int status)
     }
 
     }
+}
+
+void DigitalNoteGUI::onRecoveryPhraseUpgradeAvailable()
+{
+    LogPrintf("BitcoinGUI: onRecoveryPhraseUpgradeAvailable slot fired\n");
+ 
+    if (!walletModel) {
+        LogPrintf("BitcoinGUI: bail - no walletModel\n");
+        return;
+    }
+ 
+    if (!walletModel->needsRecoveryPhraseUpgrade()) {
+        LogPrintf("BitcoinGUI: bail - needsRecoveryPhraseUpgrade returned false\n");
+        return;
+    }
+ 
+    LogPrintf("BitcoinGUI: opening RecoveryPhraseUpgradeDialog\n");
+    RecoveryPhraseUpgradeDialog dlg(walletModel, this);
+    dlg.exec();
+    LogPrintf("BitcoinGUI: RecoveryPhraseUpgradeDialog closed\n");
 }
 
 void DigitalNoteGUI::encryptWallet()
@@ -1314,6 +1522,145 @@ void DigitalNoteGUI::repairWallet()
 	}
 }
 
+void DigitalNoteGUI::compactWallet()
+{
+    // Q2 confirmation: explain the ramifications, not just the action.
+    // Hours-long, wallet unusable, restart required, original preserved.
+    // The user must understand all of this -- a plain "OK" button is
+    // not enough warning for an operation of this magnitude.
+    QMessageBox box(this);
+    box.setWindowTitle(tr("Compact Wallet"));
+    box.setIcon(QMessageBox::Warning);
+    box.setText(tr(
+        "<p><b>Compact Wallet rebuilds your wallet.dat file.</b></p>"
+        "<p>This is a maintenance operation that reclaims free pages "
+        "and rebuilds the wallet's internal structure, often producing "
+        "a smaller and faster wallet file. It is a safe operation: your "
+        "private keys, addresses, balances, and transactions are all "
+        "preserved.</p>"
+        "<p><b>Before you continue, you should understand:</b></p>"
+        "<ul>"
+        "<li>The wallet will <b>shut down and restart</b> automatically.</li>"
+        "<li>The rebuild can take <b>minutes to hours</b> on a large "
+        "wallet. The wallet is unusable while it runs.</li>"
+        "<li>Your original wallet will be preserved as "
+        "<b>wallet.dat.bak</b> in your data directory. If anything goes "
+        "wrong you can restore it manually.</li>"
+        "<li>A rescan will run after the rebuild to refresh the "
+        "transaction cache.</li>"
+        "</ul>"
+        "<p>It is strongly recommended that you take an independent "
+        "backup of <b>wallet.dat</b> before continuing.</p>"
+        "<p>Proceed with the rebuild?</p>"));
+
+    QPushButton *proceed = box.addButton(tr("Rebuild and restart"),
+                                         QMessageBox::AcceptRole);
+    QPushButton *cancel  = box.addButton(tr("Cancel"),
+                                         QMessageBox::RejectRole);
+    box.setDefaultButton(cancel);
+    box.exec();
+
+    if (box.clickedButton() != proceed)
+    {
+        LogPrintf("CompactWallet: user cancelled.\n");
+        return;
+    }
+
+    // Write the pending flag so init.cpp picks up the rebuild request on
+    // next launch. The actual rebuild runs after restart, before LoadWallet.
+    if (!RebuildPendingFlagWrite())
+    {
+        QMessageBox::critical(this, tr("Compact Wallet"),
+            tr("Could not write the rebuild request flag to your data "
+               "directory. Check filesystem permissions and try again."));
+        return;
+    }
+
+    LogPrintf("CompactWallet: pending flag written; requesting shutdown.\n");
+
+    // Tell the user what to expect AFTER they click OK on this dialog.
+    // The shutdown will close the wallet immediately; we want the user
+    // prepared for that.
+    QMessageBox::information(this, tr("Compact Wallet"),
+        tr("The wallet will now shut down. Restart it to begin the "
+           "rebuild. You will see a maintenance-mode splash screen "
+           "during the rebuild."));
+
+    // QApplication::quit() drives Qt's normal shutdown sequence, which
+    // calls into init.cpp's Shutdown() and closes BDB cleanly. The next
+    // invocation of the wallet will detect the pending flag and run
+    // RebuildWallet before LoadWallet.
+    QApplication::quit();
+}
+
+void DigitalNoteGUI::showRebuildResultIfPresent()
+{
+    std::string reason;
+    RebuildResultState state = RebuildResultRead(reason);
+    if (state == REBUILD_RESULT_NONE)
+    {
+        return;
+    }
+
+    QString title = tr("Compact Wallet");
+    QString msg;
+    QMessageBox::Icon icon = QMessageBox::Information;
+
+    switch (state)
+    {
+    case REBUILD_RESULT_SUCCESS:
+        icon = QMessageBox::Information;
+        msg = tr("Your wallet was rebuilt successfully. The original "
+                 "wallet has been preserved as <b>wallet.dat.bak</b> in "
+                 "your data directory; you can delete it once you have "
+                 "confirmed the rebuilt wallet works correctly.");
+        break;
+    case REBUILD_RESULT_RECOVERED_FROM_CRASH:
+        icon = QMessageBox::Warning;
+        msg = tr("A previous Compact Wallet operation was interrupted "
+                 "before it could finish. The rebuild has now been "
+                 "completed automatically and your previous wallet is "
+                 "preserved as <b>wallet.dat.bak</b>.");
+        break;
+    case REBUILD_RESULT_FAILED_PRESWAP:
+        icon = QMessageBox::Critical;
+        msg = tr("Compact Wallet failed before any changes were made to "
+                 "your wallet file. Your wallet is exactly as it was "
+                 "before. See the debug log for details.");
+        break;
+    case REBUILD_RESULT_FAILED_FILESYSTEM:
+        icon = QMessageBox::Critical;
+        msg = tr("Compact Wallet failed during a filesystem operation. "
+                 "Your original wallet has been restored. See the debug "
+                 "log for details.");
+        break;
+    default:
+        // REBUILD_RESULT_NONE handled by early return above.
+        return;
+    }
+
+    if (!reason.empty())
+    {
+        msg += "<br><br><i>" + QString::fromStdString(reason) + "</i>";
+    }
+
+    QMessageBox box(this);
+    box.setWindowTitle(title);
+    box.setIcon(icon);
+    box.setText(msg);
+    box.exec();
+
+    // Consume the marker so this dialog never re-fires. If removal
+    // fails (filesystem permission issue), log it but don't bother the
+    // user further -- the worst case is they see the dialog again next
+    // launch, which is a mild annoyance not a correctness problem.
+    if (!RebuildResultRemove())
+    {
+        LogPrintf("CompactWallet: failed to remove result marker; "
+                  "the dialog may re-fire on next launch.\n");
+    }
+}
+
 void DigitalNoteGUI::backupWallet()
 {
     QString saveDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
@@ -1362,6 +1709,23 @@ void DigitalNoteGUI::lockWallet()
     walletModel->setWalletLocked(true);
 }
 
+void DigitalNoteGUI::unlockForStaking()
+{
+    if(!walletModel)
+        return;
+
+    // Only meaningful when the wallet is encrypted but not already
+    // unlocked-for-staking-only.  setEncryptionStatus already hides
+    // the menu item in the cases where this isn't applicable, but
+    // we double-check here in case the slot is reached some other way.
+    if(walletModel->getEncryptionStatus() == WalletModel::Unencrypted)
+        return;
+
+    AskPassphraseDialog dlg(AskPassphraseDialog::UnlockStaking, this);
+    dlg.setModel(walletModel);
+    dlg.exec();
+}
+
 void DigitalNoteGUI::showNormalIfMinimized(bool fToggleHidden)
 {
     // activateWindow() (sometimes) helps with keyboard focus on Windows
@@ -1392,6 +1756,15 @@ void DigitalNoteGUI::toggleHidden()
 void DigitalNoteGUI::updateWeight()
 {
     if (!pwalletMain)
+        return;
+
+    // Do not poll balance until wallet load + ReacceptWalletTransactions
+    // have completed. Polling earlier walks a partially-populated wallet
+    // and writes wrong values (zero) to nAvailableCreditCached for any
+    // wtx whose key is not yet in the keystore. Those wrong cache values
+    // persist for the entire session because nothing later invalidates
+    // them. Manifests as visible ~10x-low balance until restart-after-fix.
+    if (!fWalletLoadComplete)
         return;
 
     TRY_LOCK(cs_main, lockMain);
@@ -1480,6 +1853,15 @@ void DigitalNoteGUI::showProgress(const QString &title, int nProgress)
             progressDialog->close();
             progressDialog->deleteLater();
         }
+        // A9: rescan/import just finished -- emit summary toast for
+        // any transactions whose individual toasts were suppressed
+        // during the batch.  Defer to the end of the event queue
+        // because the drain that was triggered by the same
+        // ShowProgress(100) call has queued many updateTransaction
+        // events ahead of us; those events drive incomingTransaction
+        // which is where the per-tx counter increments.  Without the
+        // defer, we'd fire the summary with a stale (zero) counter.
+        QTimer::singleShot(0, this, SLOT(maybeEmitBatchSummary()));
     }
     else if (progressDialog)
         progressDialog->setValue(nProgress);

@@ -14,6 +14,7 @@
 #include <QSettings>
 #include <QSignalMapper>
 #include <QTableView>
+#include <QTabBar>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QMessageBox>
@@ -42,6 +43,37 @@ TransactionView::TransactionView(QWidget *parent) :
     // Build filter row
     setContentsMargins(0,0,0,0);
 
+    // Tab bar at the very top: "My Transactions" / "Watch-Only".
+    // Drives the watch-only filter dimension on the proxy model.
+    // The Watch-Only tab is hidden when no watch-only addresses are
+    // present in the wallet (managed by updateWatchOnlyColumn).
+    watchOnlyTabBar = new QTabBar(this);
+    watchOnlyTabBar->addTab(tr("My Transactions"));
+    watchOnlyTabBar->addTab(tr("Watch-Only"));
+    watchOnlyTabBar->setTabData(0, (int)TransactionFilterProxy::WatchOnlyFilter_No);
+    watchOnlyTabBar->setTabData(1, (int)TransactionFilterProxy::WatchOnlyFilter_Yes);
+    watchOnlyTabBar->setCurrentIndex(0);
+    watchOnlyTabBar->setExpanding(false);
+    watchOnlyTabBar->setDocumentMode(true);
+    // Visible styling: bold selected tab, larger padding so it's easy
+    // to see which view is currently active.  Padding is generous
+    // because the bold weight on the selected tab takes more horizontal
+    // space than the regular weight, and we don't want the text to
+    // overflow or jiggle when switching tabs.
+    watchOnlyTabBar->setStyleSheet(
+        "QTabBar::tab {"
+        "  padding: 8px 28px;"
+        "  min-width: 140px;"
+        "  font-size: 13px;"
+        "}"
+        "QTabBar::tab:selected {"
+        "  font-weight: bold;"
+        "  border-bottom: 2px solid palette(highlight);"
+        "}"
+        "QTabBar::tab:!selected {"
+        "  color: palette(mid);"
+        "}");
+
     QHBoxLayout *hlayout = new QHBoxLayout();
     hlayout->setContentsMargins(0,0,0,0);
 #ifdef Q_OS_MAC
@@ -51,13 +83,6 @@ TransactionView::TransactionView(QWidget *parent) :
     hlayout->setSpacing(0);
     hlayout->addSpacing(23);
 #endif
-
-    watchOnlyWidget = new QComboBox(this);
-    watchOnlyWidget->setFixedWidth(24);
-    watchOnlyWidget->addItem("", TransactionFilterProxy::WatchOnlyFilter_All);
-    watchOnlyWidget->addItem(QIcon(":/icons/eye_plus"), "", TransactionFilterProxy::WatchOnlyFilter_Yes);
-    watchOnlyWidget->addItem(QIcon(":/icons/eye_minus"), "", TransactionFilterProxy::WatchOnlyFilter_No);
-    hlayout->addWidget(watchOnlyWidget);
 
     dateWidget = new QComboBox(this);
 #ifdef Q_OS_MAC
@@ -121,6 +146,7 @@ TransactionView::TransactionView(QWidget *parent) :
     vlayout->setSpacing(0);
 
     QTableView *view = new QTableView(this);
+    vlayout->addWidget(watchOnlyTabBar);
     vlayout->addLayout(hlayout);
     vlayout->addWidget(createDateRangeWidget());
     vlayout->addWidget(view);
@@ -162,11 +188,17 @@ TransactionView::TransactionView(QWidget *parent) :
     // Connect actions
     connect(dateWidget, SIGNAL(activated(int)), this, SLOT(chooseDate(int)));
     connect(typeWidget, SIGNAL(activated(int)), this, SLOT(chooseType(int)));
-    connect(watchOnlyWidget, SIGNAL(activated(int)), this, SLOT(chooseWatchonly(int)));
+    connect(watchOnlyTabBar, SIGNAL(currentChanged(int)), this, SLOT(onWatchOnlyTabChanged(int)));
     connect(addressWidget, SIGNAL(textChanged(QString)), this, SLOT(changedPrefix(QString)));
     connect(amountWidget, SIGNAL(textChanged(QString)), this, SLOT(changedAmount(QString)));
 
-    connect(view, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(doubleClicked(QModelIndex)));
+    // doubleClicked is a relay signal on TransactionView (declared in the
+    // signals: section of transactionview.h).  This connect forwards the
+    // inner QTableView's doubleClicked event up to listeners on
+    // TransactionView itself (bitcoingui.cpp connects it to showDetails).
+    // Was previously SLOT(doubleClicked(QModelIndex)) which made Qt look
+    // up doubleClicked on the slot list, fail, and log a runtime warning.
+    connect(view, SIGNAL(doubleClicked(QModelIndex)), this, SIGNAL(doubleClicked(QModelIndex)));
     connect(view, SIGNAL(clicked(QModelIndex)), this, SLOT(computeSum()));
     connect(view, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
 
@@ -232,7 +264,12 @@ void TransactionView::setModel(WalletModel *model)
             }
         }*/
 
-        // show/hide column Watch-only
+        // Initial watch-only filter: match the default tab
+        // (My Transactions tab = filter to non-watch-only entries).
+        transactionProxyModel->setWatchOnlyFilter(
+            (TransactionFilterProxy::WatchOnlyFilter)watchOnlyTabBar->tabData(watchOnlyTabBar->currentIndex()).toInt());
+
+        // show/hide Watch-Only tab and column
         updateWatchOnlyColumn(model->haveWatchOnly());
 
         // Watch-only signal
@@ -308,12 +345,51 @@ void TransactionView::chooseType(int idx)
     settings.setValue("transactionType", idx);
 }
 
-void TransactionView::chooseWatchonly(int idx)
+void TransactionView::onWatchOnlyTabChanged(int idx)
 {
     if(!transactionProxyModel)
         return;
     transactionProxyModel->setWatchOnlyFilter(
-        (TransactionFilterProxy::WatchOnlyFilter)watchOnlyWidget->itemData(idx).toInt());
+        (TransactionFilterProxy::WatchOnlyFilter)watchOnlyTabBar->tabData(idx).toInt());
+
+    // Visually differentiate the Watch-Only tab from My Transactions so
+    // the user can tell at a glance which class of transactions they're
+    // looking at.  Greyer base + greyer alternate keep alternating-row
+    // readability while signalling "this is external/observed data, not
+    // your own".  My Transactions tab uses default palette.
+    if (idx == 1) // Watch-Only tab
+    {
+        if (fUseDarkTheme)
+        {
+            transactionView->setStyleSheet(
+                "QTableView {"
+                "  background-color: #2a2a2a;"
+                "  alternate-background-color: #353535;"
+                "  color: #aaaaaa;"
+                "}"
+                "QTableView::item:selected {"
+                "  background-color: #4a4a5a;"
+                "  color: #ffffff;"
+                "}");
+        }
+        else
+        {
+            transactionView->setStyleSheet(
+                "QTableView {"
+                "  background-color: #ececec;"
+                "  alternate-background-color: #dddddd;"
+                "  color: #555555;"
+                "}"
+                "QTableView::item:selected {"
+                "  background-color: #c0c0d0;"
+                "  color: #000000;"
+                "}");
+        }
+    }
+    else // My Transactions tab -- restore default appearance
+    {
+        transactionView->setStyleSheet("");
+    }
 }
 
 void TransactionView::changedPrefix(const QString &prefix)
@@ -580,9 +656,28 @@ bool TransactionView::eventFilter(QObject *obj, QEvent *event)
     return QWidget::eventFilter(obj, event);
 }
 
-// show/hide column Watch-only
+// show/hide Watch-Only tab and column based on whether the wallet has
+// any watch-only addresses
 void TransactionView::updateWatchOnlyColumn(bool fHaveWatchOnly)
 {
-    watchOnlyWidget->setVisible(fHaveWatchOnly);
-    transactionView->setColumnHidden(TransactionTableModel::Watchonly, !fHaveWatchOnly);
+    // The Watch-Only tab (index 1) only makes sense when there's at
+    // least one watch-only address.  When no watch-only present, hide
+    // the tab; if it happened to be the active tab, force-switch to
+    // My Transactions so the filter resolves to a sensible state.
+    if (!fHaveWatchOnly)
+    {
+        if (watchOnlyTabBar->currentIndex() == 1)
+        {
+            watchOnlyTabBar->setCurrentIndex(0);
+        }
+        watchOnlyTabBar->setTabVisible(1, false);
+    }
+    else
+    {
+        watchOnlyTabBar->setTabVisible(1, true);
+    }
+
+    // Each tab is type-pure (only spendable OR only watch-only), so
+    // the per-row eye-icon column is redundant.  Keep it hidden.
+    transactionView->setColumnHidden(TransactionTableModel::Watchonly, true);
 }

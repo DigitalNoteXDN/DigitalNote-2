@@ -89,6 +89,7 @@ SOURCES += src/net.cpp
 SOURCES += src/checkpoints.cpp
 SOURCES += src/db.cpp
 SOURCES += src/walletdb.cpp
+SOURCES += src/walletrebuild.cpp
 SOURCES += src/cbatchscanner.cpp
 SOURCES += src/txdb-leveldb.cpp
 SOURCES += src/wallet.cpp
@@ -276,9 +277,14 @@ SOURCES += src/qt/qvalidatedtextedit.cpp
 SOURCES += src/qt/plugins/mrichtexteditor/mrichtextedit.cpp
 SOURCES += src/qt/flowlayout.cpp
 SOURCES += src/qt/seedphrasedialog.cpp
+SOURCES += src/qt/rotatephrasedialog.cpp
 SOURCES += src/qt/coincontrolworker.cpp
 SOURCES += src/qt/sendcoinsworker.cpp
 SOURCES += src/qt/decryptworker.cpp
+SOURCES += src/qt/recoveryphraseupgradedialog.cpp
+SOURCES += src/qt/guistate.cpp
+SOURCES += src/qt/removewatchonlydialog.cpp
+SOURCES += src/qt/watchonlyworker.cpp
 
 macx {
 	OBJECTIVE_SOURCES += src/qt/macdockiconhandler.mm

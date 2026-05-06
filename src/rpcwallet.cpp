@@ -1,5 +1,9 @@
 #include "compat.h"
 
+#include <boost/assign/list_of.hpp>
+
+#include "json/json_spirit_utils.h"
+
 #include "enums/rpcerrorcode.h"
 #include "base58.h"
 #include "blockparams.h"
@@ -3306,4 +3310,150 @@ json_spirit::Value cclistcoins(const json_spirit::Array& params, bool fHelp)
 	}
 
 	return result;
+}
+
+// ---------------------------------------------------------------------------
+// lockunspent / listlockunspent — Bitcoin Core compatible UTXO lock RPCs.
+//
+// These are how power users lock collateral UTXOs from outside the GUI
+// (e.g. shell scripts, monitoring tooling).  The locks they set persist
+// across wallet restarts because CWallet::LockCoin/UnlockCoin now write
+// to wallet.dat.
+//
+// Locked outputs are excluded from staking (see AvailableCoinsForStaking)
+// and from coin selection (see SelectCoins).
+// ---------------------------------------------------------------------------
+
+json_spirit::Value lockunspent(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() < 1 || params.size() > 2)
+	{
+		throw std::runtime_error(
+			"lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n"
+			"\nUpdates list of temporarily unspendable outputs.\n"
+			"Temporarily lock (unlock=false) or unlock (unlock=true) specified transaction outputs.\n"
+			"A locked transaction output will not be chosen by automatic coin selection,\n"
+			"when spending or staking.\n"
+			"Locks are persistent across wallet restarts.\n"
+			"\nArguments:\n"
+			"1. unlock            (boolean, required) Whether to unlock (true) or lock (false) the specified transactions\n"
+			"2. \"transactions\"  (json array, optional) The transaction outputs and within each, the txid (string) vout (numeric)\n"
+			"     [           (json array of json objects)\n"
+			"       {\n"
+			"         \"txid\":\"txid\",  (string) The transaction id\n"
+			"         \"vout\": n         (numeric) The output number\n"
+			"       }\n"
+			"       ,...\n"
+			"     ]\n"
+			"\nResult:\n"
+			"true|false    (boolean) Whether the command was successful or not\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("lockunspent", "false \"[{\\\"txid\\\":\\\"a08...\\\",\\\"vout\\\":1}]\"") +
+			HelpExampleCli("listlockunspent", "") +
+			HelpExampleCli("lockunspent", "true \"[{\\\"txid\\\":\\\"a08...\\\",\\\"vout\\\":1}]\"") +
+			HelpExampleRpc("lockunspent", "false, \"[{\\\"txid\\\":\\\"a08...\\\",\\\"vout\\\":1}]\"")
+		);
+	}
+
+	if (params.size() == 1)
+	{
+		RPCTypeCheck(params, boost::assign::list_of(json_spirit::bool_type));
+	}
+	else
+	{
+		RPCTypeCheck(params, boost::assign::list_of(json_spirit::bool_type)(json_spirit::array_type));
+	}
+
+	bool fUnlock = params[0].get_bool();
+
+	// "lockunspent true" with no array: unlock everything
+	if (params.size() == 1)
+	{
+		if (fUnlock)
+		{
+			pwalletMain->UnlockAllCoins();
+		}
+		// "lockunspent false" with no array is a no-op (nothing to lock)
+		return true;
+	}
+
+	json_spirit::Array outputs = params[1].get_array();
+
+	for (json_spirit::Value& output : outputs)
+	{
+		if (output.type() != json_spirit::obj_type)
+		{
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+		}
+
+		const json_spirit::Object& o = output.get_obj();
+
+		RPCTypeCheck(o,
+			boost::assign::map_list_of("txid", json_spirit::str_type)("vout", json_spirit::int_type));
+
+		std::string txid = find_value(o, "txid").get_str();
+
+		if (!IsHex(txid))
+		{
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected hex txid");
+		}
+
+		int nOutput = find_value(o, "vout").get_int();
+
+		if (nOutput < 0)
+		{
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+		}
+
+		COutPoint outpt(uint256(txid), nOutput);
+
+		if (fUnlock)
+		{
+			pwalletMain->UnlockCoin(outpt);
+		}
+		else
+		{
+			pwalletMain->LockCoin(outpt);
+		}
+	}
+
+	return true;
+}
+
+json_spirit::Value listlockunspent(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() > 0)
+	{
+		throw std::runtime_error(
+			"listlockunspent\n"
+			"\nReturns list of temporarily unspendable outputs.\n"
+			"See the lockunspent call to lock and unlock transactions for spending.\n"
+			"\nResult:\n"
+			"[\n"
+			"  {\n"
+			"    \"txid\" : \"transactionid\",     (string) The transaction id locked\n"
+			"    \"vout\" : n                      (numeric) The vout value\n"
+			"  }\n"
+			"  ,...\n"
+			"]\n"
+			"\nExamples:\n"
+			+ HelpExampleCli("listlockunspent", "") +
+			HelpExampleRpc("listlockunspent", "")
+		);
+	}
+
+	std::vector<COutPoint> vOutpts;
+	pwalletMain->ListLockedCoins(vOutpts);
+
+	json_spirit::Array ret;
+
+	for (const COutPoint& outpt : vOutpts)
+	{
+		json_spirit::Object o;
+		o.push_back(json_spirit::Pair("txid", outpt.hash.GetHex()));
+		o.push_back(json_spirit::Pair("vout", (int)outpt.n));
+		ret.push_back(o);
+	}
+
+	return ret;
 }

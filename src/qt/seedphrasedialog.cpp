@@ -2,6 +2,7 @@
 // Distributed under the MIT software license.
 // SPDX-License-Identifier: MIT
 
+#include "rotatephrasedialog.h"
 #include "seedphrasedialog.h"
 #include "decryptworker.h"
 #include <QThread>
@@ -35,6 +36,7 @@
 SeedPhraseDialog::SeedPhraseDialog(WalletModel *model, QWidget *parent)
     : QDialog(parent)
     , m_model(model)
+    , m_mode(Mode::Normal)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     setWindowTitle(tr("Wallet Seed Phrase (BIP39)"));
@@ -43,12 +45,51 @@ SeedPhraseDialog::SeedPhraseDialog(WalletModel *model, QWidget *parent)
     setAttribute(Qt::WA_DeleteOnClose, false);  // caller owns lifetime
 
     setupUi();
+    applyModeAdjustments();
 
     connect(&m_countdownTimer, &QTimer::timeout,
             this,              &SeedPhraseDialog::onCountdownTick);
     connect(&m_clipboardTimer, &QTimer::timeout,
             this,              &SeedPhraseDialog::onClipboardClearTick);
     m_clipboardTimer.setSingleShot(true);
+}
+
+SeedPhraseDialog::SeedPhraseDialog(WalletModel *model,
+                                   QWidget *parent,
+                                   Mode mode,
+                                   const QString& preknownMnemonic)
+    : QDialog(parent)
+    , m_model(model)
+    , m_mode(mode)
+{
+    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setWindowTitle(m_mode == Mode::FirstTimeAutoReveal
+                   ? tr("Your 24-Word Recovery Phrase")
+                   : tr("Wallet Seed Phrase (BIP39)"));
+    setMinimumSize(680, 520);
+    setModal(true);
+    setAttribute(Qt::WA_DeleteOnClose, false);
+
+    setupUi();
+    applyModeAdjustments();
+
+    connect(&m_countdownTimer, &QTimer::timeout,
+            this,              &SeedPhraseDialog::onCountdownTick);
+    connect(&m_clipboardTimer, &QTimer::timeout,
+            this,              &SeedPhraseDialog::onClipboardClearTick);
+    m_clipboardTimer.setSingleShot(true);
+
+    // Auto-reveal the supplied phrase immediately.
+    if (m_mode == Mode::FirstTimeAutoReveal && !preknownMnemonic.isEmpty()) {
+        m_currentMnemonic = preknownMnemonic;
+        showMnemonic(m_currentMnemonic);
+
+        // In auto-reveal we DO want Copy and Verify enabled right away
+        // (the user just generated this; they need to either save it now
+        // or verify they wrote it down correctly).
+        if (auto *copyBtn   = findChild<QPushButton*>("copyBtn"))   copyBtn->setEnabled(true);
+        if (auto *verifyBtn = findChild<QPushButton*>("verifyBtn")) verifyBtn->setEnabled(true);
+    }
 }
 
 SeedPhraseDialog::~SeedPhraseDialog()
@@ -141,13 +182,62 @@ void SeedPhraseDialog::setupUi()
 
     root->addLayout(btnRow);
 
-    // ── Close ────────────────────────────────────────────────────────────────
+    // ── Close + advanced rotation ────────────────────────────────────────────
+    // "Replace phrase…" launches RotatePhraseDialog (compromised phrase
+    // remediation).  Buried here rather than promoted to a top-level menu
+    // item -- this is a destructive security operation, not a casual setting.
+    auto *rotateBtn = new QPushButton(tr("Replace phrase…"));
+    rotateBtn->setObjectName("rotateBtn");
+    rotateBtn->setToolTip(tr(
+        "Generate a new recovery phrase to replace one that may have been "
+        "compromised.  Advanced; rarely needed."));
+    rotateBtn->setStyleSheet(
+        "QPushButton { color:#a94442; font-weight:bold; padding:6px 14px; "
+        "background:transparent; border:1px solid #a94442; border-radius:4px; }"
+        "QPushButton:hover { background:#f2dede; }");
+    connect(rotateBtn, &QPushButton::clicked,
+            this, &SeedPhraseDialog::onRotateClicked);
+
     auto *closeBtn = new QPushButton(tr("Close"));
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::reject);
+
     auto *closeRow = new QHBoxLayout;
+    closeRow->addWidget(rotateBtn);   // bottom-left, distinct red border
     closeRow->addStretch();
-    closeRow->addWidget(closeBtn);
+    closeRow->addWidget(closeBtn);    // bottom-right, primary action
     root->addLayout(closeRow);
+}
+
+// ── Mode-driven UI adjustments ───────────────────────────────────────────────
+//
+// Called after setupUi() in both constructors.  The Normal-mode UI is the
+// default state already built by setupUi(); FirstTimeAutoReveal-mode hides
+// controls that don't make sense for a freshly-generated phrase:
+//
+//   * Reveal button  -- the phrase is shown immediately, no need to reveal
+//   * Rotate button  -- rotating a brand-new phrase makes no sense
+//   * Placeholder text -- the wordGrid will be populated immediately so
+//                         the "your phrase will appear here" text is wrong
+//   * The warning banner is replaced with text matching the moment
+//     ("write this down NOW") rather than the generic "keep it private".
+
+void SeedPhraseDialog::applyModeAdjustments()
+{
+    if (m_mode != Mode::FirstTimeAutoReveal)
+        return;
+
+    if (auto *w = findChild<QPushButton*>("revealBtn"))     w->hide();
+    if (auto *w = findChild<QPushButton*>("rotateBtn"))     w->hide();
+    if (auto *w = findChild<QLabel*>("placeholderLabel"))   w->hide();
+
+    // Update the warning banner text.  We find it by walking children
+    // since it doesn't have an explicit objectName; the banner is the
+    // only QLabel whose styleSheet sets the warning yellow color, but
+    // the simplest reliable way is to find the GroupBox title and just
+    // re-title it with first-time-specific copy.
+    if (auto *grp = findChild<QGroupBox*>()) {
+        grp->setTitle(tr("Write These 24 Words Down Now"));
+    }
 }
 
 // ── Slot implementations ─────────────────────────────────────────────────────
@@ -166,11 +256,21 @@ void SeedPhraseDialog::onRevealClicked()
 {
     if (!m_model) return;
 
-    // Ensure wallet is unlocked before proceeding
-    if (m_model->getEncryptionStatus() == WalletModel::Locked) {
-        WalletModel::UnlockContext ctx(m_model->requestUnlock());
-        if (!ctx.isValid()) return;
-    }
+    // Ensure wallet is unlocked before proceeding.  The UnlockContext is
+    // an RAII handle: while `ctx` is alive, the wallet stays unlocked.
+    // When `ctx` is destroyed at end-of-scope (this function returning)
+    // the wallet returns to its prior lock state.
+    //
+    // We need the wallet unlocked for getCurrentMnemonic() to work, so
+    // we fetch the phrase WHILE the context is alive (a few lines below)
+    // and stash it in m_currentMnemonic.  After this function returns,
+    // the wallet relocks but we already have what we need.
+    //
+    // requestUnlock() is a no-op (returns a valid no-relock context) if
+    // the wallet is already unlocked, so calling it unconditionally is
+    // correct.
+    WalletModel::UnlockContext ctx = m_model->requestUnlock();
+    if (!ctx.isValid()) return;
 
     // Old wallet - add mnemonic master key if not already present
     // This allows both password AND recovery phrase to unlock the wallet
@@ -278,7 +378,35 @@ void SeedPhraseDialog::onRevealClicked()
                "Both your password and recovery phrase now unlock your wallet."));
     }
 
-    // Start countdown — password will be requested in onCountdownTick
+    // Wallet must be encrypted to have a recovery phrase.
+    if (m_model->getEncryptionStatus() == WalletModel::Unencrypted) {
+        QMessageBox::information(this, tr("Recovery Phrase Unavailable"),
+            tr("Your wallet is not encrypted.<br><br>"
+               "A recovery phrase is only available for encrypted wallets.<br><br>"
+               "Go to <b>Settings \u2192 Encrypt Wallet</b> to encrypt your wallet "
+               "and receive a 24-word recovery phrase."));
+        return;
+    }
+
+    // Fetch the mnemonic NOW, while the wallet is still unlocked (the
+    // UnlockContext above is keeping it that way).  After this function
+    // returns, the wallet relocks -- but we'll have stashed the phrase
+    // in m_currentMnemonic and the countdown can display it from there
+    // without needing the wallet unlocked again.
+    {
+        SecureString mnemonic;
+        if (!m_model->getCurrentMnemonic(mnemonic)) {
+            QMessageBox::critical(this, tr("Recovery Phrase"),
+                tr("Could not retrieve the recovery phrase.  Please make "
+                   "sure the wallet is unlocked and try again."));
+            return;
+        }
+        m_currentMnemonic = QString::fromStdString(
+            std::string(mnemonic.begin(), mnemonic.end()));
+        OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
+    }
+
+    // Start countdown — phrase will be displayed when it elapses.
     auto *revealBtn = findChild<QPushButton*>("revealBtn");
     if (revealBtn) revealBtn->setEnabled(false);
 
@@ -312,11 +440,8 @@ void SeedPhraseDialog::onCountdownTick()
     m_countdownTimer.stop();
     if (label) label->hide();
 
-    // Derive the recovery mnemonic from the wallet passphrase.
-    // We ask the user to enter their passphrase here so we can derive
-    // the deterministic recovery phrase from it.
-    // The wallet must be encrypted — unencrypted wallets have no passphrase
-    // and therefore no recovery phrase.
+    // The wallet must be encrypted — unencrypted wallets have no recovery
+    // phrase to display.
     if (m_model->getEncryptionStatus() == WalletModel::Unencrypted) {
         QMessageBox::information(this, tr("Recovery Phrase Unavailable"),
             tr("Your wallet is not encrypted.<br><br>"
@@ -328,54 +453,17 @@ void SeedPhraseDialog::onCountdownTick()
         return;
     }
 
-    // Ask for passphrase to derive the recovery mnemonic
-    bool ok2 = false;
-    QString passQStr = QInputDialog::getText(
-        this,
-        tr("Recovery Phrase"),
-        tr("Enter your wallet password to display your recovery phrase:"),
-        QLineEdit::Password,
-        QString(),
-        &ok2);
-
-    if (!ok2 || passQStr.isEmpty()) {
-        auto *revealBtn = findChild<QPushButton*>("revealBtn");
-        if (revealBtn) revealBtn->setEnabled(true);
-        return;
-    }
-
-    SecureString passphrase;
-    std::string passStr = passQStr.toStdString();
-    passphrase.assign(passStr.c_str(), passStr.size());
-    OPENSSL_cleanse(const_cast<char*>(passStr.data()), passStr.size());
-
-    // Verify password without changing wallet lock state
-    if (m_model->getEncryptionStatus() != WalletModel::Unencrypted) {
-        if (!m_model->verifyPassphrase(passphrase)) {
-            OPENSSL_cleanse(const_cast<char*>(passphrase.data()), passphrase.size());
-            QMessageBox::critical(this, tr("Recovery Phrase"),
-                tr("The password you entered is incorrect. Please try again."));
-            auto *revealBtn = findChild<QPushButton*>("revealBtn");
-            if (revealBtn) revealBtn->setEnabled(true);
-            return;
-        }
-    }
-
-    SecureString mnemonic;
-    bool ok = m_model->generateRecoveryMnemonic(passphrase, mnemonic);
-    OPENSSL_cleanse(const_cast<char*>(passphrase.data()), passphrase.size());
-
-    if (!ok) {
+    // The mnemonic was already fetched and stashed in m_currentMnemonic
+    // by onRevealClicked, while the UnlockContext was alive.  By now the
+    // wallet may have re-locked (when onRevealClicked returned), so we
+    // can't fetch fresh -- but we don't need to, we already have it.
+    if (m_currentMnemonic.isEmpty()) {
         QMessageBox::critical(this, tr("Recovery Phrase"),
-            tr("Could not generate the recovery phrase. Please try again."));
+            tr("Could not retrieve the recovery phrase.  Please try again."));
         auto *revealBtn = findChild<QPushButton*>("revealBtn");
         if (revealBtn) revealBtn->setEnabled(true);
         return;
     }
-
-    m_currentMnemonic = QString::fromStdString(
-        std::string(mnemonic.begin(), mnemonic.end()));
-    OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
 
     showMnemonic(m_currentMnemonic);
 }
@@ -543,4 +631,21 @@ void SeedPhraseDialog::hideEvent(QHideEvent *event)
 {
     clearMnemonic();
     QDialog::hideEvent(event);
+}
+
+void SeedPhraseDialog::onRotateClicked()
+{
+    if (!m_model) return;
+
+    // Hide the current phrase before launching rotation -- once rotation
+    // succeeds the displayed phrase will no longer be valid.
+    clearMnemonic();
+
+    RotatePhraseDialog dlg(m_model, this);
+    dlg.exec();
+
+    // After the rotate dialog closes (whether it succeeded, failed, or
+    // was cancelled), we leave the seed phrase dialog in its idle state
+    // -- the user can click "Reveal" again to view the (now possibly new)
+    // phrase derived from the current vMasterKey.
 }

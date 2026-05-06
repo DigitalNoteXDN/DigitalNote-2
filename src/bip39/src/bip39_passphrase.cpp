@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: MIT
 //
 // bip39_passphrase.cpp
-// Passphrase <-> BIP39 mnemonic derivation for wallet password recovery.
+// BIP39 mnemonic derivation for wallet recovery.
+//
+// See bip39_passphrase.h for the design rationale (D1 password-derived
+// vs D2 vMasterKey-derived).
 //
 // Now compiled directly into the wallet binary, so SecureString and
 // secure_allocator are available naturally via the wallet headers.
@@ -21,30 +24,27 @@
 
 namespace BIP39Passphrase {
 
-static const char* XDN_RECOVERY_SALT  = "XDN-wallet-recovery-v1";
-static const int   XDN_RECOVERY_ITERS = 100000;
-static const int   XDN_RECOVERY_BYTES = 32;  // 256 bits -> 24-word mnemonic
+// ---------------------------------------------------------------------------
+// Salt strings -- DIFFERENT for D1 vs D2 so the two derivations cannot
+// produce the same mnemonic for some adversarial input.  D2 will be the
+// only path used in v2.0.0.7+, but keeping them disjoint costs nothing.
+// ---------------------------------------------------------------------------
+static const char* XDN_RECOVERY_SALT_D1   = "XDN-wallet-recovery-v1";
+static const char* XDN_RECOVERY_SALT_D2   = "XDN-vmasterkey-recovery-v2";
+static const int   XDN_RECOVERY_ITERS_D1  = 100000;
+static const int   XDN_RECOVERY_ITERS_D2  = 100000;
+static const int   XDN_RECOVERY_BYTES     = 32;  // 256 bits -> 24-word mnemonic
 
-Result mnemonicFromPassphrase(const SecureString& passphrase,
-                               SecureString& mnemonic)
+// Internal helper: take 32 bytes of entropy, produce a 24-word mnemonic.
+// Both D1 and D2 funnel into this once they have their 32 bytes.
+static Result entropyBytesToMnemonic(std::vector<unsigned char>& entropyBytes,
+                                     SecureString& mnemonic)
 {
     mnemonic.clear();
-    if (passphrase.empty()) return Result::ERR_INTERNAL;
 
-    // PBKDF2-HMAC-SHA512: passphrase -> 32 entropy bytes
-    std::vector<unsigned char> entropyBytes(XDN_RECOVERY_BYTES);
-    int rc = PKCS5_PBKDF2_HMAC(
-        passphrase.data(), static_cast<int>(passphrase.size()),
-        reinterpret_cast<const unsigned char*>(XDN_RECOVERY_SALT),
-        static_cast<int>(strlen(XDN_RECOVERY_SALT)),
-        XDN_RECOVERY_ITERS,
-        EVP_sha512(),
-        XDN_RECOVERY_BYTES,
-        entropyBytes.data());
-
-    if (rc != 1) {
+    if (entropyBytes.size() != XDN_RECOVERY_BYTES) {
         OPENSSL_cleanse(entropyBytes.data(), entropyBytes.size());
-        return Result::ERR_OPENSSL;
+        return Result::ERR_INTERNAL;
     }
 
     try {
@@ -70,6 +70,69 @@ Result mnemonicFromPassphrase(const SecureString& passphrase,
     }
 }
 
+// ---------------------------------------------------------------------------
+// D2 -- vMasterKey -> 24-word mnemonic
+// ---------------------------------------------------------------------------
+Result mnemonicFromVMasterKey(const CKeyingMaterial& vMasterKey,
+                              SecureString& mnemonic)
+{
+    mnemonic.clear();
+
+    if (vMasterKey.size() < 32) {
+        return Result::ERR_INTERNAL;
+    }
+
+    // PBKDF2-HMAC-SHA512: vMasterKey -> 32 entropy bytes
+    std::vector<unsigned char> entropyBytes(XDN_RECOVERY_BYTES);
+    int rc = PKCS5_PBKDF2_HMAC(
+        reinterpret_cast<const char*>(vMasterKey.data()),
+        static_cast<int>(vMasterKey.size()),
+        reinterpret_cast<const unsigned char*>(XDN_RECOVERY_SALT_D2),
+        static_cast<int>(strlen(XDN_RECOVERY_SALT_D2)),
+        XDN_RECOVERY_ITERS_D2,
+        EVP_sha512(),
+        XDN_RECOVERY_BYTES,
+        entropyBytes.data());
+
+    if (rc != 1) {
+        OPENSSL_cleanse(entropyBytes.data(), entropyBytes.size());
+        return Result::ERR_OPENSSL;
+    }
+
+    return entropyBytesToMnemonic(entropyBytes, mnemonic);
+}
+
+// ---------------------------------------------------------------------------
+// D1 -- passphrase -> 24-word mnemonic   (legacy)
+// ---------------------------------------------------------------------------
+Result mnemonicFromPassphrase(const SecureString& passphrase,
+                               SecureString& mnemonic)
+{
+    mnemonic.clear();
+    if (passphrase.empty()) return Result::ERR_INTERNAL;
+
+    // PBKDF2-HMAC-SHA512: passphrase -> 32 entropy bytes
+    std::vector<unsigned char> entropyBytes(XDN_RECOVERY_BYTES);
+    int rc = PKCS5_PBKDF2_HMAC(
+        passphrase.data(), static_cast<int>(passphrase.size()),
+        reinterpret_cast<const unsigned char*>(XDN_RECOVERY_SALT_D1),
+        static_cast<int>(strlen(XDN_RECOVERY_SALT_D1)),
+        XDN_RECOVERY_ITERS_D1,
+        EVP_sha512(),
+        XDN_RECOVERY_BYTES,
+        entropyBytes.data());
+
+    if (rc != 1) {
+        OPENSSL_cleanse(entropyBytes.data(), entropyBytes.size());
+        return Result::ERR_OPENSSL;
+    }
+
+    return entropyBytesToMnemonic(entropyBytes, mnemonic);
+}
+
+// ---------------------------------------------------------------------------
+// Shared -- mnemonic -> 64-char hex (32 raw bytes)
+// ---------------------------------------------------------------------------
 Result passphraseFromMnemonic(const SecureString& mnemonic,
                                SecureString& passphrase)
 {

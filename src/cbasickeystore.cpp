@@ -137,3 +137,17 @@ bool CBasicKeyStore::HaveWatchOnly() const
 	return (!setWatchOnly.empty());
 }
 
+void CBasicKeyStore::GetWatchOnly(std::set<CScript>& setOut) const
+{
+	setOut.clear();
+
+	{
+		LOCK(cs_KeyStore);
+
+		for (const CScript& script : setWatchOnly)
+		{
+			setOut.insert(script);
+		}
+	}
+}
+

@@ -193,12 +193,17 @@
              </column>
              <column>
               <property name="text">
-               <string>IP</string>
+               <string>IP/Onion</string>
               </property>
              </column>
              <column>
               <property name="text">
                <string>Status</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Collateral</string>
               </property>
              </column>
             </widget>

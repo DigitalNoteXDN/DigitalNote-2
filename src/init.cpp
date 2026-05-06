@@ -65,6 +65,7 @@
 #ifdef ENABLE_WALLET
 #include "db.h"
 #include "walletdb.h"
+#include "walletrebuild.h"
 #endif
 
 #ifdef ENABLE_WALLET
@@ -79,6 +80,7 @@ unsigned int nDerivationMethodIndex;
 unsigned int nMinerSleep;
 bool fUseFastIndex;
 bool fOnlyTor = false;
+bool fWalletLoadComplete = false;
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -341,7 +343,8 @@ std::string HelpMessage()
 	strUsage += "  -createwalletbackups=<n> " + ui_translate("Number of automatic wallet backups (default: 10)") + "\n";
 	strUsage += "  -keypool=<n>           " + ui_translate("Set key pool size to <n> (default: 1000) (litemode: 100)") + "\n";
 	strUsage += "  -rescan                " + ui_translate("Rescan the block chain for missing wallet transactions") + "\n";
-	strUsage += "  -salvagewallet         " + ui_translate("Attempt to recover private keys from a corrupt wallet.dat") + "\n";
+	strUsage += "  -rebuildwallet         " + ui_translate("Dump and recreate wallet.dat to reclaim free pages and rebuild structure. Safe; the original wallet is preserved as wallet.dat.bak.") + "\n";
+	strUsage += "  -salvagewallet         " + ui_translate("DEPRECATED -- see -rebuildwallet (Tools menu: Compact Wallet)") + "\n";
 	strUsage += "  -checkblocks=<n>       " + ui_translate("How many blocks to check at startup (default: 500, 0 = all)") + "\n";
 	strUsage += "  -checklevel=<n>        " + ui_translate("How thorough the block verification is (0-6, default: 1)") + "\n";
 	strUsage += "  -loadblock=<file>      " + ui_translate("Imports blocks from external blk000?.dat file") + "\n";
@@ -551,6 +554,36 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 	if (GetBoolArg("-salvagewallet", false))
 	{
+		// -salvagewallet is deprecated. The underlying CWalletDB::Recover
+		// path has a known silent-data-loss bug: BDB Salvage(aggressive)
+		// returns raw pages including ghosts/torn writes, and Recover's
+		// inner loop uses DB_NOOVERWRITE -- so any record collision
+		// (including good keys colliding with stale dummies from earlier
+		// pages) is silently dropped. Replaced by -rebuildwallet which
+		// uses BDB-cursor-level dump/restore and preserves all record
+		// types (watch-only, A4 locks, stealth, BIP39 mnemonic, address
+		// book entries) that -salvagewallet would lose even when it
+		// "succeeds".
+		//
+		// Refuse unless the user has also passed the escape-hatch flag
+		// acknowledging the risk. The escape hatch exists for the rare
+		// support case where -rebuildwallet itself fails on a wallet so
+		// corrupt that only BDB's aggressive page-walk can extract
+		// anything.
+		if (!GetBoolArg("-iknowsalvagewalletisdangerous", false))
+		{
+			return InitError(ui_translate(
+				"-salvagewallet is deprecated and known to silently drop "
+				"records on collision. Use -rebuildwallet instead "
+				"(Tools menu: Compact Wallet). To force the legacy "
+				"behaviour anyway, additionally pass "
+				"-iknowsalvagewalletisdangerous."));
+		}
+		LogPrintf("WARNING: legacy -salvagewallet path engaged via escape "
+		          "hatch. This is known to silently drop records on "
+		          "collision. Proceed only if -rebuildwallet has already "
+		          "failed and you understand you may lose data.\n");
+
 		// Rewrite just private keys: rescan to find transactions
 		if (SoftSetBoolArg("-rescan", true))
 		{
@@ -866,8 +899,74 @@ bool AppInit2(boost::thread_group& threadGroup)
 			}
 		}
 
+		// Rebuild Wallet handler.
+		//
+		// Triggered by either -rebuildwallet (CLI flag) OR the GUI-written
+		// flag file (.rebuildwallet-pending in datadir). Both paths run
+		// the same orchestrator, which dumps the live wallet, validates
+		// the dump, builds a fresh BDB, verifies it by cursor walk, and
+		// atomically swaps wallet.dat with wallet.dat.bak.
+		//
+		// On failure during pre-swap, wallet.dat is untouched and the GUI
+		// will be told via the .rebuildwallet-result marker file. We then
+		// fall through to normal load so the user's wallet is at least
+		// usable. On failure during the swap itself, the next-launch
+		// recovery path inside RebuildWallet() will complete the swap
+		// before pre-flight runs.
+		//
+		// We consume the pending flag in ALL cases (success and failure)
+		// so a broken state can't cause an infinite rebuild loop.
+		const bool fRebuildPending = RebuildPendingFlagExists();
+		const bool fRebuildArg     = GetBoolArg("-rebuildwallet", false);
+		if (fRebuildPending || fRebuildArg)
+		{
+			LogPrintf("AppInit2: rebuild requested (pending-flag=%s, arg=%s)\n",
+			          fRebuildPending ? "yes" : "no",
+			          fRebuildArg ? "yes" : "no");
+
+			uiInterface.InitMessage(ui_translate("Preparing wallet rebuild..."));
+
+			std::string strRebuildErr;
+			bool fOK = RebuildWallet(bitdb, strWalletFileName, strRebuildErr);
+
+			// Consume the flag regardless of outcome. The result marker
+			// (written by RebuildWallet itself, success or failure) is
+			// what the GUI reads for outcome reporting -- we never want
+			// to retry the rebuild silently on the next launch.
+			RebuildPendingFlagRemove();
+
+			if (!fOK)
+			{
+				LogPrintf("AppInit2: RebuildWallet failed: %s\n",
+				          strRebuildErr);
+				// Don't InitError out -- the user's original wallet is
+				// untouched (RebuildWallet guarantees this in pre-swap
+				// failures, and auto-recovers post-swap failures on the
+				// next launch). Continue to normal load so the wallet
+				// is usable; the GUI will surface the failure on first
+				// paint.
+			}
+			else
+			{
+				LogPrintf("AppInit2: RebuildWallet succeeded; "
+				          "continuing init with the rebuilt wallet.\n");
+			}
+
+			// Either way, we want a rescan after rebuild because the
+			// wallet's tx cache state should be reconstructed from
+			// canonical chain data rather than carried over.
+			if (fOK && SoftSetBoolArg("-rescan", true))
+			{
+				LogPrintf("AppInit2 : parameter interaction: "
+				          "-rebuildwallet=1 -> setting -rescan=1\n");
+			}
+		}
+
 		if (GetBoolArg("-salvagewallet", false))
 		{
+			// Reachable only if -iknowsalvagewalletisdangerous was also
+			// passed -- this path is gated by the deprecation refusal in
+			// step 2 (see the comment block there for the full rationale).
 			// Recover readable keypairs:
 			if (!CWalletDB::Recover(bitdb, strWalletFileName, true))
 			{
@@ -1374,7 +1473,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	}
 
 	// Check toggle switch for experimental feature testing fork
-	uiInterface.InitMessage(ui_translate("Checking experimental feature toggle..."));
+	// (no InitMessage -- this is a microsecond config-flag read, splash noise)
 
 	strLiveForkToggle = GetArg("-liveforktoggle", "");
 
@@ -1406,7 +1505,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	}
 
 	// Check toggle switch for masternode advanced relay
-	uiInterface.InitMessage(ui_translate("Checking masternode advanced relay toggle..."));
+	// (no InitMessage -- this is a microsecond config-flag read, splash noise)
 
 	fMnAdvRelay = GetBoolArg("-mnadvrelay", false);
 
@@ -1600,6 +1699,13 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 		// Run a thread to flush wallet periodically
 		threadGroup.create_thread(boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
+
+		// Wallet is now fully loaded and ReacceptWalletTransactions has
+		// reconciled vfSpent against chain truth. Safe for GUI polls
+		// (e.g. the staking-icon timer) to start querying balance.
+		// Before this point, balance polls would walk a partially-loaded
+		// wallet and cache wrong values in nAvailableCreditCached.
+		fWalletLoadComplete = true;
 	}
 #endif
 

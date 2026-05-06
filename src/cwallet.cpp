@@ -54,6 +54,7 @@
 #include "ui_interface.h"
 #include "ui_translate.h"
 #include "util.h"
+#include "init.h"
 #include "cblockindex.h"
 #include "ctxindex.h"
 #include "serialize.h"
@@ -429,36 +430,32 @@ void CWallet::AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned in
 				continue;
 			}
 			
-			bool found = false;
-			
-			for (unsigned int i = 0; i < pcoin->vout.size(); i++)
-			{
-				if (pcoin->vout[i].nValue == MasternodeCollateral(pindexBest->nHeight)*COIN)
-				{
-					//LogPrintf("CWallet::AvailableCoinsForStaking - Found Masternode collateral.\n");
-					
-					found = true;
-					
-					break;
-				}
-				
-				if (IsCollateralAmount(pcoin->vout[i].nValue))
-				{
-					//LogPrintf("CWallet::AvailableCoinsForStaking - Found Collateral amount.\n");
-					
-					found = true;
-					
-					break;
-				}
-			}
+			// NOTE: Previous versions filtered out the ENTIRE transaction if
+			// any vout happened to equal the masternode collateral amount
+			// (2,000,000 XDN) or any vout passed IsCollateralAmount().  That
+			// heuristic punished:
+			//   - Innocent recipients of 2M XDN payments (entire tx excluded
+			//     from staking, including unrelated change outputs)
+			//   - Tx whose change happened to land at a "collateral amount"
+			//   - Users who genuinely received 2M but didn't intend to use
+			//     it as masternode collateral
+			//
+			// The correct approach is per-OUTPOINT: only exclude an output
+			// if the user has explicitly locked it (via Coin Control,
+			// lockunspent RPC, or the masternode UI) -- which sets a flag
+			// in setLockedCoins.  Other outputs of the same transaction
+			// remain stakeable.
 
-			if(found)
-			{
-				continue;
-			}
-			
 			for (unsigned int i = 0; i < pcoin->vout.size(); i++)
 			{
+				// Skip explicitly-locked outpoints (e.g. masternode collateral
+				// the user has locked, or any UTXO they've locked via
+				// lockunspent RPC).
+				if (IsLockedCoin(pcoin->GetHash(), i))
+				{
+					continue;
+				}
+
 				isminetype mine = IsMine(pcoin->vout[i]);
 				
 				if (
@@ -840,6 +837,14 @@ void CWallet::LockCoin(COutPoint& output)
 	AssertLockHeld(cs_wallet); // setLockedCoins
 
 	setLockedCoins.insert(output);
+
+	// Persist so the lock state survives wallet restart.  Older wallet
+	// binaries silently ignore unknown record types on load, so this
+	// is forward-compatible without a schema bump.
+	if (fFileBacked)
+	{
+		CWalletDB(strWalletFile).WriteLockedOutput(output);
+	}
 }
 
 void CWallet::UnlockCoin(COutPoint& output)
@@ -847,11 +852,26 @@ void CWallet::UnlockCoin(COutPoint& output)
 	AssertLockHeld(cs_wallet); // setLockedCoins
 
 	setLockedCoins.erase(output);
+
+	if (fFileBacked)
+	{
+		CWalletDB(strWalletFile).EraseLockedOutput(output);
+	}
 }
 
 void CWallet::UnlockAllCoins()
 {
 	AssertLockHeld(cs_wallet); // setLockedCoins
+
+	if (fFileBacked)
+	{
+		CWalletDB walletdb(strWalletFile);
+		for (const COutPoint& outpt : setLockedCoins)
+		{
+			COutPoint copy = outpt; // EraseLockedOutput takes non-const, harmless
+			walletdb.EraseLockedOutput(copy);
+		}
+	}
 
 	setLockedCoins.clear();
 }
@@ -949,14 +969,18 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
 	if (!fFileBacked)
 	{
+		MarkAllTxCachesDirty();
 		return true;
 	}
 
 	if (!IsCrypted())
 	{
-		return CWalletDB(strWalletFile).WriteKey(pubkey, secret.GetPrivKey(), mapKeyMetadata[pubkey.GetID()]);
+		bool fOk = CWalletDB(strWalletFile).WriteKey(pubkey, secret.GetPrivKey(), mapKeyMetadata[pubkey.GetID()]);
+		if (fOk) MarkAllTxCachesDirty();
+		return fOk;
 	}
 
+	MarkAllTxCachesDirty();
 	return true;
 }
 
@@ -998,20 +1022,24 @@ bool CWallet::AddCryptedKey(const CPubKey &vchPubKey, const std::vector<unsigned
 
 	if (!fFileBacked)
 	{
+		MarkAllTxCachesDirty();
 		return true;
 	}
 
 	{
 		LOCK(cs_wallet);
 		
+		bool fOk;
 		if (pwalletdbEncryption)
 		{
-			return pwalletdbEncryption->WriteCryptedKey(vchPubKey, vchCryptedSecret, mapKeyMetadata[vchPubKey.GetID()]);
+			fOk = pwalletdbEncryption->WriteCryptedKey(vchPubKey, vchCryptedSecret, mapKeyMetadata[vchPubKey.GetID()]);
 		}
 		else
 		{
-			return CWalletDB(strWalletFile).WriteCryptedKey(vchPubKey, vchCryptedSecret, mapKeyMetadata[vchPubKey.GetID()]);
+			fOk = CWalletDB(strWalletFile).WriteCryptedKey(vchPubKey, vchCryptedSecret, mapKeyMetadata[vchPubKey.GetID()]);
 		}
+		if (fOk) MarkAllTxCachesDirty();
+		return fOk;
 	}
 
 	return false;
@@ -1031,10 +1059,13 @@ bool CWallet::AddCScript(const CScript& redeemScript)
 
 	if (!fFileBacked)
 	{
+		MarkAllTxCachesDirty();
 		return true;
 	}
 
-	return CWalletDB(strWalletFile).WriteCScript(Hash160(redeemScript), redeemScript);
+	bool fOk = CWalletDB(strWalletFile).WriteCScript(Hash160(redeemScript), redeemScript);
+	if (fOk) MarkAllTxCachesDirty();
+	return fOk;
 }
 
 bool CWallet::LoadCScript(const CScript& redeemScript)
@@ -1069,6 +1100,16 @@ bool CWallet::AddWatchOnly(const CScript &dest)
 
 	nTimeFirstKey = 1; // No birthday information for watch-only keys.
 
+	// Fire the GUI notification so the wallet model picks up the new
+	// state, shows the watch-only column on overview / transactions
+	// page, and triggers a balance refresh.  Without this the wallet
+	// model only learned about watch-only state on next restart.
+	NotifyWatchonlyChanged(true);
+
+	// Invalidate balance caches so historical txes that newly become
+	// watch-only-mine recompute on next access.
+	MarkAllTxCachesDirty();
+
 	if (!fFileBacked)
 	{
 		return true;
@@ -1077,13 +1118,85 @@ bool CWallet::AddWatchOnly(const CScript &dest)
 	return CWalletDB(strWalletFile).WriteWatchOnly(dest);
 }
 
-bool CWallet::RemoveWatchOnly(const CScript &dest)
+bool CWallet::RemoveWatchOnly(const CScript &dest, const RemoveProgressFn& progressCb)
 {
 	AssertLockHeld(cs_wallet);
 
 	if (!CCryptoKeyStore::RemoveWatchOnly(dest))
 	{
 		return false;
+	}
+
+	if (progressCb) progressCb(0, "Scanning wallet for orphan transactions");
+
+	// Phase A: After the script is gone, find any transactions in mapWallet that
+	// are now orphaned -- they had no inputs from us, and their outputs
+	// were watch-only via the script we just removed (or another script
+	// we no longer have in any keystore).  These become ghost rows in
+	// the GUI ("(n/a)" + amount 0) if not pruned, because IsMine() now
+	// returns ISMINE_NO for all their outputs.  Collect them first,
+	// then erase from mapWallet, then notify the GUI.
+	//
+	// This is the slow phase: per-tx IsMine() evaluates every output's
+	// script.  For an address with thousands of historical txs it
+	// dominates wall-clock time.  Report progress every 100 entries.
+	std::vector<uint256> vToErase;
+	const size_t nWalletSize = mapWallet.size();
+	size_t nScanned = 0;
+
+	for (mapWallet_t::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+	{
+		const CWalletTx& wtx = it->second;
+
+		if (!IsMine(wtx) && !IsFromMe(wtx))
+		{
+			vToErase.push_back(it->first);
+		}
+
+		++nScanned;
+		if (progressCb && (nScanned % 100 == 0) && nWalletSize > 0)
+		{
+			// Phase A occupies 0-60% of the progress bar.
+			int pct = static_cast<int>(60.0 * nScanned / nWalletSize);
+			progressCb(pct, "Scanning wallet for orphan transactions");
+		}
+	}
+
+	if (progressCb) progressCb(60, "Removing orphaned transactions");
+
+	// Phase B: Erase orphans (BDB write per entry).
+	const size_t nToErase = vToErase.size();
+	size_t nErased = 0;
+
+	for (const uint256& hash : vToErase)
+	{
+		mapWallet.erase(hash);
+
+		if (fFileBacked)
+		{
+			CWalletDB(strWalletFile).EraseTx(hash);
+		}
+
+		NotifyTransactionChanged(this, hash, CT_DELETED);
+
+		++nErased;
+		if (progressCb && (nErased % 50 == 0) && nToErase > 0)
+		{
+			// Phase B occupies 60-90% of the progress bar.
+			int pct = 60 + static_cast<int>(30.0 * nErased / nToErase);
+			progressCb(pct, "Removing orphaned transactions");
+		}
+	}
+
+	if (progressCb) progressCb(90, "Refreshing remaining transactions");
+
+	// Phase C: Clear cached balance/credit values on remaining transactions.
+	// Their watch-only credit sums need to recompute now that the
+	// scripts they referenced are no longer "ours".  Fast (just a flag
+	// flip per tx) so no per-iteration progress reporting needed.
+	for (std::pair<const uint256, CWalletTx>& item : mapWallet)
+	{
+		item.second.MarkDirty();
 	}
 
 	if (!HaveWatchOnly())
@@ -1098,6 +1211,8 @@ bool CWallet::RemoveWatchOnly(const CScript &dest)
 			return false;
 		}
 	}
+
+	if (progressCb) progressCb(100, "Done");
 
 	return true;
 }
@@ -1174,7 +1289,7 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool anonymizeOnly
 	if(!IsLocked() && !fWalletUnlockStakingOnly)
 	{
 		fWalletUnlockAnonymizeOnly = anonymizeOnly;
-		
+
 		return true;
 	}
 
@@ -1182,14 +1297,18 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool anonymizeOnly
 
 	CCrypter crypter;
 	CKeyingMaterial vMasterKey;
+	bool unlocked = false;
 
 	{
 		LOCK(cs_wallet);
-		
+
 		for(const mapMasterKeys_t::value_type& pMasterKey : mapMasterKeys)
 		{
-			// Use continue (not return false) so ALL master keys are tried
-			// This allows both password and mnemonic hex to unlock the wallet
+			// Use continue (not return false) so ALL master keys are tried.
+			// This allows both password and mnemonic hex to unlock the wallet:
+			// each envelope has different KDF params + ciphertext, so the
+			// password decrypts CMasterKey[1] and the mnemonic-derived hex
+			// decrypts CMasterKey[2].  Whichever envelope matches wins.
 			if(!crypter.SetKeyFromPassphrase(
 					strWalletPassphraseFinal,
 					pMasterKey.second.vchSalt,
@@ -1200,26 +1319,43 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool anonymizeOnly
 			{
 				continue;
 			}
-			
+
 			if (!crypter.Decrypt(pMasterKey.second.vchCryptedKey, vMasterKey))
 			{
 				continue;
 			}
-			
+
 			if (!CCryptoKeyStore::Unlock(vMasterKey))
 			{
 				continue;
 			}
-			
+
 			// Successfully unlocked with this master key
+			unlocked = true;
 			break;
+		}
+
+		if (!unlocked)
+		{
+			// None of the envelopes matched.  Do NOT call UnlockStealthAddresses
+			// or set the unlock flags -- the keystore is still locked.
+			LogPrintf("CWallet::Unlock: no master key matched supplied passphrase/mnemonic\n");
+			return false;
 		}
 
 		fWalletUnlockAnonymizeOnly = anonymizeOnly;
 		fWalletUnlockStakingOnly = stakingOnly;
 		UnlockStealthAddresses(vMasterKey);
 		DigitalNote::SMSG::WalletUnlocked();
-		
+
+		// Encrypted-wallet outputs were not visible as ISMINE while the
+		// wallet was locked (CCryptoKeyStore::HaveKey returns false for
+		// encrypted keys without the master key in memory). Now that
+		// keys are available, balance caches computed while locked would
+		// have wrong (zero) values for those outputs. Invalidate so the
+		// next balance poll recomputes against the now-complete keystore.
+		MarkAllTxCachesDirty();
+
 		return true;
 	}
 
@@ -1693,52 +1829,95 @@ bool CWallet::RemoveMnemonicMasterKey()
 
 bool CWallet::HasMnemonicMasterKey() const
 {
-	// A mnemonic master key is identified by the custom "recovery_phrase_v1" flag
-	return HasRecoveryPhraseFlag();
+	// In D2, the wallet has CMasterKey[1] (password-encrypted vMasterKey)
+	// and optionally CMasterKey[2] (phrase-encrypted vMasterKey).  Any
+	// entry beyond the first is the phrase envelope -- there's no other
+	// reason for a second master key in this wallet design.
+	//
+	// Note: this is a STRUCTURAL check on the keystore.  The
+	// HasRecoveryPhraseFlag() flag is a separate concept ("this wallet
+	// supports recovery phrase generation"), set by EncryptWallet at
+	// encryption time so older pre-D2 wallets without the flag can be
+	// detected.  Don't conflate the two.
+	LOCK(cs_wallet);
+	return mapMasterKeys.size() > 1;
 }
+// ---------------------------------------------------------------------------
+// AddMnemonicMasterKey — D2 version (vMasterKey-derived, no password param)
+// ---------------------------------------------------------------------------
+//
+// Derives the recovery-phrase entropy from the current vMasterKey, encrypts
+// vMasterKey under that entropy as a 32-byte AES key, and stores the result
+// as a second CMasterKey envelope (CMasterKey[2]).
+//
+// Pre-conditions:
+//   * Wallet is encrypted (IsCrypted() == true).
+//   * Wallet is unlocked (vMasterKey is in CCryptoKeyStore::vMasterKey).
+//   * No mnemonic master key already exists (early-return success otherwise).
+//
+// Post-condition on success:
+//   * mapMasterKeys contains the new envelope at id == ++nMasterKeyMaxID.
+//   * wallet.dat has the new master-key record persisted.
+//   * recovery-phrase flag is set.
 
-bool CWallet::AddMnemonicMasterKey(const SecureString& strWalletPassphrase)
+bool CWallet::AddMnemonicMasterKey()
 {
-	if (!IsCrypted())
-		return false;
+	LogPrintf("AddMnemonicMasterKey: ENTRY (mapMasterKeys.size=%u, IsCrypted=%d, IsLocked=%d)\n",
+	          (unsigned)mapMasterKeys.size(), (int)IsCrypted(), (int)IsLocked());
 
-	// Already has a mnemonic master key
-	if (HasMnemonicMasterKey())
+	if (!IsCrypted()) {
+		LogPrintf("AddMnemonicMasterKey: bail - not encrypted\n");
+		return false;
+	}
+
+	if (HasMnemonicMasterKey()) {
+		LogPrintf("AddMnemonicMasterKey: idempotent skip - already have mnemonic key\n");
 		return true;
+	}
 
-	// Step 1: Get the current vMasterKey by unlocking with the raw password
-	// The wallet must be unlocked for this to work
-	if (IsLocked())
+	if (IsLocked()) {
+		LogPrintf("AddMnemonicMasterKey: bail - locked\n");
 		return false;
+	}
 
-	// Step 2: Derive mnemonic hex from password via BIP39Passphrase
-	// password -> PBKDF2 -> 32 bytes entropy -> mnemonic -> extract entropy -> hex
-	SecureString mnemonic, mnemonicHex;
-	if (BIP39Passphrase::mnemonicFromPassphrase(strWalletPassphrase, mnemonic) != BIP39Passphrase::Result::OK)
-		return false;
-	if (BIP39Passphrase::passphraseFromMnemonic(mnemonic, mnemonicHex) != BIP39Passphrase::Result::OK)
-		return false;
-	OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
-
-	// Step 3: Get a copy of vMasterKey using correct cs_KeyStore mutex
-	CKeyingMaterial vMasterKey;
+	// Step 1: Snapshot vMasterKey under the keystore mutex.
+	CKeyingMaterial vMasterKeyCopy;
 	{
 		LOCK(cs_KeyStore);
-		if (CCryptoKeyStore::vMasterKey.empty())
-		{
-			OPENSSL_cleanse(const_cast<char*>(mnemonicHex.data()), mnemonicHex.size());
+		if (CCryptoKeyStore::vMasterKey.empty()) {
+			LogPrintf("AddMnemonicMasterKey: bail - vMasterKey empty\n");
 			return false;
 		}
-		vMasterKey = CCryptoKeyStore::vMasterKey;
+		vMasterKeyCopy = CCryptoKeyStore::vMasterKey;
 	}
-	CCrypter crypter;
 
-	// Step 4: Create a new CMasterKey encrypting vMasterKey with the mnemonic hex
+	// Step 2: Derive mnemonic from vMasterKey, then re-derive the 32-byte
+	// AES key (as a 64-char hex SecureString).
+	SecureString mnemonic, mnemonicHex;
+	if (BIP39Passphrase::mnemonicFromVMasterKey(vMasterKeyCopy, mnemonic) != BIP39Passphrase::Result::OK)
+	{
+		LogPrintf("AddMnemonicMasterKey: bail - mnemonicFromVMasterKey failed\n");
+		OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
+		return false;
+	}
+	if (BIP39Passphrase::passphraseFromMnemonic(mnemonic, mnemonicHex) != BIP39Passphrase::Result::OK)
+	{
+		LogPrintf("AddMnemonicMasterKey: bail - passphraseFromMnemonic failed\n");
+		OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
+		OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
+		return false;
+	}
+	OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
+
+	// Step 3: Build a new CMasterKey envelope.
+	CCrypter crypter;
 	CMasterKey kMnemonicKey;
 	kMnemonicKey.vchSalt.resize(WALLET_CRYPTO_SALT_SIZE);
 	if (!GetRandBytes(&kMnemonicKey.vchSalt[0], WALLET_CRYPTO_SALT_SIZE))
 	{
+		LogPrintf("AddMnemonicMasterKey: bail - GetRandBytes for salt failed\n");
 		OPENSSL_cleanse(const_cast<char*>(mnemonicHex.data()), mnemonicHex.size());
+		OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
 		return false;
 	}
 
@@ -1748,30 +1927,521 @@ bool CWallet::AddMnemonicMasterKey(const SecureString& strWalletPassphrase)
 	if (!crypter.SetKeyFromPassphrase(mnemonicHex, kMnemonicKey.vchSalt,
 			kMnemonicKey.nDeriveIterations, kMnemonicKey.nDerivationMethod))
 	{
+		LogPrintf("AddMnemonicMasterKey: bail - SetKeyFromPassphrase failed\n");
 		OPENSSL_cleanse(const_cast<char*>(mnemonicHex.data()), mnemonicHex.size());
+		OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
 		return false;
 	}
 
-	if (!crypter.Encrypt(vMasterKey, kMnemonicKey.vchCryptedKey))
+	if (!crypter.Encrypt(vMasterKeyCopy, kMnemonicKey.vchCryptedKey))
 	{
+		LogPrintf("AddMnemonicMasterKey: bail - Encrypt failed\n");
 		OPENSSL_cleanse(const_cast<char*>(mnemonicHex.data()), mnemonicHex.size());
+		OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
 		return false;
 	}
 
 	OPENSSL_cleanse(const_cast<char*>(mnemonicHex.data()), mnemonicHex.size());
-	OPENSSL_cleanse(vMasterKey.data(), vMasterKey.size());
+	OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
 
-	// Step 5: Add to wallet - now BOTH password and mnemonic hex unlock the wallet
+	// Step 4: Persist.
 	{
 		LOCK(cs_wallet);
-		mapMasterKeys[++nMasterKeyMaxID] = kMnemonicKey;
-		if (fFileBacked)
-			CWalletDB(strWalletFile).WriteMasterKey(nMasterKeyMaxID, kMnemonicKey);
+		unsigned int newId = ++nMasterKeyMaxID;
+		mapMasterKeys[newId] = kMnemonicKey;
+		LogPrintf("AddMnemonicMasterKey: in-memory mapMasterKeys.size=%u, newId=%u, fFileBacked=%d\n",
+		          (unsigned)mapMasterKeys.size(), newId, (int)fFileBacked);
+
+		if (fFileBacked) {
+			bool ok = CWalletDB(strWalletFile).WriteMasterKey(newId, kMnemonicKey);
+			LogPrintf("AddMnemonicMasterKey: WriteMasterKey returned %d for id=%u\n",
+			          (int)ok, newId);
+			if (!ok) {
+				LogPrintf("AddMnemonicMasterKey: WARNING - WriteMasterKey failed, in-memory state has 2 entries but disk has only 1\n");
+			}
+		}
 	}
 
-	// Mark wallet as having mnemonic recovery support
+	SetRecoveryPhraseFlag();
+	LogPrintf("AddMnemonicMasterKey: SUCCESS (mapMasterKeys.size=%u)\n",
+	          (unsigned)mapMasterKeys.size());
+	return true;
+}
+
+
+// ---------------------------------------------------------------------------
+// GetCurrentMnemonic — re-derive the mnemonic from the current vMasterKey
+// ---------------------------------------------------------------------------
+//
+// Useful for "show me my recovery phrase" UI: at any moment when the wallet
+// is unlocked, the mnemonic can be re-derived deterministically from
+// vMasterKey.  No state is changed.
+
+bool CWallet::GetCurrentMnemonic(SecureString& mnemonicOut) const
+{
+	mnemonicOut.clear();
+
+	if (!IsCrypted() || IsLocked())
+		return false;
+
+	CKeyingMaterial vMasterKeyCopy;
+	{
+		LOCK(cs_KeyStore);
+		if (CCryptoKeyStore::vMasterKey.empty())
+			return false;
+		vMasterKeyCopy = CCryptoKeyStore::vMasterKey;
+	}
+
+	BIP39Passphrase::Result r =
+		BIP39Passphrase::mnemonicFromVMasterKey(vMasterKeyCopy, mnemonicOut);
+
+	OPENSSL_cleanse(vMasterKeyCopy.data(), vMasterKeyCopy.size());
+	return r == BIP39Passphrase::Result::OK;
+}
+
+
+// ---------------------------------------------------------------------------
+// RotateMnemonicMasterKey — replace vMasterKey, re-encrypt all keys
+// ---------------------------------------------------------------------------
+//
+// This is the heavyweight rotation: produces a new vMasterKey, re-wraps every
+// CKey in the keystore and every stealth-address spend secret under it, and
+// replaces both CMasterKey envelopes (password-encrypted and phrase-encrypted).
+//
+// On success the OLD recovery phrase will no longer decrypt this wallet.
+//
+// Caller responsibility:
+//   * UI must obtain explicit user confirmation (wall-of-text dialog).
+//   * UI must show the returned newMnemonicOut to the user immediately
+//     and confirm they have written it down.
+//   * Wallet must be unlocked when this is called (we Unlock-with-password
+//     ourselves to verify, and snapshot the existing vMasterKey).
+//
+// Failure semantics:
+//   * In-memory state (mapCryptedKeys, stealthAddresses, mapMasterKeys) is
+//     only mutated AFTER all crypto operations have succeeded.  If any step
+//     fails partway, we abort before mutating state.
+//   * Disk state is written under a single CWalletDB session, with a final
+//     TxnCommit.  If the commit fails, the on-disk state is unchanged.
+//
+// Notes:
+//   * The wallet remains unlocked at the new vMasterKey on success.
+//   * Caller may want to Lock() afterwards to force the user to re-enter
+//     the (possibly new) password before doing more.
+
+// =====================================================================
+// DEBUG-INSTRUMENTED REPLACEMENT for CWallet::RotateMnemonicMasterKey
+// =====================================================================
+//
+// Replace the existing RotateMnemonicMasterKey function in src/cwallet.cpp
+// with this version.  Identical logic to the original; the only difference
+// is a LogPrintf("RotateMnemonic FAIL: ...") added before every "return
+// false" path so debug.log will tell us exactly where the rotation is
+// failing.
+//
+// After we identify the failing path we can either fix the underlying
+// cause and revert this back to the silent version, or keep the
+// LogPrintfs as permanent diagnostic output (they're cheap and only fire
+// on the failure paths, so production cost is zero).
+//
+// Output goes to <datadir>/debug.log -- on Windows that's typically
+// %APPDATA%\DigitalNote\debug.log.
+// =====================================================================
+
+bool CWallet::RotateMnemonicMasterKey(const SecureString& strCurrentPassword,
+                                       SecureString& newMnemonicOut)
+{
+	newMnemonicOut.clear();
+
+	if (!IsCrypted()) {
+		LogPrintf("RotateMnemonic FAIL: wallet is not encrypted\n");
+		return false;
+	}
+
+	// We need both the OLD vMasterKey (to decrypt existing keys) and the
+	// password (to encrypt the NEW vMasterKey under the user's existing
+	// password as CMasterKey[1]).  Verify the password works first.
+
+	CKeyingMaterial vOldMasterKey;
+	CMasterKey      kOldPasswordEntry;
+	unsigned int    oldPasswordEntryId = 0;
+	{
+		LOCK(cs_wallet);
+
+		CCrypter crypter;
+		bool foundPasswordEntry = false;
+
+		LogPrintf("RotateMnemonic: trying %u master key entries\n",
+		          (unsigned)mapMasterKeys.size());
+
+		for (const auto& mk : mapMasterKeys)
+		{
+			if (!crypter.SetKeyFromPassphrase(strCurrentPassword,
+					mk.second.vchSalt,
+					mk.second.nDeriveIterations,
+					mk.second.nDerivationMethod))
+			{
+				LogPrintf("RotateMnemonic: SetKeyFromPassphrase failed for mkey id=%u (continuing)\n",
+				          mk.first);
+				continue;
+			}
+
+			if (!crypter.Decrypt(mk.second.vchCryptedKey, vOldMasterKey))
+			{
+				LogPrintf("RotateMnemonic: Decrypt failed for mkey id=%u (continuing)\n",
+				          mk.first);
+				continue;
+			}
+
+			// Found the password-encrypted envelope.
+			LogPrintf("RotateMnemonic: password decrypts mkey id=%u (vMasterKey size=%u)\n",
+			          mk.first, (unsigned)vOldMasterKey.size());
+			foundPasswordEntry = true;
+			kOldPasswordEntry  = mk.second;
+			oldPasswordEntryId = mk.first;
+			break;
+		}
+
+		if (!foundPasswordEntry) {
+			LogPrintf("RotateMnemonic FAIL: no master key entry decrypted with this password\n");
+			return false;
+		}
+	}
+
+	// Sanity check: the decrypted vMasterKey should match what's currently
+	// in the keystore (i.e. the wallet should already be unlocked under it).
+	{
+		LOCK(cs_KeyStore);
+		bool isEmpty = CCryptoKeyStore::vMasterKey.empty();
+		bool sizesEqual = (CCryptoKeyStore::vMasterKey.size() == vOldMasterKey.size());
+		bool bytesEqual = !isEmpty && (CCryptoKeyStore::vMasterKey == vOldMasterKey);
+
+		LogPrintf("RotateMnemonic: vMasterKey check -- in-memory empty=%d size=%u, decrypted size=%u, sizes_equal=%d, bytes_equal=%d\n",
+		          (int)isEmpty,
+		          (unsigned)CCryptoKeyStore::vMasterKey.size(),
+		          (unsigned)vOldMasterKey.size(),
+		          (int)sizesEqual,
+		          (int)bytesEqual);
+
+		if (isEmpty || !bytesEqual)
+		{
+			LogPrintf("RotateMnemonic FAIL: vMasterKey mismatch -- wallet is locked or has different master key\n");
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			return false;
+		}
+	}
+
+	// Step 1: Generate the NEW vMasterKey.
+	CKeyingMaterial vNewMasterKey;
+	RandAddSeedPerfmon();
+	vNewMasterKey.resize(WALLET_CRYPTO_KEY_SIZE);
+	if (!GetRandBytes(&vNewMasterKey[0], WALLET_CRYPTO_KEY_SIZE))
+	{
+		LogPrintf("RotateMnemonic FAIL: GetRandBytes for new vMasterKey\n");
+		OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+		return false;
+	}
+	LogPrintf("RotateMnemonic: generated new vMasterKey (%u bytes)\n",
+	          (unsigned)vNewMasterKey.size());
+
+	// Step 2: Re-encrypt every CKey in mapCryptedKeys under vNewMasterKey.
+	// Build a complete replacement map first; only swap on success.
+	CryptedKeyMap newCryptedKeys;
+	{
+		LOCK(cs_KeyStore);
+		LogPrintf("RotateMnemonic: re-encrypting %u CKeys\n",
+		          (unsigned)mapCryptedKeys.size());
+
+		size_t keyIdx = 0;
+		for (const auto& mi : mapCryptedKeys)
+		{
+			const CPubKey&                       pub        = mi.second.first;
+			const std::vector<unsigned char>&    cryptedOld = mi.second.second;
+
+			CKeyingMaterial vchSecret;
+			if (!DecryptSecret(vOldMasterKey, cryptedOld, pub.GetHash(), vchSecret))
+			{
+				LogPrintf("RotateMnemonic FAIL: DecryptSecret failed for CKey index %u (pubkey hash=%s)\n",
+				          (unsigned)keyIdx, pub.GetHash().ToString().c_str());
+				OPENSSL_cleanse(vOldMasterKey.data(),  vOldMasterKey.size());
+				OPENSSL_cleanse(vNewMasterKey.data(),  vNewMasterKey.size());
+				return false;
+			}
+
+			std::vector<unsigned char> cryptedNew;
+			if (!EncryptSecret(vNewMasterKey, vchSecret, pub.GetHash(), cryptedNew))
+			{
+				LogPrintf("RotateMnemonic FAIL: EncryptSecret failed for CKey index %u\n",
+				          (unsigned)keyIdx);
+				OPENSSL_cleanse(vchSecret.data(),     vchSecret.size());
+				OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+				OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+				return false;
+			}
+
+			OPENSSL_cleanse(vchSecret.data(), vchSecret.size());
+			newCryptedKeys[mi.first] = std::make_pair(pub, cryptedNew);
+			++keyIdx;
+		}
+		LogPrintf("RotateMnemonic: re-encrypted %u CKeys successfully\n",
+		          (unsigned)keyIdx);
+	}
+
+	// Step 3: Re-encrypt every stealth-address spend_secret under vNewMasterKey.
+	std::vector<std::pair<ec_point, std::vector<unsigned char>>> newStealthSecrets;
+	{
+		size_t stealthCount = 0;
+		size_t stealthRotated = 0;
+		for (auto it = stealthAddresses.begin(); it != stealthAddresses.end(); ++it)
+		{
+			++stealthCount;
+			if (it->scan_secret.size() < 32 || it->spend_secret.size() == 0)
+				continue;
+
+			CStealthAddress& sx = const_cast<CStealthAddress&>(*it);
+
+			CKeyingMaterial plainSecret(sx.spend_secret.begin(),
+			                            sx.spend_secret.begin()
+			                              + (sx.spend_secret.size() >= 32 ? 32
+			                                                              : sx.spend_secret.size()));
+			uint256 iv = Hash(sx.spend_pubkey.begin(), sx.spend_pubkey.end());
+
+			std::vector<unsigned char> cryptedSpend;
+			if (!EncryptSecret(vNewMasterKey, plainSecret, iv, cryptedSpend))
+			{
+				LogPrintf("RotateMnemonic FAIL: EncryptSecret failed for stealth address %u\n",
+				          (unsigned)stealthCount);
+				OPENSSL_cleanse(plainSecret.data(), plainSecret.size());
+				OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+				OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+				return false;
+			}
+			OPENSSL_cleanse(plainSecret.data(), plainSecret.size());
+
+			newStealthSecrets.emplace_back(sx.spend_pubkey, std::move(cryptedSpend));
+			++stealthRotated;
+		}
+		LogPrintf("RotateMnemonic: re-encrypted %u of %u stealth addresses\n",
+		          (unsigned)stealthRotated, (unsigned)stealthCount);
+	}
+
+	// Step 4: Build the two new CMasterKey envelopes.
+
+	// [a] New password envelope -- same password, same KDF parameters.
+	CMasterKey kNewPasswordEntry = kOldPasswordEntry;
+	{
+		CCrypter crypter;
+		if (!crypter.SetKeyFromPassphrase(strCurrentPassword,
+				kNewPasswordEntry.vchSalt,
+				kNewPasswordEntry.nDeriveIterations,
+				kNewPasswordEntry.nDerivationMethod))
+		{
+			LogPrintf("RotateMnemonic FAIL: SetKeyFromPassphrase for new password envelope\n");
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+		if (!crypter.Encrypt(vNewMasterKey, kNewPasswordEntry.vchCryptedKey))
+		{
+			LogPrintf("RotateMnemonic FAIL: Encrypt for new password envelope\n");
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+	}
+
+	// [b] New mnemonic envelope from the new vMasterKey.
+	SecureString newMnemonic, newMnemonicHex;
+	if (BIP39Passphrase::mnemonicFromVMasterKey(vNewMasterKey, newMnemonic)
+	    != BIP39Passphrase::Result::OK)
+	{
+		LogPrintf("RotateMnemonic FAIL: mnemonicFromVMasterKey\n");
+		OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+		OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+		return false;
+	}
+	if (BIP39Passphrase::passphraseFromMnemonic(newMnemonic, newMnemonicHex)
+	    != BIP39Passphrase::Result::OK)
+	{
+		LogPrintf("RotateMnemonic FAIL: passphraseFromMnemonic (new)\n");
+		OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()), newMnemonic.size());
+		OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+		OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+		return false;
+	}
+
+	CMasterKey kNewMnemonicEntry;
+	kNewMnemonicEntry.vchSalt.resize(WALLET_CRYPTO_SALT_SIZE);
+	if (!GetRandBytes(&kNewMnemonicEntry.vchSalt[0], WALLET_CRYPTO_SALT_SIZE))
+	{
+		LogPrintf("RotateMnemonic FAIL: GetRandBytes for new mnemonic salt\n");
+		OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()),    newMnemonic.size());
+		OPENSSL_cleanse(const_cast<char*>(newMnemonicHex.data()), newMnemonicHex.size());
+		OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+		OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+		return false;
+	}
+	kNewMnemonicEntry.nDeriveIterations = 25000;
+	kNewMnemonicEntry.nDerivationMethod = 0;
+	{
+		CCrypter crypter;
+		if (!crypter.SetKeyFromPassphrase(newMnemonicHex,
+				kNewMnemonicEntry.vchSalt,
+				kNewMnemonicEntry.nDeriveIterations,
+				kNewMnemonicEntry.nDerivationMethod))
+		{
+			LogPrintf("RotateMnemonic FAIL: SetKeyFromPassphrase for new mnemonic envelope\n");
+			OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()),    newMnemonic.size());
+			OPENSSL_cleanse(const_cast<char*>(newMnemonicHex.data()), newMnemonicHex.size());
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+		if (!crypter.Encrypt(vNewMasterKey, kNewMnemonicEntry.vchCryptedKey))
+		{
+			LogPrintf("RotateMnemonic FAIL: Encrypt for new mnemonic envelope\n");
+			OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()),    newMnemonic.size());
+			OPENSSL_cleanse(const_cast<char*>(newMnemonicHex.data()), newMnemonicHex.size());
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+	}
+	OPENSSL_cleanse(const_cast<char*>(newMnemonicHex.data()), newMnemonicHex.size());
+	LogPrintf("RotateMnemonic: built both new master key envelopes\n");
+
+	// Step 5: Commit.  All crypto succeeded; now atomically swap in-memory
+	// state and persist to disk.
+
+	if (fFileBacked)
+	{
+		LogPrintf("RotateMnemonic: starting BDB transaction\n");
+		CWalletDB walletdb(strWalletFile);
+		if (!walletdb.TxnBegin())
+		{
+			LogPrintf("RotateMnemonic FAIL: walletdb.TxnBegin\n");
+			OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()), newMnemonic.size());
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+
+		bool ok = true;
+		const char* failPoint = NULL;
+
+		// Erase old master keys, write new ones.
+		for (const auto& mk : mapMasterKeys)
+		{
+			if (!walletdb.EraseMasterKey(mk.first))
+			{
+				ok = false;
+				failPoint = "EraseMasterKey";
+				break;
+			}
+		}
+
+		// Write password entry (re-using its id).
+		if (ok && !walletdb.WriteMasterKey(oldPasswordEntryId, kNewPasswordEntry)) {
+			ok = false;
+			failPoint = "WriteMasterKey(password)";
+		}
+
+		// Write mnemonic entry at a fresh id.
+		unsigned int newMnemonicId = nMasterKeyMaxID + 1;
+		if (ok && !walletdb.WriteMasterKey(newMnemonicId, kNewMnemonicEntry)) {
+			ok = false;
+			failPoint = "WriteMasterKey(mnemonic)";
+		}
+
+		// Re-write all crypted keys with the new envelope.
+		// Note: WriteCryptedKey writes the "ckey" record with overwrite=false
+		// (the helper was designed for initial encryption, not re-encryption).
+		// During rotation the records already exist, so we must Erase first.
+		// keymeta uses overwrite=true so it doesn't need this treatment.
+		if (ok)
+		{
+			for (const auto& mi : newCryptedKeys)
+			{
+				walletdb.EraseCryptedKey(mi.second.first);
+
+				if (!walletdb.WriteCryptedKey(mi.second.first, mi.second.second,
+				                              mapKeyMetadata[mi.first]))
+				{
+					ok = false;
+					failPoint = "WriteCryptedKey";
+					break;
+				}
+			}
+		}
+
+		if (!ok || !walletdb.TxnCommit())
+		{
+			if (!ok) {
+				LogPrintf("RotateMnemonic FAIL: BDB write step failed at %s\n",
+				          failPoint ? failPoint : "(unknown)");
+			} else {
+				LogPrintf("RotateMnemonic FAIL: walletdb.TxnCommit\n");
+			}
+			walletdb.TxnAbort();
+			OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()), newMnemonic.size());
+			OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+			OPENSSL_cleanse(vNewMasterKey.data(), vNewMasterKey.size());
+			return false;
+		}
+
+		LogPrintf("RotateMnemonic: BDB transaction committed\n");
+
+		// Update in-memory map of master keys to mirror disk.
+		{
+			LOCK(cs_wallet);
+			mapMasterKeys.clear();
+			mapMasterKeys[oldPasswordEntryId] = kNewPasswordEntry;
+			mapMasterKeys[newMnemonicId]      = kNewMnemonicEntry;
+			if (newMnemonicId > nMasterKeyMaxID)
+				nMasterKeyMaxID = newMnemonicId;
+		}
+	}
+	else
+	{
+		LOCK(cs_wallet);
+		mapMasterKeys.clear();
+		mapMasterKeys[oldPasswordEntryId]   = kNewPasswordEntry;
+		mapMasterKeys[oldPasswordEntryId+1] = kNewMnemonicEntry;
+		nMasterKeyMaxID = std::max(nMasterKeyMaxID, oldPasswordEntryId + 1);
+	}
+
+	// Step 6: Swap in-memory crypted-keys map and update stealth addresses.
+	{
+		LOCK(cs_KeyStore);
+		mapCryptedKeys = std::move(newCryptedKeys);
+
+		for (auto& pair : newStealthSecrets)
+		{
+			for (auto it = stealthAddresses.begin(); it != stealthAddresses.end(); ++it)
+			{
+				if (it->spend_pubkey == pair.first)
+				{
+					CStealthAddress& sx = const_cast<CStealthAddress&>(*it);
+					sx.spend_secret    = pair.second;
+					break;
+				}
+			}
+		}
+
+		// Replace the live vMasterKey so subsequent operations use the new key.
+		CCryptoKeyStore::vMasterKey = vNewMasterKey;
+	}
+
 	SetRecoveryPhraseFlag();
 
+	// Hand the new mnemonic back to the caller.
+	newMnemonicOut = newMnemonic;
+	OPENSSL_cleanse(const_cast<char*>(newMnemonic.data()), newMnemonic.size());
+
+	OPENSSL_cleanse(vOldMasterKey.data(), vOldMasterKey.size());
+	// vNewMasterKey is now in CCryptoKeyStore::vMasterKey -- do not clear.
+
+	LogPrintf("RotateMnemonic: SUCCESS\n");
 	return true;
 }
 
@@ -1788,7 +2458,17 @@ void CWallet::SetRecoveryPhraseFlag()
 		CWalletDB(strWalletFile).WriteRecoveryPhraseFlag();
 }
 
-
+// NOTE: HasRecoveryPhraseUpgradeDeclined / SetRecoveryPhraseUpgradeDeclined /
+// NeedsRecoveryPhraseUpgrade have moved out of CWallet.  The dismissal flag
+// is a UI preference (per-wallet, stored in QSettings via src/qt/guistate.h)
+// rather than wallet data, and the upgrade decision itself lives in
+// WalletModel::needsRecoveryPhraseUpgrade() in the Qt layer.  The daemon-only
+// build no longer needs to know about the prompt at all.
+//
+// The walletdb-level Has/Set/Erase helpers in walletdb.cpp are retained but
+// unused, on the principle that removing them is churn without benefit.  Any
+// stale "recovery_phrase_upgrade_declined" record left in a tester's
+// wallet.dat is silently ignored by future loads.
 
 void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const
 {
@@ -1899,6 +2579,36 @@ void CWallet::MarkDirty()
 	}
 }
 
+void CWallet::MarkAllTxCachesDirty()
+{
+	// Defensive cache invalidation: any keystore change can flip IsMine
+	// for previously-loaded txes (e.g. importprivkey makes outputs that
+	// were previously not-mine become spendable). The fAvailableCreditCached
+	// / fCreditCached / etc. fields on CWalletTx do not auto-invalidate on
+	// keystore changes, so we do it eagerly here.
+	//
+	// During initial wallet load, this is a no-op: every wtx loaded after
+	// the key change gets fresh caches via BindWallet() anyway, and the
+	// fWalletLoadComplete gate at GUI poll callbacks prevents premature
+	// reads of stale caches for txes loaded BEFORE the key change.
+	//
+	// After load, this fires for every importprivkey / importaddress /
+	// addwatchonly / wallet-unlock etc. and walks all of mapWallet -- 8
+	// boolean writes per tx, sub-second on any wallet size.
+	if (!fWalletLoadComplete)
+	{
+		return;
+	}
+
+	LOCK(cs_wallet);
+
+	for (std::pair<const uint256, CWalletTx>& item : mapWallet)
+	{
+		item.second.MarkDirty();
+	}
+}
+
+
 bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet)
 {
 	uint256 hash = wtxIn.GetHash();
@@ -1929,6 +2639,19 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet)
 			wtx.nTimeReceived = GetAdjustedTime();
 			wtx.nOrderPos = IncOrderPosNext();
 			wtxOrdered.insert(std::make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
+
+			// Register this tx's inputs with the spends index so that
+			// IsSpent() correctly identifies prior outputs as consumed.
+			// Previously this was only called in the wallet-load path
+			// (fFromLoadWallet branch), which meant mmTxSpends was empty
+			// for any tx added during a rescan or live operation -- and
+			// IsSpent therefore returned false for outputs that had in
+			// fact been spent.  Symptom: watch-only balance during a
+			// fresh import of an active address summed to roughly the
+			// total ever received rather than the current unspent
+			// balance.  The bug self-healed on restart because wallet
+			// load re-populated mmTxSpends from scratch.
+			AddToSpends(hash);
 
 			wtx.nTimeSmart = wtx.nTimeReceived;
 			
@@ -1984,7 +2707,21 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet)
 					}
 
 					unsigned int& blocktime = mapBlockIndex[wtxIn.hashBlock]->nTime;
-					wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
+					// If the block is genuinely older than any tx we already
+					// have (latestEntry), this is almost certainly a rescan
+					// discovering historical transactions (e.g. importaddress
+					// rescan).  Use the blocktime directly rather than
+					// clamping UP to the most recent existing tx's time --
+					// otherwise all rescan-discovered txs end up timestamped
+					// at the most recent existing tx, which is wrong.
+					if (blocktime < latestEntry)
+					{
+						wtx.nTimeSmart = blocktime;
+					}
+					else
+					{
+						wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
+					}
 				}
 				else
 				{
@@ -2174,9 +2911,35 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 	int ret = 0;
 	CBlockIndex* pindex = pindexStart;
 
+	// Tell the wallet model to start queueing transaction notifications
+	// rather than dispatching them immediately to the main thread.
+	// Without this, a heavy rescan (e.g. importaddress on an address
+	// with thousands of transactions) floods the Qt event queue with
+	// per-tx invokeMethod calls and toast notifications, hanging the
+	// main thread.  ShowProgress(100) at the end drains the queue with
+	// at-most-10-balloons safety to prevent toast spam.
+	ShowProgress(ui_translate("Rescanning..."), 0);
+
+	// Determine total blocks for progress percentage.
+	int nStartHeight = pindexStart ? pindexStart->nHeight : 0;
+	int nEndHeight = pindexBest ? pindexBest->nHeight : nStartHeight;
+	int nTotal = std::max(1, nEndHeight - nStartHeight);
+
+	// Splash feedback during init-time rescan.  The ShowProgress signal
+	// above goes to wallet->ShowProgress listeners, but during
+	// init.cpp's startup -rescan path no GUI listener is wired yet
+	// (subscribeToCoreSignals runs from the WalletModel constructor,
+	// AFTER AppInit2 returns).  uiInterface.InitMessage paints
+	// synchronously to splashref while the splash is alive and is a
+	// harmless no-op once it's torn down, so the same call serves both
+	// the startup-rescan and runtime-import-rescan paths cheaply.
+	uiInterface.InitMessage(strprintf(ui_translate("Rescanning... 0 / %d"), nTotal));
+
 	{
 		LOCK2(cs_main, cs_wallet);
 		
+		unsigned int nBlocksScanned = 0;
+
 		while (pindex)
 		{
 			// no need to read and scan block, if block was created before
@@ -2200,8 +2963,26 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 			}
 			
 			pindex = pindex->pnext;
+
+			// Periodic progress (also refreshes splash if visible).
+			// 1..99 keeps the queue active (only 0 / 100 are special).
+			if ((++nBlocksScanned % 5000) == 0 && pindex)
+			{
+				int pct = std::max(1, std::min(99, (pindex->nHeight - nStartHeight) * 100 / nTotal));
+				ShowProgress(strprintf(ui_translate("Rescanning... block %d"), pindex->nHeight), pct);
+				// Splash mirror — see entry-point comment above.
+				uiInterface.InitMessage(strprintf(
+					ui_translate("Rescanning... block %d / %d"),
+					pindex->nHeight, nEndHeight));
+			}
 		}
 	}
+
+	// Drain the queued notifications.  This dispatches at most 10 toast
+	// balloons (per the existing batch logic in walletmodel.cpp /
+	// transactiontablemodel.cpp) and updates the UI for the rest in
+	// silent mode.
+	ShowProgress("", 100);
 
 	return ret;
 }
@@ -2227,7 +3008,15 @@ void CWallet::ReacceptWalletTransactions()
 
 			int nDepth = wtx.GetDepthInMainChain();
 
-			if (!wtx.IsCoinBase() && nDepth < 0)
+			// Coinstakes are never valid as loose mempool entries; they
+			// must arrive as the second transaction of a PoS block.  The
+			// pre-fix code only excluded coinbase here, so every orphaned
+			// coinstake (nDepth < 0) was pushed through AcceptToMemoryPool
+			// and got rejected with "coinstake as individual tx", spamming
+			// the debug log with ~one error per coinstake at every launch.
+			// The check at line 3005 below already treats coinbase and
+			// coinstake symmetrically; mirror that here.
+			if (!wtx.IsCoinBase() && !wtx.IsCoinStake() && nDepth < 0)
 			{
 				// Try to add to memory pool
 				LOCK(mempool.cs);
@@ -2444,7 +3233,13 @@ CAmount CWallet::GetStake() const
 		
 		if (pcoin->IsCoinStake() && pcoin->GetBlocksToMaturity() > 0 && pcoin->GetDepthInMainChain() > 0)
 		{
-			nTotal += CWallet::GetCredit(*pcoin, ISMINE_ALL);
+			// FIX: was ISMINE_ALL, which included watch-only stake -- the
+			// "Spendable Stake" column on the dashboard then showed
+			// watch-only stake added to spendable (and matched the
+			// "Watch-only Stake" column exactly when the wallet had no
+			// real spendable stake).  Watch-only stake is reported
+			// separately by GetWatchOnlyStake().
+			nTotal += CWallet::GetCredit(*pcoin, ISMINE_SPENDABLE);
 		}
 	}
 
@@ -2463,7 +3258,10 @@ CAmount CWallet::GetNewMint() const
 		
 		if (pcoin->IsCoinBase() && pcoin->GetBlocksToMaturity() > 0 && pcoin->GetDepthInMainChain() > 0)
 		{
-			nTotal += CWallet::GetCredit(*pcoin, ISMINE_ALL);
+			// FIX: was ISMINE_ALL, which would include watch-only mining
+			// rewards in the wallet's own immature mint count.  Same bug
+			// pattern as GetStake() above.
+			nTotal += CWallet::GetCredit(*pcoin, ISMINE_SPENDABLE);
 		}
 	}
 
@@ -5162,7 +5960,7 @@ bool CWallet::SetAddressBookName(const CTxDestination& address, const std::strin
 		this,
 		address,
 		strName,
-		::IsMine(*this, address) != ISMINE_NO,
+		(::IsMine(*this, address) & ISMINE_SPENDABLE) != 0,
 		(fUpdated ? CT_UPDATED : CT_NEW)
 	);
 
@@ -5207,7 +6005,7 @@ bool CWallet::DelAddressBookName(const CTxDestination& address)
 		mapAddressBook.erase(address);
 	}
 
-	NotifyAddressBookChanged(this, address, "", ::IsMine(*this, address) != ISMINE_NO, CT_DELETED);
+	NotifyAddressBookChanged(this, address, "", (::IsMine(*this, address) & ISMINE_SPENDABLE) != 0, CT_DELETED);
 
 	if (!fFileBacked)
 		return false;

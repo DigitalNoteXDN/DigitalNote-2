@@ -91,6 +91,7 @@ SOURCES += src/net.cpp
 SOURCES += src/checkpoints.cpp
 SOURCES += src/db.cpp
 SOURCES += src/walletdb.cpp
+SOURCES += src/walletrebuild.cpp
 SOURCES += src/cbatchscanner.cpp
 SOURCES += src/txdb-leveldb.cpp
 SOURCES += src/wallet.cpp

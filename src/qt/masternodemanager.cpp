@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QItemSelectionModel>
 #include <QDesktopServices>
+#include <QTabBar>
 
 #if QT_VERSION < 0x050000
 #include <QUrl>
@@ -50,6 +51,8 @@
 #include "ui_masternodemanager.h"
 #include "addeditadrenalinenode.h"
 #include "adrenalinenodeconfigdialog.h"
+#include "coutpoint.h"
+#include "uint/uint256.h"
 
 MasternodeManager::MasternodeManager(QWidget *parent) :
     QWidget(parent),
@@ -85,8 +88,46 @@ MasternodeManager::MasternodeManager(QWidget *parent) :
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
     connect(copyPubkeyAction, SIGNAL(triggered()), this, SLOT(copyPubkey()));
 
+    // B2: own-masternodes context menu with Lock/Unlock collateral.
+    // Enable state is set just before the menu is shown by
+    // showOwnContextMenu(), based on the current row's lock state.
+    ui->tableWidget_2->setContextMenuPolicy(Qt::CustomContextMenu);
+    lockCollateralAction   = new QAction(tr("Lock collateral"),   this);
+    unlockCollateralAction = new QAction(tr("Unlock collateral"), this);
+    ownContextMenu = new QMenu();
+    ownContextMenu->addAction(lockCollateralAction);
+    ownContextMenu->addAction(unlockCollateralAction);
+    connect(ui->tableWidget_2, SIGNAL(customContextMenuRequested(const QPoint&)),
+            this, SLOT(showOwnContextMenu(const QPoint&)));
+    connect(lockCollateralAction,   SIGNAL(triggered()),
+            this, SLOT(lockSelectedCollateral()));
+    connect(unlockCollateralAction, SIGNAL(triggered()),
+            this, SLOT(unlockSelectedCollateral()));
+
     ui->tableWidgetMasternodes->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->tableWidget_2->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+
+    // Style the page's two-tab header ("DigitalNote Network" / "My
+    // Master Nodes") to match the Transactions page's WatchOnly tab
+    // bar: bold-when-selected with generous padding and matching
+    // min-width.  Keeps a consistent look across the wallet's
+    // section-header tab bars.  See transactionview.cpp's similar
+    // setStyleSheet call for the reference implementation.
+    ui->tabWidget->tabBar()->setDocumentMode(true);
+    ui->tabWidget->tabBar()->setExpanding(false);
+    ui->tabWidget->tabBar()->setStyleSheet(
+        "QTabBar::tab {"
+        "  padding: 8px 28px;"
+        "  min-width: 140px;"
+        "  font-size: 13px;"
+        "}"
+        "QTabBar::tab:selected {"
+        "  font-weight: bold;"
+        "  border-bottom: 2px solid palette(highlight);"
+        "}"
+        "QTabBar::tab:!selected {"
+        "  color: palette(mid);"
+        "}");
 
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(updateNodeList()));
@@ -142,9 +183,140 @@ void MasternodeManager::updateAdrenalineNode(QString alias, QString addr, QStrin
     QTableWidgetItem *addrItem = new QTableWidgetItem(addr);
     QTableWidgetItem *statusItem = new QTableWidgetItem(status);
 
+    // B2: stash the collateral COutPoint on the alias item so the
+    // context menu slots can read it back without re-walking
+    // masternode.conf.  Two roles (one for txid, one for vout) avoid
+    // having to parse a combined string later.
+    aliasItem->setData(Qt::UserRole,     txHash);
+    aliasItem->setData(Qt::UserRole + 1, txIndex);
+
     ui->tableWidget_2->setItem(nodeRow, 0, aliasItem);
     ui->tableWidget_2->setItem(nodeRow, 1, addrItem);
     ui->tableWidget_2->setItem(nodeRow, 2, statusItem);
+
+    // B2: Collateral column.  Reads CWallet::IsLockedCoin via the
+    // wallet model.  Centralised in refreshCollateralCell so the
+    // lock/unlock slots can just call it after toggling.
+    refreshCollateralCell(nodeRow);
+}
+
+// B2: read the lock state for one row's collateral UTXO and update the
+// fourth column.  Pulls (txHash, txIndex) from the alias item's user
+// data (set by updateAdrenalineNode) so we don't re-walk
+// masternode.conf on every refresh.
+void MasternodeManager::refreshCollateralCell(int row)
+{
+    if (!walletModel || row < 0 || row >= ui->tableWidget_2->rowCount())
+        return;
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    if (txHashStr.isEmpty())
+        return;
+
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    bool locked = walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout));
+
+    // Plain text rather than emoji glyphs so this renders consistently
+    // on Windows MSYS2 builds where Qt's default font may not have
+    // colour-emoji coverage.  The leading bullet keeps a visible glyph
+    // even on minimal fonts.
+    QTableWidgetItem *cell = new QTableWidgetItem(
+        locked ? tr("\xE2\x97\x8F  Locked")     // U+25CF BLACK CIRCLE
+               : tr("\xE2\x97\x8B  Unlocked")); // U+25CB WHITE CIRCLE
+    cell->setToolTip(locked
+        ? tr("This collateral UTXO is locked and cannot be spent by\n"
+             "stakes or regular sends.  Right-click to unlock.")
+        : tr("This collateral UTXO is NOT locked.  It could be spent\n"
+             "by a stake reward or a regular send, which would\n"
+             "destroy the masternode.  Right-click to lock."));
+    ui->tableWidget_2->setItem(row, 3, cell);
+}
+
+void MasternodeManager::showOwnContextMenu(const QPoint &point)
+{
+    QTableWidgetItem *item = ui->tableWidget_2->itemAt(point);
+    if (!item)
+        return;
+
+    int row = item->row();
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem || !walletModel)
+        return;
+
+    // Look up current lock state to choose which action to enable.
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    if (txHashStr.isEmpty())
+        return;
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    bool locked = walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout));
+    lockCollateralAction->setEnabled(!locked);
+    unlockCollateralAction->setEnabled(locked);
+
+    ownContextMenu->exec(ui->tableWidget_2->viewport()->mapToGlobal(point));
+}
+
+void MasternodeManager::lockSelectedCollateral()
+{
+    QList<QTableWidgetItem*> selected = ui->tableWidget_2->selectedItems();
+    if (selected.isEmpty() || !walletModel)
+        return;
+    int row = selected.first()->row();
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    COutPoint out(hash, static_cast<unsigned int>(vout));
+    walletModel->lockCoin(out);
+    refreshCollateralCell(row);
+}
+
+void MasternodeManager::unlockSelectedCollateral()
+{
+    QList<QTableWidgetItem*> selected = ui->tableWidget_2->selectedItems();
+    if (selected.isEmpty() || !walletModel)
+        return;
+    int row = selected.first()->row();
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    COutPoint out(hash, static_cast<unsigned int>(vout));
+    walletModel->unlockCoin(out);
+    refreshCollateralCell(row);
 }
 
 static QString seconds_to_DHMS(quint32 duration)

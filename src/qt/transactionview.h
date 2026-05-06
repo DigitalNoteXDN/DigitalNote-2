@@ -19,6 +19,7 @@ class QMenu;
 class QModelIndex;
 class QSignalMapper;
 class QTableView;
+class QTabBar;
 QT_END_NAMESPACE
 
 /** Widget showing the transaction list for a wallet, including a filter row.
@@ -61,7 +62,7 @@ private:
 
     QComboBox *dateWidget;
     QComboBox *typeWidget;
-    QComboBox *watchOnlyWidget;
+    QTabBar *watchOnlyTabBar;
     QLineEdit *addressWidget;
     QLineEdit *amountWidget;
 
@@ -104,7 +105,7 @@ signals:
 public slots:
     void chooseDate(int idx);
     void chooseType(int idx);
-    void chooseWatchonly(int idx);
+    void onWatchOnlyTabChanged(int idx);
     void changedPrefix(const QString &prefix);
     void changedAmount(const QString &amount);
     void exportClicked();

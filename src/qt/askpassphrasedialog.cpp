@@ -93,6 +93,7 @@ AskPassphraseDialog::AskPassphraseDialog(Mode mode, QWidget *parent) :
              // "Forgot password?" recovery link
              QPushButton *seedBtn = new QPushButton(
                  tr("Forgot password? Unlock with recovery phrase..."), this);
+             seedBtn->setObjectName("seedBtn"); 
              seedBtn->setFlat(true);
              seedBtn->setStyleSheet(
                  "QPushButton { color: #3098c6; text-decoration: underline; "
@@ -206,6 +207,16 @@ AskPassphraseDialog::~AskPassphraseDialog()
 void AskPassphraseDialog::setModel(WalletModel *model)
 {
     this->model = model;
+ 
+    // Hide the "Forgot password?" recovery hyperlink if the wallet
+    // doesn't actually have a recovery phrase envelope.  Without
+    // CMasterKey[2] the phrase can't decrypt anything, so the link
+    // would be a dead end if clicked.
+    if (model && !model->hasMnemonicMasterKey()) {
+        if (QPushButton *seedBtn = findChild<QPushButton*>("seedBtn")) {
+            seedBtn->hide();
+        }
+    }
 }
 
 // ── Slots ────────────────────────────────────────────────────────────────────
@@ -301,41 +312,55 @@ void AskPassphraseDialog::accept()
             tr("Warning: If you encrypt your wallet and lose your passphrase, you will "
                "<b>LOSE ALL OF YOUR COINS</b>!") + "<br><br>" +
             tr("Are you sure you wish to encrypt your wallet?") + "<br><br>" +
-            tr("<i>Tip: After encrypting, go to Settings → Seed Phrase / Recovery Words "
-               "to enable seed phrase recovery.</i>"),
+            tr("<i>By selecting Yes your wallet will automatically assign a recovery "
+               "seed phrase &mdash; be prepared to write it down.</i>"),
             QMessageBox::Yes | QMessageBox::Cancel,
             QMessageBox::Cancel);
 
         if(retval == QMessageBox::Yes) {
             if(newpass1 == newpass2) {
                 if(model->setWalletEncrypted(true, newpass1)) {
-                    // Register the mnemonic as a second master key
-                    // so both password AND recovery phrase unlock the wallet
-                    model->addMnemonicMasterKey(newpass1);
-
-                    // Derive and show the recovery mnemonic
+                    // Wallet is now encrypted but locked. We need to unlock
+                    // briefly to derive the recovery phrase from vMasterKey
+                    // (D2: phrase is derived from the master key, not from
+                    // the password directly).
                     SecureString recoveryMnemonic;
-                    bool mnOk = model->generateRecoveryMnemonic(newpass1, recoveryMnemonic);
-                    if (mnOk && !recoveryMnemonic.empty()) {
+                    bool mnemonicReady = false;
+
+                    if (model->setWalletLocked(false, newpass1)) {
+                        // Wallet is now unlocked -- vMasterKey is in memory.
+                        // Register the phrase-derived envelope as CMasterKey[2]
+                        // so both password AND phrase can unlock the wallet.
+                        if (model->addMnemonicMasterKey()) {
+                            // Re-derive the phrase from the current vMasterKey
+                            // for display.
+                            mnemonicReady = model->getCurrentMnemonic(recoveryMnemonic);
+                        }
+                        // Lock back up regardless of outcome above.
+                        model->setWalletLocked(true);
+                    }
+
+                    if (mnemonicReady && !recoveryMnemonic.empty()) {
                         QString mnWords = QString::fromStdString(
                             std::string(recoveryMnemonic.begin(), recoveryMnemonic.end()));
                         OPENSSL_cleanse(const_cast<char*>(recoveryMnemonic.data()),
                                         recoveryMnemonic.size());
-                        QMessageBox mb(this);
-                        mb.setWindowTitle(tr("Your 24-Word Recovery Phrase"));
-                        mb.setIcon(QMessageBox::Warning);
-                        mb.setText(
-                            tr("<b>Write down these 24 words in order and store them safely.</b>"
-                               "<br><br><tt>%1</tt><br><br>"
-                               "These words can recover access to your encrypted wallet if you forget "
-                               "your password. <b>Anyone with these words can unlock your wallet.</b>"
-                               "<br><br><i>This phrase will not be shown again.</i>").arg(mnWords));
-                        QPushButton *copyBtn = mb.addButton(
-                            tr("Copy to clipboard"), QMessageBox::ActionRole);
-                        mb.addButton(tr("I have written it down"), QMessageBox::AcceptRole);
-                        mb.exec();
-                        if (mb.clickedButton() == copyBtn)
-                            QApplication::clipboard()->setText(mnWords);
+
+                        // Display the phrase using the full SeedPhraseDialog UI
+                        // in FirstTimeAutoReveal mode -- larger, more prominent,
+                        // and harder to dismiss accidentally than a plain
+                        // QMessageBox.  Rotation is hidden in this mode (it makes
+                        // no sense to rotate a phrase the user has just generated).
+                        SeedPhraseDialog phraseDlg(model, this,
+                                                    SeedPhraseDialog::Mode::FirstTimeAutoReveal,
+                                                    mnWords);
+                        phraseDlg.exec();
+
+                        // Wipe the local QString -- the dialog has already wiped
+                        // its own copies on close.
+                        QChar* d = const_cast<QChar*>(mnWords.constData());
+                        for (int i = 0; i < mnWords.size(); ++i) d[i] = QChar('\0');
+                        mnWords.clear();
                     }
 
                     QMessageBox::warning(this, tr("Wallet encrypted"),
@@ -403,17 +428,17 @@ void AskPassphraseDialog::accept()
     case ChangePass:
         if(newpass1 == newpass2) {
             if(model->changePassphrase(oldpass, newpass1)) {
-                // Update mnemonic master key to match new password
-                if(model->hasMnemonicMasterKey()) {
-                    model->removeMnemonicMasterKey();
-                    // Unlock with new password to add new mnemonic key
-                    model->setWalletLocked(false, newpass1);
-                    model->addMnemonicMasterKey(newpass1);
-                    model->setWalletLocked(true);
-                }
-                QMessageBox::information(this, tr("Wallet encrypted"),
-                    tr("Wallet passphrase was successfully changed.\n"
-                       "Your recovery phrase has been updated to match your new password."));
+                // D2: the recovery phrase is derived from vMasterKey, which
+                // does NOT change when the password changes -- the phrase
+                // stays the same.  ChangeWalletPassphrase only re-encrypts
+                // the password envelope (CMasterKey[1]); the phrase
+                // envelope (CMasterKey[2]) is left untouched, which is
+                // exactly the desired behaviour.
+                QMessageBox::information(this, tr("Wallet password changed"),
+                    tr("Your wallet password was changed successfully.\n\n"
+                       "Your recovery phrase is unchanged -- you can still "
+                       "use the same 24 words to recover access if you "
+                       "forget this new password."));
                 QDialog::accept();
             } else {
                 QMessageBox::critical(this, tr("Wallet encryption failed"),

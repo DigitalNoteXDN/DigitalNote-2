@@ -32,6 +32,7 @@
 #include "main_extern.h"
 #include "ui_interface.h"
 #include "fork.h"
+#include "walletrebuild.h"
 
 #ifdef Q_OS_MAC
 #include "macdockiconhandler.h"
@@ -53,12 +54,28 @@ Q_IMPORT_PLUGIN(qtaccessiblewidgets)
 static DigitalNoteGUI *guiref;
 static QSplashScreen *splashref;
 static QColor splashMessageColor(255, 255, 255); // default white
+static int splashMessageAlign = Qt::AlignCenter;  // overridden per-mode in main()
 
 static void ThreadSafeMessageBox(const std::string& message, const std::string& caption, unsigned int style)
 {
     // Message from network thread
     if(guiref)
     {
+        // Hide the splash screen first if it's still up.  Otherwise our
+        // message box renders BEHIND it because the normal-startup splash is
+        // created with Qt::WindowStaysOnTopHint -- the user sees nothing
+        // happen and the app appears frozen while it's actually waiting on
+        // a dialog they can't see. The maintenance-mode splash doesn't have
+        // this flag but hide-on-message is the right behaviour either way.
+        //
+        // The handler may be invoked from a non-GUI thread, so marshal
+        // the hide() call rather than calling it directly.  Clearing
+        // splashref afterwards stops InitMessage from refreshing it.
+        if (splashref) {
+            QMetaObject::invokeMethod(splashref, "hide", Qt::QueuedConnection);
+            splashref = nullptr;
+        }
+
         bool modal = (style & CClientUIInterface::MODAL);
         // In case of modal message, use blocking connection to wait for user to click a button
         QMetaObject::invokeMethod(guiref, "message",
@@ -94,7 +111,7 @@ static void InitMessage(const std::string &message)
 {
     if(splashref)
     {
-        splashref->showMessage(QString::fromStdString(message), Qt::AlignCenter, splashMessageColor);
+        splashref->showMessage(QString::fromStdString(message), splashMessageAlign, splashMessageColor);
         splashref->raise();
         splashref->activateWindow();
         QApplication::instance()->processEvents();
@@ -308,10 +325,66 @@ int main(int argc, char *argv[])
     // Both themes use same splash image
     // Light: white text, Dark: black text
     splashMessageColor = fUseDarkTheme ? QColor(0, 0, 0) : QColor(255, 255, 255);
-    QPixmap splashPixmap(":/images/splash");
-    QSplashScreen splash(splashPixmap,
-        Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::SplashScreen);
-    splash.setAttribute(Qt::WA_TranslucentBackground);
+
+    // Maintenance mode: triggered by any startup flag that puts the wallet
+    // into a long, opt-in operation where the GUI cannot open until the
+    // operation completes. Splash uses a chromed window (taskbar entry,
+    // minimise/close buttons, no always-on-top) so users can put the splash
+    // in the background while it runs. Normal startup keeps the original
+    // frameless always-on-top splash for the brief load.
+    //
+    // The umbrella check covers every flag that triggers a multi-minute
+    // startup phase. -maintenancemode is a no-op flag for testing the
+    // chromed splash without invoking a real maintenance operation.
+    // -iknowsalvagewalletisdangerous is the deprecated salvagewallet's
+    //  escape hatch; it implies maintenance mode if used.
+    // The .rebuildwallet-pending flag is written by the GUI Compact Wallet
+    //  flow before requesting shutdown -- on next launch the rebuild
+    //  handler in init.cpp consumes it and runs RebuildWallet().
+    bool fMaintenanceMode =
+        GetBoolArg("-rebuildwallet", false) ||
+        GetBoolArg("-rescan", false) ||
+        GetBoolArg("-reindex", false) ||
+        GetBoolArg("-iknowsalvagewalletisdangerous", false) ||
+        GetBoolArg("-maintenancemode", false) ||
+        RebuildPendingFlagExists();
+
+    // Splash image: swap to the maintenance variant for maintenance mode.
+    // The maintenance image is fully opaque and has "MAINTENANCE MODE" baked
+    // in below the circle, eliminating runtime painting entirely (which
+    // caused progressive-bolding artefacts when chunked InitMessage repaints
+    // happened at high frequency during block index load).
+    QPixmap splashPixmap(fMaintenanceMode
+        ? ":/images/splash_maintenance"
+        : ":/images/splash");
+    Qt::WindowFlags splashFlags =
+        Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::SplashScreen;
+
+    QSplashScreen splash(splashPixmap, splashFlags);
+    if (fMaintenanceMode)
+    {
+        // Replace the auto-added Qt::SplashScreen flag with a chromed set:
+        // title bar, taskbar entry, minimise + close buttons, plus
+        // always-on-top so it doesn't get buried under MSYS2/IDE/etc.
+        // windows during long-running operations.  The user can still
+        // minimise to tray and restore via the tray icon (always-on-top
+        // governs Z-order while visible; hide() works regardless).
+        // (QSplashScreen constructor unconditionally ORs Qt::SplashScreen
+        //  into whatever we pass; setWindowFlags() AFTER construction
+        //  replaces rather than ORs.)
+        splash.setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint
+                            | Qt::WindowCloseButtonHint | Qt::WindowTitleHint
+                            | Qt::WindowStaysOnTopHint);
+        splash.setWindowTitle(QObject::tr("DigitalNote -- Maintenance Mode"));
+        splash.setAttribute(Qt::WA_ShowWithoutActivating);
+        // Maintenance pixmap is fully opaque, no need for translucent
+        // background or autoFillBackground gymnastics.
+        splash.setAttribute(Qt::WA_TranslucentBackground, false);
+    }
+    else
+    {
+        splash.setAttribute(Qt::WA_TranslucentBackground);
+    }
 
     if (GetBoolArg("-splash", true) && !GetBoolArg("-min", false))
     {
@@ -347,7 +420,14 @@ int main(int argc, char *argv[])
                 paymentServer->setOptionsModel(&optionsModel);
 
                 if (splashref)
+                {
+                    // Clear splashref BEFORE finish() so any late InitMessage
+                    // calls (e.g. keypool top-up firing after "Done loading"
+                    // but before the GUI opens) no-op instead of painting
+                    // onto a splash that's about to close.
+                    splashref = nullptr;
                     splash.finish(&window);
+                }
 
                 ClientModel clientModel(&optionsModel);
                 WalletModel walletModel(pwalletMain, &optionsModel);
