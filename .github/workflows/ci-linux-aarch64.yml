@@ -105,13 +105,18 @@ jobs:
         working-directory: ${{ github.workspace }}/../DigitalNote-Builder
         run: |
           mkdir -p download && cd download
-          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
-          wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
-          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
-          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
-          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
-          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
-          wget -q https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
+          # --tries=3 --timeout=60 fails fast on flaky CDNs (esp. miniupnp.free.fr,
+          # gmplib.org) instead of hanging the whole job. Keeping output verbose
+          # so a future failure shows the actual URL/HTTP code.
+          WGET="wget --tries=3 --timeout=60 --no-verbose"
+          $WGET https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          $WGET https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          $WGET http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          $WGET https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          $WGET "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          $WGET https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          # GNU's mirror is more reliable from GitHub Actions IP ranges than gmplib.org
+          $WGET https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz
 
       - name: Compile fast libraries (cross-compile aarch64)
         if: steps.fast-cache.outputs.cache-hit != 'true'
