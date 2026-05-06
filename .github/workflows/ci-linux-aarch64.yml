@@ -95,10 +95,10 @@ jobs:
           echo "--- apt sources before fix ---"
           ls -la /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null
           # Patch one-line .list format
-          sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' /etc/apt/sources.list 2>/dev/null || true
+          sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' /etc/apt/sources.list 2>/dev/null || true
           for f in /etc/apt/sources.list.d/*.list; do
               [ -e "$f" ] || continue
-              sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' "$f"
+              sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' "$f"
           done
           # Patch deb822 .sources format (Ubuntu 22.04+/24.04+)
           for f in /etc/apt/sources.list.d/*.sources; do
@@ -208,10 +208,10 @@ jobs:
           echo "--- apt sources before fix ---"
           ls -la /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null
           # Patch one-line .list format
-          sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' /etc/apt/sources.list 2>/dev/null || true
+          sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' /etc/apt/sources.list 2>/dev/null || true
           for f in /etc/apt/sources.list.d/*.list; do
               [ -e "$f" ] || continue
-              sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' "$f"
+              sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' "$f"
           done
           # Patch deb822 .sources format (Ubuntu 22.04+/24.04+)
           for f in /etc/apt/sources.list.d/*.sources; do
@@ -331,10 +331,10 @@ jobs:
           echo "--- apt sources before fix ---"
           ls -la /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null
           # Patch one-line .list format
-          sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' /etc/apt/sources.list 2>/dev/null || true
+          sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' /etc/apt/sources.list 2>/dev/null || true
           for f in /etc/apt/sources.list.d/*.list; do
               [ -e "$f" ] || continue
-              sudo sed -i -E 's|^(deb )(\[[^]]*\] )?(http)|\1[arch=amd64] \3|' "$f"
+              sudo sed -i -E 's|^deb (\[[^]]*\] )?([^ ])|deb [arch=amd64] \2|' "$f"
           done
           # Patch deb822 .sources format (Ubuntu 22.04+/24.04+)
           for f in /etc/apt/sources.list.d/*.sources; do
