@@ -107,7 +107,10 @@ macx {
 	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/include
 	DIGITALNOTE_EVENT_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/lib
 	
-	## GMP library
+	## GMP library — built from source by CI's libs job into
+	## Builder/macos/<arch>/libs/gmp-6.3.0/ (matches compile/gmp.sh).
+	## Manual macOS builders should run compile/gmp.sh in their flow as
+	## well; otherwise this path will be empty and the static link fails.
 	DIGITALNOTE_GMP_INCLUDE_PATH      = $${DIGITALNOTE_PATH}/../libs/gmp-6.3.0/include
 	DIGITALNOTE_GMP_LIB_PATH          = $${DIGITALNOTE_PATH}/../libs/gmp-6.3.0/lib
 	
@@ -148,9 +151,19 @@ linux:!macx {
 	DIGITALNOTE_EVENT_INCLUDE_PATH    = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/include
 	DIGITALNOTE_EVENT_LIB_PATH        = $${DIGITALNOTE_PATH}/../libs/libevent-2.1.12-stable/lib
 	
-	## GMP library (provided by libgmp-dev system package)
-	DIGITALNOTE_GMP_INCLUDE_PATH      = /usr/include
-	DIGITALNOTE_GMP_LIB_PATH          = /usr/lib/x86_64-linux-gnu
+	## GMP library
+	## Default (x86_64): apt's libgmp-dev provides /usr/lib/x86_64-linux-gnu/libgmp.a
+	## aarch64 cross-compile: built from source by Builder/linux/aarch64/compile_libs.sh
+	## via compile/gmp.sh, output at libs/gmp-6.3.0/. Toggle by passing
+	## TARGET_ARCH=aarch64 to qmake (CI does this; manual builders should
+	## too — see linux/aarch64/ReadMe.md).
+	contains(TARGET_ARCH, aarch64) {
+		DIGITALNOTE_GMP_INCLUDE_PATH  = $${DIGITALNOTE_PATH}/../libs/gmp-6.3.0/include
+		DIGITALNOTE_GMP_LIB_PATH      = $${DIGITALNOTE_PATH}/../libs/gmp-6.3.0/lib
+	} else {
+		DIGITALNOTE_GMP_INCLUDE_PATH  = /usr/include
+		DIGITALNOTE_GMP_LIB_PATH      = /usr/lib/x86_64-linux-gnu
+	}
 	
 	## Miniupnp library
 	DIGITALNOTE_MINIUPNP_INCLUDE_PATH = $${DIGITALNOTE_PATH}/../libs/miniupnpc-2.2.8/include
