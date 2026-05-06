@@ -85,6 +85,24 @@ jobs:
       - name: Install cross-compile toolchain
         if: steps.fast-cache.outputs.cache-hit != 'true'
         run: |
+          # Ubuntu's main archive (archive.ubuntu.com / security.ubuntu.com)
+          # hosts ONLY amd64/i386. arm64 packages live on ports.ubuntu.com.
+          # Constrain existing sources to amd64 and add new arm64-only
+          # sources pointing at ports — otherwise after dpkg --add-architecture
+          # apt update tries to fetch arm64 Package indexes from the main
+          # archive and gets 404s.
+          sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list
+          if [ -d /etc/apt/sources.list.d ]; then
+              sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          fi
+          # Write arm64 ports sources (jammy/22.04 codename) using printf
+          # rather than heredoc to avoid YAML/bash indentation pitfalls.
+          printf '%s\n' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse' \
+              | sudo tee /etc/apt/sources.list.d/arm64-ports.list >/dev/null
           sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
           sudo apt-get install -y \
@@ -163,6 +181,24 @@ jobs:
       - name: Install cross-compile toolchain + Qt deps (host + arm64 multiarch)
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
+          # Ubuntu's main archive (archive.ubuntu.com / security.ubuntu.com)
+          # hosts ONLY amd64/i386. arm64 packages live on ports.ubuntu.com.
+          # Constrain existing sources to amd64 and add new arm64-only
+          # sources pointing at ports — otherwise after dpkg --add-architecture
+          # apt update tries to fetch arm64 Package indexes from the main
+          # archive and gets 404s.
+          sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list
+          if [ -d /etc/apt/sources.list.d ]; then
+              sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          fi
+          # Write arm64 ports sources (jammy/22.04 codename) using printf
+          # rather than heredoc to avoid YAML/bash indentation pitfalls.
+          printf '%s\n' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse' \
+              | sudo tee /etc/apt/sources.list.d/arm64-ports.list >/dev/null
           sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
           # Cross-compiler + host-side build tools
@@ -251,6 +287,24 @@ jobs:
 
       - name: Install cross-compile toolchain + arm64 runtime libs
         run: |
+          # Ubuntu's main archive (archive.ubuntu.com / security.ubuntu.com)
+          # hosts ONLY amd64/i386. arm64 packages live on ports.ubuntu.com.
+          # Constrain existing sources to amd64 and add new arm64-only
+          # sources pointing at ports — otherwise after dpkg --add-architecture
+          # apt update tries to fetch arm64 Package indexes from the main
+          # archive and gets 404s.
+          sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list
+          if [ -d /etc/apt/sources.list.d ]; then
+              sudo sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          fi
+          # Write arm64 ports sources (jammy/22.04 codename) using printf
+          # rather than heredoc to avoid YAML/bash indentation pitfalls.
+          printf '%s\n' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse' \
+              'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse' \
+              | sudo tee /etc/apt/sources.list.d/arm64-ports.list >/dev/null
           sudo dpkg --add-architecture arm64
           sudo apt-get update -qq
           sudo apt-get install -y \
