@@ -38,6 +38,22 @@ macx {
 	QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-but-set-variable
 }
 
+## Linux compat build: COMPAT_BUILD=1 (passed by CI when building inside
+## an old-glibc container) statically links libstdc++ and libgcc into
+## the binary. Without this, the resulting binary requires a runtime
+## libstdc++.so matching the build host's GCC version, which often
+## doesn't exist on user systems. Adds ~1.5-2 MB to the binary; trivial
+## cost for the portability gain.
+##
+## Manual builders can also pass COMPAT_BUILD=1 to qmake if they want
+## to ship binaries to systems with older libstdc++. Default behaviour
+## (unset) preserves dynamic linking for users building locally for
+## their own machine.
+linux:!macx:contains(COMPAT_BUILD, 1) {
+	QMAKE_LFLAGS += -static-libstdc++ -static-libgcc
+	message("COMPAT_BUILD: static libstdc++/libgcc enabled")
+}
+
 ## Header inclusion information
 #QMAKE_CXXFLAGS += -H
 
