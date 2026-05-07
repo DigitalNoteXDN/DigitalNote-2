@@ -44,6 +44,13 @@ jobs:
       # No --user flag — runs as root inside the container, which is fine
       # because the container is ephemeral and the workspace is bind-mounted.
     timeout-minutes: 360
+    # Default shell for run: steps. Without this, the container uses
+    # dash (Ubuntu's /bin/sh) which doesn't support bash array syntax
+    # like ${PIPESTATUS[0]}. Forcing bash matches GitHub's default
+    # behaviour outside containers and makes our scripts portable.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       # Install curl + ca-certificates BEFORE checkout so actions/checkout's
@@ -147,6 +154,9 @@ jobs:
       image: ubuntu:20.04
     timeout-minutes: 60
     needs: libs-linux-x64-compat
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Bootstrap container
