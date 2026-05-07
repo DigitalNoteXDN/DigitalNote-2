@@ -249,6 +249,51 @@ jobs:
           echo "$CHANGES"       >> $GITHUB_OUTPUT
           echo "EOF"            >> $GITHUB_OUTPUT
 
+      - name: Build release body
+        id: body
+        run: |
+          # Strip leading 'v' to match the file naming convention.
+          # docs/release-notes/v2.0.0.7.md exists for v2.0.0.7 and v2.0.0.7-rc1
+          # (rc/beta/alpha tags reuse the parent version's notes file).
+          TAG="${{ steps.tag.outputs.tag }}"
+          BASE="${TAG%-rc*}"
+          BASE="${BASE%-beta*}"
+          BASE="${BASE%-alpha*}"
+          NOTES_FILE="docs/release-notes/${BASE}.md"
+
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "ERROR: $NOTES_FILE not found"
+            echo "Expected docs/release-notes/<version>.md to exist for tag $TAG"
+            ls docs/release-notes/ 2>/dev/null || echo "(directory does not exist)"
+            exit 1
+          fi
+
+          {
+            echo "## DigitalNote XDN ${TAG}"
+            echo
+            cat "$NOTES_FILE"
+            echo
+            echo "### Platform Downloads"
+            echo
+            echo "Filenames have the leading \`v\` stripped — so \`${TAG}\` produces files named \`…-${TAG#v}-…\`."
+            echo
+            echo "| Platform | GUI Wallet | Daemon |"
+            echo "|---|---|---|"
+            echo "| Windows x64 | \`DigitalNote-qt-<ver>-win-x64.exe\` | \`DigitalNoted-<ver>-win-x64.exe\` |"
+            echo "| Linux x64 | \`DigitalNote-qt-<ver>-linux-x64\` | \`DigitalNoted-<ver>-linux-x64\` |"
+            echo "| Linux ARM64 | \`DigitalNote-qt-<ver>-linux-arm64\` | \`DigitalNoted-<ver>-linux-arm64\` |"
+            echo "| macOS Intel | \`DigitalNote-qt-<ver>-macos-x64.dmg\` | \`DigitalNoted-<ver>-macos-x64\` |"
+            echo "| macOS Apple Silicon | \`DigitalNote-qt-<ver>-macos-arm64.dmg\` | \`DigitalNoted-<ver>-macos-arm64\` |"
+            echo
+            echo "### SHA256 Checksums"
+            echo "See \`SHA256SUMS.txt\` attached below."
+            echo
+            echo "### Changes since last release"
+            echo "${{ steps.changelog.outputs.CHANGELOG }}"
+          } > /tmp/release-body.md
+
+          echo "BODY_FILE=/tmp/release-body.md" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -267,65 +312,12 @@ jobs:
           #     anything else      => default to true.
           draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
           prerelease: ${{ contains(steps.tag.outputs.tag, 'rc') || contains(steps.tag.outputs.tag, 'beta') || contains(steps.tag.outputs.tag, 'alpha') }}
-          body: |
-            ## DigitalNote XDN ${{ steps.tag.outputs.tag }}
-
-            ### 🔐 BIP39 Recovery Phrase
-            - 24-word recovery phrase generated automatically on wallet encryption — shown once, store it safely
-            - Recovery phrase can unlock the wallet as an alternative to your password (wallet.dat must be present)
-            - Existing wallets can upgrade via Settings → Recovery Phrase (one-time process, wallet stays encrypted)
-            - `getrecoveryphrase` daemon RPC command — wallet must be unlocked to call
-            - BIP39 library merged directly into the wallet binary — no longer an external submodule
-
-            ### ⛏️ Masternode Fixes
-            - Fixed: getblocktemplate always returned the same masternode winner every block (genesis block hash bug)
-            - Fixed: all masternodes displayed the same "last paid" time (copy constructor bug)
-            - Fixed: masternodes stopping when collateral wallet version differs from remote daemon version
-
-            ### 🐛 Other Bug Fixes
-            - Fixed: wallet banning peers on startup in mixed-version networks (transition-period block validation)
-            - Fixed: CWallet::Unlock() now iterates all master keys so both password and recovery phrase unlock correctly
-
-            ### 🖥️ Wallet GUI
-            - Dark theme added — toggle via Settings
-            - New splash screens with transparent circle logo — light and dark variants
-            - MAINNET indicator in status bar
-            - Password generator button in the encrypt wallet dialog
-            - "Forgot password?" recovery phrase link in the unlock dialog
-            - Staking-only checkbox hidden by default in standard unlock mode
-
-            ### ⚠️ Upgrade Notes
-            **Recovery phrase is only available for wallets encrypted with v2.0.0.7 or later.**
-            Users with older wallets should go to Settings → Recovery Phrase immediately after upgrading to complete the one-time upgrade.
-
-            **Recommended upgrade order for masternode operators:**
-            1. Masternodes first (they generate winner votes)
-            2. Mining pools second
-            3. Stakers third
-            4. Full nodes last
-
-            ### Platform Downloads
-
-            Replace `${{ steps.tag.outputs.tag }}` with the version number when the assets are listed below (the leading `v` is stripped from filenames — so v2.0.0.7 produces files named `…-2.0.0.7-…`).
-
-            | Platform | GUI Wallet | Daemon |
-            |---|---|---|
-            | Windows x64 | `DigitalNote-qt-<ver>-win-x64.exe` | `DigitalNoted-<ver>-win-x64.exe` |
-            | Linux x64 | `DigitalNote-qt-<ver>-linux-x64` | `DigitalNoted-<ver>-linux-x64` |
-            | Linux ARM64 | `DigitalNote-qt-<ver>-linux-arm64` | `DigitalNoted-<ver>-linux-arm64` |
-            | macOS Intel | `DigitalNote-qt-<ver>-macos-x64.dmg` | `DigitalNoted-<ver>-macos-x64` |
-            | macOS Apple Silicon | `DigitalNote-qt-<ver>-macos-arm64.dmg` | `DigitalNoted-<ver>-macos-arm64` |
-
-            > **Notes**
-            > * **Linux ARM64** and **macOS Apple Silicon** builds may be missing if their CI job did not finish — see the Actions tab for build status. The other platforms are unaffected.
-            > * **macOS daemon binaries** are provided for power users running `digitalnoted` from the command line. The standard install path on macOS remains the `.dmg` GUI wallet above.
-            > * **32-bit builds** are not produced for v2.0.0.7. Users on 32-bit systems should remain on v2.0.0.5.
-
-            ### SHA256 Checksums
-            See `SHA256SUMS.txt` attached below.
-
-            ### Changes since last release
-            ${{ steps.changelog.outputs.CHANGELOG }}
+          # Body is built dynamically by the "Build release body" step which:
+          # - reads docs/release-notes/<version>.md (per-version content)
+          # - appends Platform Downloads table + SHA256 + commit changelog
+          # To customise per-release content, edit docs/release-notes/<ver>.md
+          # — no changes to release.yml needed for routine version bumps.
+          body_path: ${{ steps.body.outputs.BODY_FILE }}
 
           files: |
             release/*
