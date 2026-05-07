@@ -436,11 +436,15 @@ jobs:
 
       - name: Upload aarch64 binaries
         uses: actions/upload-artifact@v4
+        timeout-minutes: 10
         with:
           name: digitalnote-linux-aarch64
+          # Explicit paths — NOT **/ globs. The Builder dir contains a
+          # symlink back to the workspace root which causes upload-artifact
+          # to walk symlink cycles (see ci-macos-x64.yml comment).
           path: |
-            **/DigitalNoted
-            **/DigitalNote-qt
+            ${{ runner.workspace }}/DigitalNote-Builder/linux/aarch64/DigitalNote-2/DigitalNoted
+            ${{ runner.workspace }}/DigitalNote-Builder/linux/aarch64/DigitalNote-2/DigitalNote-qt
           retention-days: 14
 
       - name: Upload build logs

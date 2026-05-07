@@ -191,26 +191,26 @@ jobs:
           # ── Linux x64 ──────────────────────────────────────────────────────
           # Linux uploads use a glob root; binaries land somewhere under dist/linux-x64/
           place "dist/linux-x64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64"
-          place "dist/linux-x64/*digitalnoted"   "DigitalNoted-${VER}-linux-x64"
+          place "dist/linux-x64/*DigitalNoted"   "DigitalNoted-${VER}-linux-x64"
 
           # ── Linux aarch64 → published as 'linux-arm64' ────────────────────
           # Internal artifact name kept as 'aarch64' to avoid disturbing the
           # cache key in ci-linux-aarch64.yml; release filename uses 'arm64'
           # to match the OS/arch token convention used everywhere else.
           place "dist/linux-aarch64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-arm64"
-          place "dist/linux-aarch64/*digitalnoted"   "DigitalNoted-${VER}-linux-arm64"
+          place "dist/linux-aarch64/*DigitalNoted"   "DigitalNoted-${VER}-linux-arm64"
 
           # ── macOS x64 (Intel) ──────────────────────────────────────────────
           # Qt wallet is shipped as a .dmg produced by Builder/macos/x64/deploy.sh
           # (which calls macdeployqtplus). The daemon ships as a bare binary.
           place "dist/macos-x64/*DigitalNote-Qt-x64.dmg" "DigitalNote-qt-${VER}-macos-x64.dmg"
-          place "dist/macos-x64/*digitalnoted"           "DigitalNoted-${VER}-macos-x64"
+          place "dist/macos-x64/*DigitalNoted"           "DigitalNoted-${VER}-macos-x64"
 
           # ── macOS arm64 (Apple Silicon) ────────────────────────────────────
           # continue-on-error in the build job + here means a missing arm64
           # artifact just skips these two lines without failing the release.
           place "dist/macos-arm64/*DigitalNote-Qt-arm64.dmg" "DigitalNote-qt-${VER}-macos-arm64.dmg"
-          place "dist/macos-arm64/*digitalnoted"             "DigitalNoted-${VER}-macos-arm64"
+          place "dist/macos-arm64/*DigitalNoted"             "DigitalNoted-${VER}-macos-arm64"
 
           echo
           echo "=== Final release/ contents ==="
@@ -329,5 +329,10 @@ jobs:
 
           files: |
             release/*
-          token: ${{ secrets.PAT_TOKEN }}
+          # Use the workflow's automatic GITHUB_TOKEN, NOT the PAT_TOKEN.
+          # GITHUB_TOKEN is auto-scoped to this repo and has contents:write
+          # when workflow permissions are set to "Read and write" in repo
+          # settings. PAT_TOKEN is for cloning the Builder repo (different
+          # scope, would need releases:write added separately).
+          token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_unmatched_files: false
