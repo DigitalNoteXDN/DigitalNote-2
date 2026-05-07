@@ -47,6 +47,20 @@ jobs:
     with:
       branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
+  build-linux-x64-compat:
+    name: Build Linux x64 (compat — glibc 2.31+)
+    # Parallel "compat" build: same source, built inside ubuntu:20.04
+    # container with -static-libstdc++ -static-libgcc so the resulting
+    # binary runs on Ubuntu 20.04+, Debian 11+, RHEL 9+ — older systems
+    # than the default ci-linux-x64 build supports. Both binaries ship
+    # in the release; users on older systems pick the -compat variant.
+    # If this build's status proves consistent across releases, we can
+    # consolidate by replacing ci-linux-x64.yml with the compat version.
+    uses: ./.github/workflows/ci-linux-x64-compat.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
   build-linux-aarch64:
     name: Build Linux aarch64
     # aarch64 cross-compile is being stabilized in v2.0.0.7. The publish
@@ -83,6 +97,7 @@ jobs:
     needs:
       - build-windows
       - build-linux-x64
+      - build-linux-x64-compat
       - build-linux-aarch64
       - build-macos-x64
       - build-macos-arm64
@@ -131,6 +146,13 @@ jobs:
         with:
           name: digitalnote-linux-x64
           path: dist/linux-x64
+        continue-on-error: true
+
+      - name: Download Linux x64 (compat) artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-linux-x64-compat
+          path: dist/linux-x64-compat
         continue-on-error: true
 
       - name: Download Linux aarch64 artifact
@@ -192,6 +214,13 @@ jobs:
           # Linux uploads use a glob root; binaries land somewhere under dist/linux-x64/
           place "dist/linux-x64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64"
           place "dist/linux-x64/*DigitalNoted"   "DigitalNoted-${VER}-linux-x64"
+
+          # ── Linux x64 compat (glibc 2.31+, static libstdc++) ───────────────
+          # Built inside ubuntu:20.04 container so it runs on older systems
+          # than the standard linux-x64 build. Filename suffix '-compat' makes
+          # the choice obvious to users on the release page.
+          place "dist/linux-x64-compat/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64-compat"
+          place "dist/linux-x64-compat/*DigitalNoted"   "DigitalNoted-${VER}-linux-x64-compat"
 
           # ── Linux aarch64 → published as 'linux-arm64' ────────────────────
           # Internal artifact name kept as 'aarch64' to avoid disturbing the
@@ -281,9 +310,12 @@ jobs:
             echo "|---|---|---|"
             echo "| Windows x64 | \`DigitalNote-qt-<ver>-win-x64.exe\` | \`DigitalNoted-<ver>-win-x64.exe\` |"
             echo "| Linux x64 | \`DigitalNote-qt-<ver>-linux-x64\` | \`DigitalNoted-<ver>-linux-x64\` |"
+            echo "| Linux x64 (compat) | \`DigitalNote-qt-<ver>-linux-x64-compat\` | \`DigitalNoted-<ver>-linux-x64-compat\` |"
             echo "| Linux ARM64 | \`DigitalNote-qt-<ver>-linux-arm64\` | \`DigitalNoted-<ver>-linux-arm64\` |"
             echo "| macOS Intel | \`DigitalNote-qt-<ver>-macos-x64.dmg\` | \`DigitalNoted-<ver>-macos-x64\` |"
             echo "| macOS Apple Silicon | \`DigitalNote-qt-<ver>-macos-arm64.dmg\` | \`DigitalNoted-<ver>-macos-arm64\` |"
+            echo
+            echo "**Which Linux x64 build do I want?** The standard \`linux-x64\` requires glibc 2.39+ (Ubuntu 24.04, Debian 13). The \`linux-x64-compat\` variant requires glibc 2.31+ (Ubuntu 20.04+, Debian 11+, RHEL 9+) and statically links libstdc++. Pick compat if the standard one fails with \`GLIBC_2.x not found\` errors."
             echo
             echo "### SHA256 Checksums"
             echo "See \`SHA256SUMS.txt\` attached below."
