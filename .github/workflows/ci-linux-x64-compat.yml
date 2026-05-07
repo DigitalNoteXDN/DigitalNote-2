@@ -31,6 +31,25 @@ env:
   JOBS: 4
   # Absolute path inside the container — actions/cache does NOT allow ..
   BUILDER: /__w/DigitalNote-2/DigitalNote-Builder
+  # Dev packages needed for both libs compile and the Qt wallet's link
+  # against system X11/XCB libraries. Defined once at workflow level so
+  # both jobs get the same set — divergence between them would surface
+  # as confusing link-time errors only on the wallet build.
+  DEV_PACKAGES: >-
+    build-essential
+    autoconf automake libtool pkg-config
+    wget xz-utils
+    python3
+    libgmp-dev
+    libfreetype6-dev libfontconfig1-dev
+    libx11-dev libxcb1-dev libxext-dev libxfixes-dev
+    libxi-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev
+    libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev
+    libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev
+    libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev
+    libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev
+    libxcb-xkb-dev
+    libdbus-1-dev
 
 jobs:
 
@@ -92,23 +111,8 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update -qq
-          # Build tools + everything libs/qt need to compile from source.
           # No 'sudo' prefix — we're root inside the container.
-          apt-get install -y --no-install-recommends \
-            build-essential \
-            autoconf automake libtool pkg-config \
-            wget xz-utils \
-            python3 \
-            libgmp-dev \
-            libfreetype6-dev libfontconfig1-dev \
-            libx11-dev libxcb1-dev libxext-dev libxfixes-dev \
-            libxi-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev \
-            libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev \
-            libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev \
-            libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev \
-            libxcb-xkb-dev \
-            libdbus-1-dev
+          apt-get install -y --no-install-recommends ${{ env.DEV_PACKAGES }}
 
       - name: Download library source archives
         if: steps.libs-cache.outputs.cache-hit != 'true'
@@ -191,15 +195,10 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends \
-            build-essential \
-            autoconf automake libtool pkg-config \
-            libgmp-dev \
-            libfreetype6-dev libfontconfig1-dev \
-            libx11-dev libxcb1-dev libxcb-icccm4-dev libxcb-image0-dev \
-            libxcb-keysyms1-dev libxcb-randr0-dev libxcb-render-util0-dev \
-            libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-x11-dev \
-            libdbus-1-dev
+          # Same package list as the libs job — Qt wallet links against
+          # libxcb-shape, libxcb-sync, libxcb-xfixes etc. which the
+          # daemon doesn't need but the GUI does.
+          apt-get install -y --no-install-recommends ${{ env.DEV_PACKAGES }}
 
       - name: Verify qmake
         run: |
