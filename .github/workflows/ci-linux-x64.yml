@@ -229,11 +229,16 @@ jobs:
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
+        timeout-minutes: 10
         with:
           name: digitalnote-linux-x64
+          # Explicit paths — NOT **/ globs. Same Builder symlink cycle
+          # issue as macOS x64. Also fixes lowercase 'digitalnoted' which
+          # never matched (TARGET is 'DigitalNoted', case-sensitive on
+          # ext4).
           path: |
-            **/digitalnoted
-            **/DigitalNote-qt
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2/DigitalNoted
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2/DigitalNote-qt
           if-no-files-found: warn
           retention-days: 14
 

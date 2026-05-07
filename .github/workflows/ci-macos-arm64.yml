@@ -340,11 +340,14 @@ jobs:
 
       - name: Upload arm64 artefacts
         uses: actions/upload-artifact@v4
+        timeout-minutes: 10
         with:
           name: digitalnote-macos-arm64
+          # Explicit paths — NOT **/ globs. See ci-macos-x64.yml for the
+          # full reasoning; same Builder symlink cycle exists here.
           path: |
-            **/DigitalNote-Qt-arm64.dmg
-            **/DigitalNoted
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/DigitalNote-2/DigitalNote-Qt-arm64.dmg
+            ${{ runner.workspace }}/DigitalNote-Builder/macos/arm64/DigitalNote-2/DigitalNoted
           retention-days: 14
 
       - name: Upload build logs
