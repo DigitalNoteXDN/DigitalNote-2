@@ -199,12 +199,19 @@ jobs:
 
       - name: Link source tree and libs
         run: |
+          # NOTE: Inside containers, ${{ github.workspace }} expands to the
+          # HOST path (/home/runner/work/...) which doesn't exist inside
+          # the container. Use $GITHUB_WORKSPACE env var instead — that
+          # gets remapped by the runner to the container path (/__w/...).
+          # Same fix applies to anywhere we'd otherwise use the action
+          # context's github.workspace inside a containerised step.
+          #
           # Link source into Builder (for compile scripts)
-          ln -sfn ${{ github.workspace }} \
+          ln -sfn "$GITHUB_WORKSPACE" \
             ${{ env.BUILDER }}/linux/x64/DigitalNote-2
           # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly
           ln -sfn ${{ env.BUILDER }}/linux/x64/libs \
-            ${{ github.workspace }}/../libs
+            "$GITHUB_WORKSPACE/../libs"
 
       - name: Compile daemon (DigitalNoted) — static libstdc++/libgcc
         working-directory: ${{ env.BUILDER }}/linux/x64
@@ -220,7 +227,7 @@ jobs:
           qmake DigitalNote.daemon.pro \
             COMPAT_BUILD=1 \
             USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
-          make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon-compat.log
+          make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-daemon-compat.log
           exit ${PIPESTATUS[0]}
 
       - name: Compile Qt wallet (DigitalNote-qt) — static libstdc++/libgcc
@@ -233,7 +240,7 @@ jobs:
             COMPAT_BUILD=1 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
             USE_BIP39=1 RELEASE=1
-          make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app-compat.log
+          make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-app-compat.log
           exit ${PIPESTATUS[0]}
 
       - name: Verify glibc requirement of built binary
@@ -292,7 +299,9 @@ jobs:
         if: always()
         with:
           name: build-logs-linux-x64-compat-${{ github.sha }}
+          # Logs written into $BUILDER inside container; the action is
+          # container-aware and reads from the container path correctly.
           path: |
-            ${{ github.workspace }}/build-app-compat.log
-            ${{ github.workspace }}/build-daemon-compat.log
+            ${{ env.BUILDER }}/build-app-compat.log
+            ${{ env.BUILDER }}/build-daemon-compat.log
           retention-days: 14
