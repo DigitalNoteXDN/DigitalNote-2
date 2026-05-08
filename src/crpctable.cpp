@@ -143,9 +143,7 @@ static const CRPCCommand vRPCCommands[] =
 	{ "mintblock",              &mintblock,              false,     false,     false },
 	{ "debugrpcallowip",        &debugrpcallowip,        false,     false,     false },
 	
-#ifdef USE_BIP39
 	{ "getrecoveryphrase",      &getrecoveryphrase,      false,     false,     true  }
-#endif // USE_BIP39
 };
 
 CRPCTable::CRPCTable()

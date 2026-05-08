@@ -192,8 +192,6 @@ extern json_spirit::Value cclistcoins(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value mintblock(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value debugrpcallowip(const json_spirit::Array& params, bool fHelp);
 
-#ifdef USE_BIP39
 json_spirit::Value getrecoveryphrase(const json_spirit::Array& params, bool fHelp);
-#endif // USE_BIP39
 
 #endif // RPCSERVER_H

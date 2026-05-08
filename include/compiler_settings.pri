@@ -38,20 +38,34 @@ macx {
 	QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-but-set-variable
 }
 
-## Linux compat build: COMPAT_BUILD=1 (passed by CI when building inside
-## an old-glibc container) statically links libstdc++ and libgcc into
-## the binary. Without this, the resulting binary requires a runtime
-## libstdc++.so matching the build host's GCC version, which often
-## doesn't exist on user systems. Adds ~1.5-2 MB to the binary; trivial
-## cost for the portability gain.
+## Linux/GCC: suppress warnings that GCC 9+ raises on Boost 1.80 and
+## leveldb headers. -Wfatal-errors above means the first warning halts
+## the build, so these need to be Wno-foo'd out. Most often hit:
+##   - Boost lexical_cast/asio: deprecated implicit copy ctor/operator=
+##     when the user-defined class has a destructor (-Wdeprecated-copy)
+##   - Boost program_options: deprecated declarations on some platforms
+## Unknown -Wno-foo flags are silently accepted by GCC, so adding extra
+## ones for forward-compat (newer GCC versions) is safe.
+linux:!macx {
+	QMAKE_CXXFLAGS_WARN_ON += -Wno-deprecated-copy
+	QMAKE_CXXFLAGS_WARN_ON += -Wno-deprecated-declarations
+	QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-but-set-variable
+}
+
+## Linux: statically link libstdc++ and libgcc into all binaries.
+## Without this, the binary requires a runtime libstdc++.so matching
+## the build host's GCC version — which often doesn't exist on user
+## systems, especially when the build host is newer than the target.
+## Adds ~1.5-2 MB to the binary; trivial cost for the portability gain.
 ##
-## Manual builders can also pass COMPAT_BUILD=1 to qmake if they want
-## to ship binaries to systems with older libstdc++. Default behaviour
-## (unset) preserves dynamic linking for users building locally for
-## their own machine.
-linux:!macx:contains(COMPAT_BUILD, 1) {
+## On macOS, libc++ is part of the OS (not a separately-distributed
+## runtime), so static-linking isn't useful or supported there —
+## MACOSX_DEPLOYMENT_TARGET handles the ABI floor instead.
+##
+## On Windows (MinGW64), the C++ runtime is statically linked by
+## default, so this flag isn't needed.
+linux:!macx {
 	QMAKE_LFLAGS += -static-libstdc++ -static-libgcc
-	message("COMPAT_BUILD: static libstdc++/libgcc enabled")
 }
 
 ## Header inclusion information

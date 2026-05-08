@@ -1,4 +1,3 @@
-contains(USE_BIP39, 1) {
 	# Core BIP39 library sources
 	SOURCES += $${DIGITALNOTE_BIP39_SRC_PATH}/database.cpp
 	SOURCES += $${DIGITALNOTE_BIP39_SRC_PATH}/util.cpp
@@ -25,4 +24,4 @@ contains(USE_BIP39, 1) {
 	# Internal BIP39 headers (database.h, util.h) needed by bip39_wallet.cpp
 	INCLUDEPATH += $${DIGITALNOTE_BIP39_SRC_PATH}
 	DEPENDPATH  += $${DIGITALNOTE_BIP39_SRC_PATH}
-}
+
