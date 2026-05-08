@@ -233,7 +233,7 @@ jobs:
           # ubuntu:20.04 build host (glibc 2.31), the resulting binary
           # runs on Ubuntu 20.04+, Debian 11+, RHEL 9+, and similar.
           qmake DigitalNote.daemon.pro \
-            USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
+            USE_UPNP=1 USE_BUILD_INFO=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-daemon-compat.log
           exit ${PIPESTATUS[0]}
 
@@ -245,7 +245,7 @@ jobs:
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
-            USE_BIP39=1 RELEASE=1
+            RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-app-compat.log
           exit ${PIPESTATUS[0]}
 

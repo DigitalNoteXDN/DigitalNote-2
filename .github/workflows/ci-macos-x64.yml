@@ -269,7 +269,7 @@ jobs:
           # arm64 build's override.
           qmake DigitalNote.daemon.pro \
             QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
-            USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
+            USE_UPNP=1 USE_BUILD_INFO=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-daemon-macos.log
           exit ${PIPESTATUS[0]}
 
@@ -281,7 +281,7 @@ jobs:
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
             QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
-            USE_UPNP=1 USE_QRCODE=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
+            USE_UPNP=1 USE_QRCODE=1 USE_BUILD_INFO=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee ${{ github.workspace }}/build-app-macos.log
           exit ${PIPESTATUS[0]}
 
