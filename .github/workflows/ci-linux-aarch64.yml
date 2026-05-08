@@ -132,8 +132,21 @@ jobs:
         if: steps.fast-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          # Retry the clone up to 3 times to ride out transient network
+          # blips. Loud failure on real errors — no fallback that masks
+          # the actual problem. Each job runs on a fresh runner, so the
+          # destination dir is guaranteed not to pre-exist.
+          for attempt in 1 2 3; do
+            rm -rf DigitalNote-Builder
+            if git clone --depth 1 \
+                 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git; then
+              break
+            fi
+            echo "Clone attempt $attempt failed; sleeping 10s before retry..."
+            sleep 10
+          done
+          [ -d DigitalNote-Builder/.git ] || {
+            echo "ERROR: clone failed after 3 attempts"; exit 1; }
 
       - name: Download library source archives
         if: steps.fast-cache.outputs.cache-hit != 'true'
@@ -249,8 +262,21 @@ jobs:
         if: steps.qt-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
+          # Retry the clone up to 3 times to ride out transient network
+          # blips. Loud failure on real errors — no fallback that masks
+          # the actual problem. Each job runs on a fresh runner, so the
+          # destination dir is guaranteed not to pre-exist.
+          for attempt in 1 2 3; do
+            rm -rf DigitalNote-Builder
+            if git clone --depth 1 \
+                 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git; then
+              break
+            fi
+            echo "Clone attempt $attempt failed; sleeping 10s before retry..."
+            sleep 10
+          done
+          [ -d DigitalNote-Builder/.git ] || {
+            echo "ERROR: clone failed after 3 attempts"; exit 1; }
 
       - name: Download Qt source
         if: steps.qt-cache.outputs.cache-hit != 'true'
@@ -294,9 +320,21 @@ jobs:
       - name: Clone DigitalNote-Builder
         working-directory: ${{ github.workspace }}/..
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
-            2>/dev/null || (cd DigitalNote-Builder && git pull)
-          mkdir -p DigitalNote-Builder/linux/aarch64/libs
+          # Retry the clone up to 3 times to ride out transient network
+          # blips. Loud failure on real errors — no fallback that masks
+          # the actual problem. Each job runs on a fresh runner, so the
+          # destination dir is guaranteed not to pre-exist.
+          for attempt in 1 2 3; do
+            rm -rf DigitalNote-Builder
+            if git clone --depth 1 \
+                 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git; then
+              break
+            fi
+            echo "Clone attempt $attempt failed; sleeping 10s before retry..."
+            sleep 10
+          done
+          [ -d DigitalNote-Builder/.git ] || {
+            echo "ERROR: clone failed after 3 attempts"; exit 1; }
 
       - name: Restore fast libraries from cache
         uses: actions/cache@v4
