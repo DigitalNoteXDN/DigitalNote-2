@@ -29,6 +29,11 @@
 #include "coutpoint.h"
 #include "coutput.h"
 #include "cdigitalnoteaddress.h"
+#include "cblockindex.h"
+#include "masternodeconfig.h"
+#include "cmasternodeconfig.h"
+#include "cmasternodeconfigentry.h"
+#include "mining.h"
 #include "cnodestination.h"
 #include "ckeyid.h"
 #include "cscriptid.h"
@@ -1161,6 +1166,101 @@ void WalletModel::listLockedCoins(std::vector<COutPoint>& vOutpts)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     wallet->ListLockedCoins(vOutpts);
+}
+
+void WalletModel::listLockedOutputsWithDetails(std::vector<LockedOutputDetail>& vDetails)
+{
+    vDetails.clear();
+
+    // Snapshot the lock set and joined wallet state under cs_wallet.
+    // mapAddressBook, mapWallet, and setLockedCoins are all wallet
+    // state, so we hold one lock for all of them.
+    std::vector<COutPoint> vOutpts;
+    {
+        LOCK2(cs_main, wallet->cs_wallet);
+        wallet->ListLockedCoins(vOutpts);
+
+        // Build a lookup of MN-collateral txid:vout -> alias.  We could
+        // walk masternodeConfig for every locked output but that's
+        // O(N*M) for N locks and M MN entries; the lookup keeps it O(N+M).
+        std::map<std::pair<uint256, int>, std::string> mnByOutpoint;
+        for (const CMasternodeConfigEntry& mne : masternodeConfig.getEntries())
+        {
+            uint256 mnHash;
+            mnHash.SetHex(mne.getTxHash());
+            int mnVout = atoi(mne.getOutputIndex().c_str());
+            mnByOutpoint[std::make_pair(mnHash, mnVout)] = mne.getAlias();
+        }
+
+        const int64_t mnCollateralSatoshis =
+            MasternodeCollateral(pindexBest ? pindexBest->nHeight : 0) * COIN;
+
+        for (const COutPoint& out : vOutpts)
+        {
+            // Defensive: tx not in mapWallet means the locked output
+            // refers to a transaction we don't know about (reorg,
+            // database inconsistency).  Skip rather than show a
+            // half-populated row -- the user can clean up via RPC if
+            // they want, but we don't want to be the one rendering
+            // garbage.
+            auto txIt = wallet->mapWallet.find(out.hash);
+            if (txIt == wallet->mapWallet.end())
+                continue;
+            const CWalletTx& wtx = txIt->second;
+            if (out.n >= wtx.vout.size())
+                continue;
+
+            // Watch-only filter: skip outputs we can't actually spend.
+            // The user can manage those on the wallet that owns the
+            // spend key, not here.
+            isminetype mine = wallet->IsMine(wtx.vout[out.n]);
+            if ((mine & ISMINE_SPENDABLE) == 0)
+                continue;
+
+            LockedOutputDetail detail;
+            detail.outpoint = out;
+            detail.amount = wtx.vout[out.n].nValue;
+            detail.tier = LockedOutputDetail::LOT_OTHER;
+
+            // Address + address-book label
+            CTxDestination dest;
+            if (ExtractDestination(wtx.vout[out.n].scriptPubKey, dest))
+            {
+                detail.address = QString::fromStdString(CDigitalNoteAddress(dest).ToString());
+                auto abIt = wallet->mapAddressBook.find(dest);
+                if (abIt != wallet->mapAddressBook.end())
+                    detail.addressLabel = QString::fromStdString(abIt->second);
+            }
+
+            // Classify
+            auto mnIt = mnByOutpoint.find(std::make_pair(out.hash, static_cast<int>(out.n)));
+            if (mnIt != mnByOutpoint.end())
+            {
+                detail.tier = LockedOutputDetail::LOT_MASTERNODE;
+                detail.masternodeAlias = QString::fromStdString(mnIt->second);
+            }
+            else if (detail.amount == mnCollateralSatoshis)
+            {
+                detail.tier = LockedOutputDetail::LOT_MN_COLLATERAL_AMOUNT;
+            }
+            // else stays LOT_OTHER
+
+            vDetails.push_back(detail);
+        }
+    }
+
+    // Sort so most-consequential first: configured MNs, then matching
+    // amount but unconfigured, then other locks.  Within a tier, sort
+    // by alias/address for stability.
+    std::sort(vDetails.begin(), vDetails.end(),
+        [](const LockedOutputDetail& a, const LockedOutputDetail& b)
+        {
+            if (a.tier != b.tier)
+                return a.tier < b.tier;
+            if (a.tier == LockedOutputDetail::LOT_MASTERNODE)
+                return a.masternodeAlias < b.masternodeAlias;
+            return a.address < b.address;
+        });
 }
 
 void WalletModel::emitCollateralCandidate(const QString &txidHex, int vout)

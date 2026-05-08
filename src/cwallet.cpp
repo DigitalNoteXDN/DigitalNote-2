@@ -568,7 +568,7 @@ void CWallet::AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, 
 }
 
 void CWallet::AvailableCoinsMN(std::vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl,
-		AvailableCoinsType coin_type, bool useIX) const
+		AvailableCoinsType coin_type, bool useIX, bool fIncludeLockedMN) const
 {
 	vCoins.clear();
 
@@ -646,7 +646,7 @@ void CWallet::AvailableCoinsMN(std::vector<COutput>& vCoins, bool fOnlyConfirmed
 				if (
 					!(pcoin->IsSpent(i)) &&
 					mine != ISMINE_NO &&
-					!IsLockedCoin((*it).first, i) &&
+					(fIncludeLockedMN || !IsLockedCoin((*it).first, i)) &&
 					pcoin->vout[i].nValue > 0 &&
 					(
 						!coinControl ||

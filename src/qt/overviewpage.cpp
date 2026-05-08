@@ -111,16 +111,23 @@ void OverviewPage::setBalance(const CAmount& balance, const CAmount& stake, cons
     currentWatchOnlyStake = watchOnlyStake;
     currentWatchUnconfBalance = watchUnconfBalance;
     currentWatchImmatureBalance = watchImmatureBalance;
-    ui->labelBalance->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, balance));
-    ui->labelStake->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, stake));
-    ui->labelUnconfirmed->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, unconfirmedBalance));
-    ui->labelImmature->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, immatureBalance));
-    ui->labelTotal->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, balance + stake + unconfirmedBalance + immatureBalance));
-    ui->labelWatchAvailable->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyBalance));
-    ui->labelWatchStake->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyStake));
-    ui->labelWatchPending->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchUnconfBalance));
-    ui->labelWatchImmature->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchImmatureBalance));
-    ui->labelWatchTotal->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyBalance + watchOnlyStake + watchUnconfBalance + watchImmatureBalance));
+    // Append a trailing space to each balance label.  The bold "XDN"
+    // suffix can render slightly past the natural width of the label
+    // widget on Windows for very large balances, clipping the trailing
+    // "N".  An extra space at the end gives Qt enough render room to
+    // paint the full unit text.  Applied here rather than in
+    // formatWithUnit() so other call sites (transactions, send, RPC,
+    // etc.) don't accumulate trailing whitespace in copied amounts.
+    ui->labelBalance->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, balance) + " ");
+    ui->labelStake->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, stake) + " ");
+    ui->labelUnconfirmed->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, unconfirmedBalance) + " ");
+    ui->labelImmature->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, immatureBalance) + " ");
+    ui->labelTotal->setText(DigitalNoteUnits::formatWithUnit(nDisplayUnit, balance + stake + unconfirmedBalance + immatureBalance) + " ");
+    ui->labelWatchAvailable->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyBalance) + " ");
+    ui->labelWatchStake->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyStake) + " ");
+    ui->labelWatchPending->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchUnconfBalance) + " ");
+    ui->labelWatchImmature->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchImmatureBalance) + " ");
+    ui->labelWatchTotal->setText(DigitalNoteUnits::floorWithUnit(nDisplayUnit, watchOnlyBalance + watchOnlyStake + watchUnconfBalance + watchImmatureBalance) + " ");
 
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users

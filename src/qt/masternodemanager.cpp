@@ -58,7 +58,8 @@ MasternodeManager::MasternodeManager(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::MasternodeManager),
     clientModel(0),
-    walletModel(0)
+    walletModel(0),
+    ownContextMenuRow(-1)
 {
     ui->setupUi(this);
 
@@ -106,6 +107,15 @@ MasternodeManager::MasternodeManager(QWidget *parent) :
 
     ui->tableWidgetMasternodes->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->tableWidget_2->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    // Override stretchLastSection (set in masternodemanager.ui).  With
+    // ResizeToContents on every column, stretching the last column
+    // would just give Lock excess whitespace.  Disable so columns fit
+    // their content without the rightmost one ballooning.  Add cell
+    // padding via stylesheet so columns aren't packed tight against
+    // their neighbours.
+    ui->tableWidget_2->horizontalHeader()->setStretchLastSection(false);
+    ui->tableWidget_2->setStyleSheet(
+        "QTableWidget::item { padding-left: 8px; padding-right: 8px; }");
 
     // Style the page's two-tab header ("DigitalNote Network" / "My
     // Master Nodes") to match the Transactions page's WatchOnly tab
@@ -153,12 +163,11 @@ MasternodeManager::~MasternodeManager()
 
 void MasternodeManager::on_tableWidget_2_itemSelectionChanged()
 {
-    if(ui->tableWidget_2->selectedItems().count() > 0)
-    {
-        ui->editButton->setEnabled(true);
-        ui->startButton->setEnabled(true);
-        ui->stopButton->setEnabled(true);
-    }
+    int n = ui->tableWidget_2->selectionModel()->selectedRows().count();
+    ui->startButton->setEnabled(n > 0);
+    ui->stopButton->setEnabled(n > 0);
+    // Edit operates on exactly one row -- multi-row edit isn't supported.
+    ui->editButton->setEnabled(n == 1);
 }
 
 void MasternodeManager::updateAdrenalineNode(QString alias, QString addr, QString privkey, QString txHash, QString txIndex, QString status)
@@ -245,38 +254,64 @@ void MasternodeManager::showOwnContextMenu(const QPoint &point)
 {
     QTableWidgetItem *item = ui->tableWidget_2->itemAt(point);
     if (!item)
+    {
+        ownContextMenuRow = -1;
         return;
+    }
 
     int row = item->row();
     QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
     if (!aliasItem || !walletModel)
+    {
+        ownContextMenuRow = -1;
         return;
+    }
 
     // Look up current lock state to choose which action to enable.
     QString txHashStr = aliasItem->data(Qt::UserRole).toString();
     QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
     if (txHashStr.isEmpty())
+    {
+        ownContextMenuRow = -1;
         return;
+    }
     uint256 hash;
     hash.SetHex(txHashStr.toStdString());
     bool ok = false;
     int vout = txIndexStr.toInt(&ok);
     if (!ok || vout < 0)
+    {
+        ownContextMenuRow = -1;
         return;
+    }
 
     bool locked = walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout));
     lockCollateralAction->setEnabled(!locked);
     unlockCollateralAction->setEnabled(locked);
+
+    // Stash the row so the action handlers act on the right-clicked
+    // row (not on whatever happens to be selected).  Selection-based
+    // dispatch was the previous behaviour and led to "right-click row
+    // 5 / pick Unlock / unlock fires on row 1" surprises.
+    ownContextMenuRow = row;
+
+    // Right-click implies focus on this row.  Replace any existing
+    // multi-selection so the visual selection matches what the action
+    // handlers (and the Stop/Start/Edit buttons) will operate on.
+    // Without this, users with N rows selected can right-click an
+    // unrelated row and end up confused about whether the menu acts
+    // on the click target or the selection.
+    ui->tableWidget_2->clearSelection();
+    ui->tableWidget_2->selectRow(row);
 
     ownContextMenu->exec(ui->tableWidget_2->viewport()->mapToGlobal(point));
 }
 
 void MasternodeManager::lockSelectedCollateral()
 {
-    QList<QTableWidgetItem*> selected = ui->tableWidget_2->selectedItems();
-    if (selected.isEmpty() || !walletModel)
+    int row = ownContextMenuRow;
+    if (row < 0 || row >= ui->tableWidget_2->rowCount() || !walletModel)
         return;
-    int row = selected.first()->row();
     QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
     if (!aliasItem)
         return;
@@ -297,10 +332,9 @@ void MasternodeManager::lockSelectedCollateral()
 
 void MasternodeManager::unlockSelectedCollateral()
 {
-    QList<QTableWidgetItem*> selected = ui->tableWidget_2->selectedItems();
-    if (selected.isEmpty() || !walletModel)
+    int row = ownContextMenuRow;
+    if (row < 0 || row >= ui->tableWidget_2->rowCount() || !walletModel)
         return;
-    int row = selected.first()->row();
     QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
     if (!aliasItem)
         return;
@@ -413,6 +447,21 @@ void MasternodeManager::setWalletModel(WalletModel *model)
     {
     }
 
+}
+
+// Populate the My Master Nodes table whenever the page becomes
+// visible.  Without this, navigating to the page when its QTabWidget
+// already has My Master Nodes selected (e.g. it's the last-used tab)
+// doesn't emit currentChanged, and the table only fills the next time
+// the user touches a tab or the Update button.  Calling
+// on_UpdateButton_clicked() unconditionally on show is cheap -- it
+// walks masternodeConfig.getEntries() (one row per configured MN) and
+// calls updateAdrenalineNode for each, which is what already happens
+// on every tab change today.
+void MasternodeManager::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    on_UpdateButton_clicked();
 }
 
 void MasternodeManager::on_createButton_clicked()

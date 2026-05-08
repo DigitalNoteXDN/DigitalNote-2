@@ -277,6 +277,7 @@ SOURCES += src/qt/qvalidatedtextedit.cpp
 SOURCES += src/qt/plugins/mrichtexteditor/mrichtextedit.cpp
 SOURCES += src/qt/flowlayout.cpp
 SOURCES += src/qt/seedphrasedialog.cpp
+SOURCES += src/qt/lockedoutputsdialog.cpp
 SOURCES += src/qt/rotatephrasedialog.cpp
 SOURCES += src/qt/coincontrolworker.cpp
 SOURCES += src/qt/sendcoinsworker.cpp

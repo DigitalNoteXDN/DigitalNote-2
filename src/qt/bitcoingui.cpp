@@ -83,6 +83,7 @@
 #include "bitcoinunits.h"
 #include "seedphrasedialog.h"
 #include "walletrebuild.h"
+#include "lockedoutputsdialog.h"
 #include "util.h"   // for LogPrintf
 
 #ifdef Q_OS_MAC
@@ -409,6 +410,9 @@ void DigitalNoteGUI::createActions()
 
 	compactWalletAction = new QAction(QIcon(":/icons/options"), tr("&Compact Wallet..."), this);
 	compactWalletAction->setStatusTip(tr("Rebuild wallet.dat to reclaim space (restarts the wallet, takes time)"));
+
+	lockedOutputsAction = new QAction(QIcon(":/icons/lock_closed_solid"), tr("&Locked Outputs..."), this);
+	lockedOutputsAction->setStatusTip(tr("View and manage all currently locked outputs"));
 	
     exportAction = new QAction(QIcon(":/icons/export"), tr("&Export..."), this);
     exportAction->setToolTip(tr("Export the data in the current tab to a file"));
@@ -439,6 +443,7 @@ void DigitalNoteGUI::createActions()
 	connect(checkWalletAction, SIGNAL(triggered()), this, SLOT(checkWallet()));
     connect(repairWalletAction, SIGNAL(triggered()), this, SLOT(repairWallet()));
     connect(compactWalletAction, SIGNAL(triggered()), this, SLOT(compactWallet()));
+    connect(lockedOutputsAction, SIGNAL(triggered()), this, SLOT(showLockedOutputs()));
     connect(editConfigAction, SIGNAL(triggered()), this, SLOT(editConfig()));
     connect(editConfigExtAction, SIGNAL(triggered()), this, SLOT(editConfigExt()));
     connect(openDataDirAction, SIGNAL(triggered()), this, SLOT(openDataDir()));
@@ -492,13 +497,15 @@ void DigitalNoteGUI::createMenuBar()
     tools->addAction(checkWalletAction);
     tools->addAction(repairWalletAction);
     tools->addAction(compactWalletAction);
+    tools->addSeparator();
+    tools->addAction(lockedOutputsAction);
+    tools->addSeparator();
+    tools->addAction(openRPCConsoleAction);
+    tools->addAction(openDataDirAction);
+    tools->addAction(editConfigAction);
+    tools->addAction(editConfigExtAction);
 
     QMenu *help = appMenuBar->addMenu(tr("&Help"));
-    help->addAction(openRPCConsoleAction);
-    help->addAction(openDataDirAction);
-    help->addAction(editConfigAction);
-    help->addAction(editConfigExtAction);
-    help->addSeparator();
     help->addAction(aboutAction);
     help->addAction(aboutQtAction);
 }
@@ -647,6 +654,7 @@ void DigitalNoteGUI::setWalletModel(WalletModel *walletModel)
         sendCoinsPage->setModel(walletModel);
         signVerifyMessageDialog->setModel(walletModel);
         blockBrowser->setModel(walletModel);
+        masternodeManagerPage->setWalletModel(walletModel);
 
         setEncryptionStatus(walletModel->getEncryptionStatus());
         connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
@@ -1659,6 +1667,18 @@ void DigitalNoteGUI::showRebuildResultIfPresent()
         LogPrintf("CompactWallet: failed to remove result marker; "
                   "the dialog may re-fire on next launch.\n");
     }
+}
+
+void DigitalNoteGUI::showLockedOutputs()
+{
+    // Modal dialog -- stack-allocated, scoped to the function call.
+    // Refreshes itself on showEvent and on every toggle, so we don't
+    // need to call refresh() explicitly here.  setWalletModel is what
+    // hands the dialog its data source; without it the dialog shows
+    // an empty table and a "No wallet." status.
+    LockedOutputsDialog dlg(this);
+    dlg.setWalletModel(walletModel);
+    dlg.exec();
 }
 
 void DigitalNoteGUI::backupWallet()

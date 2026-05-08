@@ -15,6 +15,7 @@
 #include "instantx.h"
 #include "cwallet.h"
 #include "cscript.h"
+#include "coutpoint.h"
 #include <bip39/bip39_wallet.h>
 #include "serialize.h"
 #include "walletmodeltransaction.h"
@@ -91,6 +92,42 @@ public:
             message = QString::fromStdString(sMessage);
         }
     }
+};
+
+/** Per-row detail for the Locked Outputs dialog (Tools menu).
+ *  Built by WalletModel::listLockedOutputsWithDetails which enriches
+ *  each entry from setLockedCoins with address, amount, address-book
+ *  label, and a classification of what the output is.
+ *
+ *  Tier classification (see spec):
+ *    - LOT_MASTERNODE: txid:vout appears in masternode.conf.  label
+ *      is the MN alias from the conf file.
+ *    - LOT_MN_COLLATERAL_AMOUNT: amount equals the MN collateral
+ *      amount but NOT in masternode.conf.  Likely an abandoned MN
+ *      collateral or popup-locked-but-unconfigured.  Warn before
+ *      unlock but don't claim it's a configured MN.
+ *    - LOT_OTHER: regular user lock (e.g. cold storage, custom
+ *      reservations).  Standard unlock confirmation only.
+ *
+ *  Watch-only outputs are filtered at population time.  This struct
+ *  represents only outputs the wallet can actually spend.
+ */
+struct LockedOutputDetail
+{
+    enum Tier
+    {
+        LOT_MASTERNODE,
+        LOT_MN_COLLATERAL_AMOUNT,
+        LOT_OTHER
+    };
+
+    COutPoint outpoint;       // txid:vout
+    QString address;          // base58 receiving address (may be empty
+                              // if the tx is reorged out / not in mapWallet)
+    QString addressLabel;     // address-book label, may be empty
+    qint64 amount;            // value in satoshis (XDN_COIN units)
+    Tier tier;
+    QString masternodeAlias;  // populated only when tier == LOT_MASTERNODE
 };
 
 /** Interface to DigitalNote wallet from Qt view code. */
@@ -287,6 +324,11 @@ public:
     void lockCoin(COutPoint& output);
     void unlockCoin(COutPoint& output);
     void listLockedCoins(std::vector<COutPoint>& vOutpts);
+
+    /** Locked Outputs dialog support: walk setLockedCoins, filter
+     *  watch-only outputs out, classify the rest into the three
+     *  LockedOutputDetail tiers, and return the enriched list. */
+    void listLockedOutputsWithDetails(std::vector<LockedOutputDetail>& vDetails);
 
     /** Helper to emit collateralCandidateReceived from non-QObject
      *  callers (TransactionTablePriv).  Direct emit isn't possible from

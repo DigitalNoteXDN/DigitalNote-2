@@ -310,6 +310,7 @@ HEADERS += src/qt/blockbrowser.h
 HEADERS += src/qt/plugins/mrichtexteditor/mrichtextedit.h
 HEADERS += src/qt/qvalidatedtextedit.h
 HEADERS += src/qt/seedphrasedialog.h
+HEADERS += src/qt/lockedoutputsdialog.h
 HEADERS += src/qt/rotatephrasedialog.h
 HEADERS += src/qt/coincontrolworker.h
 HEADERS += src/qt/sendcoinsworker.h

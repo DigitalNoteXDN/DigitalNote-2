@@ -8,6 +8,7 @@
 #include "cwallettx.h"
 #include "mining.h"
 #include "script.h"
+#include "thread.h"
 #include "net.h"
 #include "ckey.h"
 #include "main_extern.h"
@@ -454,6 +455,24 @@ bool CActiveMasternode::Register(CTxIn vin, CService service, CKey keyCollateral
 		pubKeyMasternode, -1, -1, masterNodeSignatureTime, PROTOCOL_VERSION, donationAddress, donationPercentage
 	);
 
+	// Auto-lock the collateral so it isn't accidentally spent or staked
+	// while this masternode is active.  ManageStatus() already does this
+	// for the local-MN path at the call site that invoked us; remote MNs
+	// went unprotected before this fix.  Idempotent if already locked.
+	// Fix 1 (AvailableCoinsMN's fIncludeLockedMN bypass) ensures that
+	// this lock does not prevent legitimate re-Register operations.
+	if (pwalletMain)
+	{
+		LOCK(pwalletMain->cs_wallet);
+		COutPoint prev = vin.prevout;
+		if (!pwalletMain->IsLockedCoin(prev.hash, prev.n))
+		{
+			pwalletMain->LockCoin(prev);
+			LogPrintf("CActiveMasternode::Register() - locked collateral %s:%u\n",
+			          prev.hash.ToString().c_str(), prev.n);
+		}
+	}
+
 	return true;
 }
 
@@ -614,8 +633,14 @@ std::vector<COutput> CActiveMasternode::SelectCoinsMasternode()
 	std::vector<COutput> vCoins;
 	std::vector<COutput> filteredCoins;
 
-	// Retrieve all possible outputs
-	pwalletMain->AvailableCoinsMN(vCoins);
+	// Retrieve all possible outputs.  We pass fIncludeLockedMN=true so
+	// that locked outputs ARE candidates for masternode start.  Locks
+	// are user data: they prevent accidental spends/stakes, but they
+	// must not block the legitimate "use this collateral for a masternode"
+	// operation.  Without this, MN restart fails with "could not allocate
+	// vin" whenever the collateral is locked -- which is the recommended
+	// state for any active MN's collateral.
+	pwalletMain->AvailableCoinsMN(vCoins, true, NULL, ALL_COINS, false, true);
 
 	// Filter
 	for(const COutput& out : vCoins)

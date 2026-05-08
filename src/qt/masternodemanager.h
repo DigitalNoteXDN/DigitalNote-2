@@ -5,6 +5,7 @@
 
 #include <QMenu>
 #include <QWidget>
+#include <QShowEvent>
 #include <QTimer>
 #include <QItemSelectionModel>
 
@@ -49,6 +50,12 @@ private:
     QMenu* ownContextMenu;
     QAction* lockCollateralAction;
     QAction* unlockCollateralAction;
+    /** B2 fix: row index under the cursor when the own-masternodes
+     *  context menu was last opened.  Used by the lock/unlock action
+     *  handlers so they act on the right-clicked row, not on whatever
+     *  is currently selected.  -1 means "no valid row" (handlers
+     *  short-circuit). */
+    int ownContextMenuRow;
     
 public slots:
     void updateNodeList();
@@ -91,6 +98,15 @@ private slots:
     void on_tableWidget_2_itemSelectionChanged();
     void on_tabWidget_currentChanged(int index);
     void on_editButton_clicked();
+
+protected:
+    /** Trigger an Update on every show so the My Master Nodes table
+     *  populates immediately when the user navigates to the page,
+     *  instead of waiting for a tab change.  Without this, the page
+     *  lands on the last-selected tab and on_tabWidget_currentChanged
+     *  never fires, leaving the Lock column empty until the user
+     *  manually clicks Update or switches tabs. */
+    void showEvent(QShowEvent *event) override;
 
 };
 #endif // MASTERNODEMANAGER_H

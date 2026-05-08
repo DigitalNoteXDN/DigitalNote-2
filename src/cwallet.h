@@ -183,7 +183,7 @@ public:
 			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
 
 	void AvailableCoinsMN(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL,
-			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
+			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false, bool fIncludeLockedMN = false) const;
 
 	bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs,
 			std::vector<COutput> vCoins, setCoins_t& setCoinsRet,

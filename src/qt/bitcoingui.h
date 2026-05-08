@@ -126,6 +126,7 @@ private:
     QAction *editConfigAction;
     QAction *editConfigExtAction;
     QAction *openDataDirAction;
+    QAction *lockedOutputsAction;
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;
@@ -254,6 +255,13 @@ private slots:
      *  app shutdown.  Next launch picks up the flag and runs RebuildWallet
      *  before LoadWallet. */
     void compactWallet();
+    /** Tools -> Locked Outputs...
+     *  Opens the modal Locked Outputs dialog which lists every output
+     *  currently held in setLockedCoins (filtered to spendable-by-this-
+     *  wallet) with three-tier classification (configured masternode /
+     *  2M XDN-not-configured / other) and per-row toggle with tier-
+     *  appropriate confirmations. */
+    void showLockedOutputs();
     /** On first paint after launch, check for a .rebuildwallet-result
      *  marker (written by the AppInit2 rebuild handler) and surface the
      *  outcome to the user via a single one-shot dialog.  The marker is
