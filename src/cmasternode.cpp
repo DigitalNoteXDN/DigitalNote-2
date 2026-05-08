@@ -109,6 +109,7 @@ CMasternode::CMasternode(CService newAddr, CTxIn newVin, CPubKey newPubkey, std:
 	lastVote = 0;
 	nScanningErrorCount = 0;
 	nLastScanningErrorBlockHeight = 0;
+	nLastPaid = GetAdjustedTime();
 	isPortOpen = true;
 	isOldNode = true;
 }
