@@ -228,14 +228,12 @@ jobs:
           export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
           cd DigitalNote-2
           rm -rf build Makefile
-          # COMPAT_BUILD=1 tells compiler_settings.pri to emit static
-          # libstdc++/libgcc link flags so the binary doesn't need a
-          # matching libstdc++.so.6 at runtime. Combined with the
+          # Static libstdc++/libgcc is now unconditional on Linux (set in
+          # compiler_settings.pri's linux:!macx scope). Combined with this
           # ubuntu:20.04 build host (glibc 2.31), the resulting binary
-          # runs on Ubuntu 20.04+, Debian 11+, and similar.
+          # runs on Ubuntu 20.04+, Debian 11+, RHEL 9+, and similar.
           qmake DigitalNote.daemon.pro \
-            COMPAT_BUILD=1 \
-            USE_UPNP=1 USE_BUILD_INFO=1 USE_BIP39=1 RELEASE=1
+            USE_UPNP=1 USE_BUILD_INFO=1 RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-daemon-compat.log
           exit ${PIPESTATUS[0]}
 
@@ -246,9 +244,8 @@ jobs:
           cd DigitalNote-2
           rm -rf build Makefile
           qmake DigitalNote.app.pro \
-            COMPAT_BUILD=1 \
             USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=1 \
-            USE_BIP39=1 RELEASE=1
+            RELEASE=1
           make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-app-compat.log
           exit ${PIPESTATUS[0]}
 

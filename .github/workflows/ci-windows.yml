@@ -186,7 +186,7 @@ jobs:
           qmake DigitalNote.daemon.pro \
             USE_UPNP=1 \
             USE_BUILD_INFO=1 \
-            USE_BIP39=1 \
+            \
             RELEASE=1
           mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-daemon.log
           exit ${PIPESTATUS[0]}
@@ -204,7 +204,7 @@ jobs:
             USE_DBUS=1 \
             USE_QRCODE=1 \
             USE_BUILD_INFO=1 \
-            USE_BIP39=1 \
+            \
             RELEASE=1
           mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-app.log
           exit ${PIPESTATUS[0]}
