@@ -747,11 +747,17 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 	if (mapArgs.count("-masternodepaymentskey")) // masternode payments priv key
 	{
-		if (!masternodePayments.SetPrivKey(GetArg("-masternodepaymentskey", "")))
-		{
-			return InitError(ui_translate("Unable to sign masternode payment winner, wrong key?"));
-		}
-		
+		// Skip masternodePayments.SetPrivKey() startup check: that system's
+		// CheckSignature verifies against CMasternodePayments::strMainPubKey
+		// which is "" (never initialised in the codebase), so SetPrivKey
+		// returns false unconditionally even when the WIF is perfectly valid.
+		// The masternode-payments master infrastructure is non-operational
+		// network-wide (see CHANGELOG §22.5) and will be replaced by
+		// masternode-voted consensus in v2.0.0.8.  For now, the -masternodepaymentskey
+		// arg is used solely to load the spork-signing privkey; the
+		// masternodePayments side stays disabled (enabled = false) which
+		// matches actual network behaviour.
+
 		if (!sporkManager.SetPrivKey(GetArg("-masternodepaymentskey", "")))
 		{
 			return InitError(ui_translate("Unable to sign spork message, wrong key?"));

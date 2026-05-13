@@ -21,6 +21,13 @@
 #define SPORK_11_RESET_BUDGET						10010
 #define SPORK_12_RECONSIDER_BLOCKS					10011
 #define SPORK_13_ENABLE_SUPERBLOCKS					10012
+// SPORK_14_TEST_SIGNATURES is reserved for spork signature key validation
+// and protocol-level testing.  Do NOT connect this spork to any code path.
+// Future versions must not repurpose this ID for a functional spork --
+// reuse would silently activate features based on stale test broadcasts
+// stored in nodes' mapSporksActive.  If a new functional spork is needed,
+// allocate a fresh ID (SPORK_15+).
+#define SPORK_14_TEST_SIGNATURES					10013
 
 #define SPORK_1_MASTERNODE_PAYMENTS_ENFORCEMENT_DEFAULT		4070908800		// OFF
 #define SPORK_2_INSTANTX_DEFAULT							0				// ON
@@ -34,6 +41,7 @@
 #define SPORK_11_RESET_BUDGET_DEFAULT						0				// ON
 #define SPORK_12_RECONSIDER_BLOCKS_DEFAULT					0				// ON
 #define SPORK_13_ENABLE_SUPERBLOCKS_DEFAULT					4070908800		// OFF
+#define SPORK_14_TEST_SIGNATURES_DEFAULT					4070908800		// OFF (default never matters -- spork is not connected to any code)
 
 class CSporkMessage;
 class uint256;

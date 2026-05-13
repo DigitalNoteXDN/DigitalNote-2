@@ -19,8 +19,26 @@
 
 CSporkManager::CSporkManager()
 {
+	// Legacy spork pubkey -- inherited from earlier XDN releases.
+	// Corresponds to XDN mainnet address dJzowBy1WUE6bax6rMhgaiBg3tGMWk9zri.
+	// The private key for this pubkey is not known to be held by any
+	// active project member.  Retained here so that v2.0.0.7+ nodes
+	// continue to accept sporks signed with the legacy key, if any
+	// such sporks ever existed or are recovered, but the project does
+	// not rely on this key for operational spork broadcasts.
 	strMainPubKey = "04d244288a8c6ebbf491443ebfa1207275d71cb009f201c118b00cf8e77641c7f1e63e330ba909842c009af375c0f5c1c7368e8d7e2066168c40ce3cb629cf212f";
 	strTestPubKey = "04d244288a8c6ebbf491443ebfa1207275d71cb009f201c118b00cf8e77641c7f1e63e330ba909842c009af375c0f5c1c7368e8d7e2066168c40ce3cb629cf212f";
+
+	// v2.0.0.7 operative spork pubkey -- newly generated for this
+	// release cycle.  Corresponds to XDN mainnet address
+	// dFf3hK2WyJ3bkPM7zn52PPyp7sAyvjhAN4.  Private key is held by
+	// the current project owner.  This is the key used to sign
+	// sporks broadcast from v2.0.0.7 onward.  Testnet shares this
+	// pubkey because XDN has historically had no operational testnet;
+	// if/when an operational testnet is brought up, split this into
+	// a separate testnet key.
+	strMainPubKeyNew = "0442731a54d74177a4b1220e06743fd8d1ac9c72206cf6a8653e78de33f2c654cbcba4531b58b5670cfb3810486d63d6fdab05eba5c92e35f72918efb82efb8846";
+	strTestPubKeyNew = "0442731a54d74177a4b1220e06743fd8d1ac9c72206cf6a8653e78de33f2c654cbcba4531b58b5670cfb3810486d63d6fdab05eba5c92e35f72918efb82efb8846";
 }
 
 std::string CSporkManager::GetSporkNameByID(int id)
@@ -37,6 +55,7 @@ std::string CSporkManager::GetSporkNameByID(int id)
 	if(id == SPORK_11_RESET_BUDGET)						return "SPORK_11_RESET_BUDGET";
 	if(id == SPORK_12_RECONSIDER_BLOCKS)				return "SPORK_12_RECONSIDER_BLOCKS";
 	if(id == SPORK_13_ENABLE_SUPERBLOCKS)				return "SPORK_13_ENABLE_SUPERBLOCKS";
+	if(id == SPORK_14_TEST_SIGNATURES)					return "SPORK_14_TEST_SIGNATURES";
 
 	return "Unknown";
 }
@@ -55,6 +74,7 @@ int CSporkManager::GetSporkIDByName(std::string strName)
 	if(strName == "SPORK_11_RESET_BUDGET")						return SPORK_11_RESET_BUDGET;
 	if(strName == "SPORK_12_RECONSIDER_BLOCKS")					return SPORK_12_RECONSIDER_BLOCKS;
 	if(strName == "SPORK_13_ENABLE_SUPERBLOCKS")				return SPORK_13_ENABLE_SUPERBLOCKS;
+	if(strName == "SPORK_14_TEST_SIGNATURES")					return SPORK_14_TEST_SIGNATURES;
 
 	return -1;
 }
@@ -107,16 +127,23 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
 	std::string strMessage = boost::lexical_cast<std::string>(spork.nSporkID) +
 							boost::lexical_cast<std::string>(spork.nValue) +
 							boost::lexical_cast<std::string>(spork.nTimeSigned);
-	std::string strPubKey = strMainPubKey;
-	CPubKey pubkey(ParseHex(strPubKey));
-	std::string errorMessage = "";
 
-	if(!mnEngineSigner.VerifyMessage(pubkey, spork.vchSig, strMessage, errorMessage))
+	// Try v2.0.0.7 operative key first.  This is the key used by
+	// project members to sign sporks going forward.
+	std::string errorMessage = "";
+	CPubKey pubkeyNew(ParseHex(strMainPubKeyNew));
+
+	if(mnEngineSigner.VerifyMessage(pubkeyNew, spork.vchSig, strMessage, errorMessage))
 	{
-		return false;
+		return true;
 	}
 
-	return true;
+	// Fall back to legacy key for backward compatibility.  Any spork
+	// signed with the original (pre-v2.0.0.7) key still verifies here.
+	std::string errorMessageLegacy = "";
+	CPubKey pubkeyLegacy(ParseHex(strMainPubKey));
+
+	return mnEngineSigner.VerifyMessage(pubkeyLegacy, spork.vchSig, strMessage, errorMessageLegacy);
 }
 
 bool CSporkManager::Sign(CSporkMessage& spork)

@@ -3073,6 +3073,29 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 	else if (strCommand == "verack")
 	{
 		pfrom->SetRecvVersion(std::min(pfrom->nVersion, PROTOCOL_VERSION));
+
+		// Phase 1 masternode consensus groundwork: ask new peers for
+		// their masternode list immediately on connect.  Previously
+		// nodes only learned MNs passively from arriving dsee
+		// heartbeats (every ~5 min per MN); on a fresh start, the
+		// list could take 5-30 min to converge depending on which
+		// MNs happened to broadcast first.  Active sync on verack
+		// closes the gap.
+		//
+		// DsegUpdate is rate-limited (MASTERNODES_DSEG_SECONDS = 3h)
+		// and the receive-side handler bans peers that ask too
+		// often, so we cannot abuse this even with many peer
+		// connections.  Fully backward-compatible: v2.0.0.6 and
+		// earlier already respond correctly to dseg messages.
+		//
+		// Foundation for v2.0.0.8 masternode-voted payment
+		// consensus, which requires high MN list coverage on all
+		// nodes (including stakers and non-MN wallets) to achieve
+		// vote convergence.
+		if(!IsInitialBlockDownload())
+		{
+			mnodeman.DsegUpdate(pfrom);
+		}
 	}
 	else if (strCommand == "addr")
 	{

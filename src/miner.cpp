@@ -537,10 +537,19 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 												//spork
 						if(!masternodePayments.GetBlockPayee(pindexPrev->nHeight+1, mn_payee, vin))
 						{
-							CMasternode* winningNode = mnodeman.GetCurrentMasterNode(1);
-							if(winningNode)
+							// vWinning has no entry for the upcoming height -- fall back
+							// to FindOldestNotInVec (same as ProcessBlock's secondary path).
+							// The previous fallback used GetCurrentMasterNode(1), which
+							// internally calls CalculateScore(1, blockHeight=0) -- the
+							// genesis block hash -- and therefore always returned the same
+							// MN as winner.  That produced the "same MN paid twice in
+							// succession" pattern observed in UAT whenever a staker hit
+							// the fallback path (typically just-restarted wallets or fresh
+							// syncs).  Companion fix to rpcmining.cpp:847.
+							CMasternode* pmn = mnodeman.FindOldestNotInVec(std::vector<CTxIn>(), 0);
+							if(pmn)
 							{
-								mn_payee = GetScriptForDestination(winningNode->pubkey.GetID());
+								mn_payee = GetScriptForDestination(pmn->pubkey.GetID());
 							}
 							else
 							{
