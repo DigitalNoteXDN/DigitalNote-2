@@ -4,9 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to build"
+        description: "Branch to build (leave empty / blank choice to use the branch from 'Use workflow from' above)"
         required: false
-        default: "2.0.0.7-testing"
+        type: choice
+        options:
+          - ""
+          - master
+          - 2.0.0.7-testing
+          - 2.0.0.8-testing
+        default: ""
   workflow_call:      # called by release.yml on tag push
     inputs:
       branch:
@@ -335,6 +341,7 @@ jobs:
           done
           [ -d DigitalNote-Builder/.git ] || {
             echo "ERROR: clone failed after 3 attempts"; exit 1; }
+          mkdir -p DigitalNote-Builder/linux/aarch64/libs
 
       - name: Restore fast libraries from cache
         uses: actions/cache@v4

@@ -11,10 +11,15 @@ on:
         required: true
         type: string
       ref:
-        description: "Branch or commit SHA to build from"
-        required: true
-        type: string
-        default: "2.0.0.7-testing"
+        description: "Branch to build from (leave empty / blank choice to use the branch from 'Use workflow from' above)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - master
+          - 2.0.0.7-testing
+          - 2.0.0.8-testing
+        default: ""
       draft:
         description: "Publish as draft (RECOMMENDED — uncheck only when ready to make the release public)"
         required: false
