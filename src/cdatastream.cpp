@@ -26,6 +26,7 @@
 #include "uint/uint160.h"
 #include "uint/uint256.h"
 #include "csporkmessage.h"
+#include "cmasternodevote.h"
 #include "cconsensusvote.h"
 #include "cblock.h"
 #include "cunsignedalert.h"
@@ -514,6 +515,7 @@ template CDataStream& CDataStream::operator<< <std::vector<CTxOut>>(std::vector<
 template CDataStream& CDataStream::operator<< <CTransaction>(CTransaction const&);
 template CDataStream& CDataStream::operator<< <CMNengineQueue>(CMNengineQueue const&);
 template CDataStream& CDataStream::operator<< <CSporkMessage>(CSporkMessage const&);
+template CDataStream& CDataStream::operator<< <CMasternodeVote>(CMasternodeVote const&);
 template CDataStream& CDataStream::operator<< <CBlock>(CBlock const&);
 template CDataStream& CDataStream::operator<< <CUnsignedAlert>(CUnsignedAlert const&);
 template CDataStream& CDataStream::operator<< <CBigNum>(CBigNum const&);
@@ -586,6 +588,7 @@ template CDataStream& CDataStream::operator>><CPubKey>(CPubKey&);
 template CDataStream& CDataStream::operator>><CScript>(CScript&);
 template CDataStream& CDataStream::operator>><CService>(CService&);
 template CDataStream& CDataStream::operator>><CSporkMessage>(CSporkMessage&);
+template CDataStream& CDataStream::operator>><CMasternodeVote>(CMasternodeVote&);
 template CDataStream& CDataStream::operator>><CStealthAddress>(CStealthAddress&);
 template CDataStream& CDataStream::operator>><CStealthKeyMetadata>(CStealthKeyMetadata&);
 template CDataStream& CDataStream::operator>><CTransaction>(CTransaction&);

@@ -23,9 +23,13 @@
 #include "ctxmempool.h"
 #include "velocity.h"
 #include "cmasternode.h"
+#include "masternode.h"
+#include "cactivemasternode.h"
 #include "cmasternodeman.h"
 #include "cmasternodepaymentwinner.h"
 #include "cmasternodepayments.h"
+#include "cmasternodevotetracker.h"
+#include "cmasternodevote.h"
 #include "masternodeman.h"
 #include "masternode-payments.h"
 #include "masternode_extern.h"
@@ -1870,7 +1874,17 @@ bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 		{
 			return error("Reorganize() : DisconnectBlock %s failed", pindex->GetBlockHash().ToString());
 		}
-		
+
+		// v2.0.0.8 M1: update chain-derived lastPaidHeight cache.  If this
+		// disconnected block was an MN's last-known-payment block, this
+		// triggers RecomputeLastPaidHeight to find the next-most-recent.
+		mnodeman.OnBlockDisconnected(block, pindex->nHeight);
+
+		// v2.0.0.8 M3: re-allow voters to retransmit votes for this height,
+		// in case the post-reorg block at this height needs a different
+		// consensus winner.
+		voteTracker.OnBlockDisconnected(pindex->nHeight);
+
 		// Queue memory transactions to resurrect.
 		// We only do this for blocks after the last checkpoint (reorganisation before that
 		// point should only happen with -reindex/-loadblock, or a misbehaving peer.
@@ -1901,6 +1915,13 @@ bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 			// Invalid block
 			return error("Reorganize() : ConnectBlock %s failed", pindex->GetBlockHash().ToString());
 		}
+
+		// v2.0.0.8 M1: update chain-derived lastPaidHeight cache for each
+		// block on the new branch.  Mirrors the ProcessBlock tip-update hook.
+		mnodeman.OnBlockConnected(block, pindex->nHeight);
+
+		// v2.0.0.8 M3: prune old vote records as new blocks connect.
+		voteTracker.OnBlockConnected(pindex->nHeight);
 
 		// Queue memory transactions to delete
 		for(const CTransaction& tx : block.vtx)
@@ -2188,6 +2209,28 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
 	{
 		CScript payee;
 		CTxIn vin;
+
+		// v2.0.0.8 M1: update chain-derived lastPaidHeight cache from this
+		// newly-connected tip block.  Handles PoS and PoW uniformly via
+		// address-match (see cmasternodeman.cpp).  No-op if no MN payment
+		// found in the block (e.g. genesis-region blocks).
+		mnodeman.OnBlockConnected(*pblock, pindexBest->nHeight);
+
+		// v2.0.0.8 M3: prune old vote records as new blocks connect at tip.
+		voteTracker.OnBlockConnected(pindexBest->nHeight);
+
+		// v2.0.0.8 M2: if this wallet is running as an active masternode,
+		// broadcast a vote for height (current + VOTE_LOOKAHEAD).  Other
+		// v2.0.0.8 nodes will receive and (M3+) tally; v2.0.0.7 nodes will
+		// silently drop the unknown "mnvote" command.
+		//
+		// BroadcastVote internally checks status/key gates and returns
+		// false harmlessly if this wallet isn't a capable MN.  No-op for
+		// non-MN wallets (strMasterNodePrivKey empty -> early return).
+		if (fMasterNode)
+		{
+			activeMasternode.BroadcastVote(pindexBest->nHeight + VOTE_LOOKAHEAD);
+		}
 
 		// If we're in LiteMode disable mnengine features without disabling masternodes
 		if (!fLiteMode && !fImporting && !fReindex && pindexBest->nHeight > Checkpoints::GetTotalBlocksEstimate())
@@ -2688,6 +2731,9 @@ bool static AlreadyHave(CTxDB& txdb, const CInv& inv)
 		
 		case MSG_MASTERNODE_WINNER:
 			return mapSeenMasternodeVotes.count(inv.hash);
+
+		case MSG_MASTERNODE_VOTE:
+			return voteTracker.AlreadyHaveVote(inv.hash);
 	}
 	
 	// Don't know what it is, just say we already got one
@@ -2831,6 +2877,21 @@ void static ProcessGetData(CNode* pfrom)
 						
 						pfrom->PushMessage("mnw", ss);
 						
+						pushed = true;
+					}
+				}
+				if (!pushed && inv.type == MSG_MASTERNODE_VOTE)
+				{
+					CMasternodeVote vote;
+					if (voteTracker.GetVoteByHash(inv.hash, vote))
+					{
+						CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+						ss.reserve(1000);
+						ss << vote;
+
+						pfrom->PushMessage("mnvote", ss);
+
 						pushed = true;
 					}
 				}
@@ -3757,6 +3818,7 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 		// relays such as masternode lists to occur.
 		mnodeman.ProcessMessage(pfrom, strCommand, vRecv);
 		ProcessMessageMasternodePayments(pfrom, strCommand, vRecv);
+		ProcessMessageMasternodeVote(pfrom, strCommand, vRecv);
 		ProcessMessageInstantX(pfrom, strCommand, vRecv);
 		ProcessSpork(pfrom, strCommand, vRecv);
 		// Ignore unknown commands for extensibility

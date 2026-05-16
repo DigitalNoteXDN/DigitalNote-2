@@ -35,6 +35,7 @@
 #include "wallet.h"
 #include "version.h"
 #include "masternode_extern.h"
+#include "cmasternodeman.h"
 #include "cmasternodepayments.h"
 #include "spork.h"
 #include "cblock.h"
@@ -1550,6 +1551,17 @@ bool AppInit2(boost::thread_group& threadGroup)
 			LogPrintf("file format is unknown or invalid, please fix it manually\n");
 		}
 	}
+
+	// v2.0.0.8 M1: populate chain-derived lastPaidHeight cache.  Reads recent
+	// blocks (up to MAX_LASTPAID_SCAN_DEPTH) and records most-recent payment
+	// height for each enabled MN.  Replaces the broken-by-design nLastPaid
+	// field (PhaseA-current-state.md S1.5) as the input to selection logic.
+	//
+	// NOT serialized -- always rebuilt from chain at startup so cache and
+	// chain can never diverge.  At ~30 MNs and observed block rates this
+	// completes in seconds.
+	uiInterface.InitMessage(ui_translate("Populating masternode last-paid cache..."));
+	mnodeman.PopulateLastPaidHeightCache();
 
 
 	fMasterNode = GetBoolArg("-masternode", false);

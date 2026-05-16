@@ -60,6 +60,10 @@ static const CRPCCommand vRPCCommands[] =
 	{ "spork",                  &spork,                  true,      false,      false },
 	{ "masternode",             &masternode,             true,      false,      true },
 	{ "masternodelist",         &masternodelist,         true,      false,      false },
+	{ "getmnlastpaid",          &getmnlastpaid,          true,      false,      false },
+	{ "getvoteinfo",            &getvoteinfo,            true,      false,      false },
+	{ "listequivocators",       &listequivocators,       true,      false,      false },
+	{ "clearequivocator",       &clearequivocator,       true,      false,      false },
 
 #ifdef ENABLE_WALLET
 	{ "getmininginfo",          &getmininginfo,          true,      false,     false },

@@ -22,6 +22,8 @@
 #include "cmasternode.h"
 #include "cmasternodeman.h"
 #include "cmasternodepayments.h"
+#include "cmasternodevotetracker.h"
+#include "cmasternodevote.h"
 #include "cmasternodeconfig.h"
 #include "cmasternodeconfigentry.h"
 #include "masternode.h"
@@ -1255,3 +1257,339 @@ json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp)
 	return obj;
 }
 
+
+// ===========================================================================
+// v2.0.0.8 M1: getmnlastpaid RPC
+//
+// Reports chain-derived lastPaidHeight cache contents.  Useful for:
+//   - Verifying initial population walk worked correctly
+//   - Comparing across nodes (should match given same chain state)
+//   - Debugging mapLastPaidHeight cache during testing
+//
+// This is read-only inspection.  It does NOT trigger any state change.
+// ===========================================================================
+
+json_spirit::Value getmnlastpaid(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() > 1)
+	{
+		throw std::runtime_error(
+			"getmnlastpaid [\"vin\"]\n"
+			"\nReports the chain-derived last-paid-height for each enabled masternode.\n"
+			"\nArguments:\n"
+			"1. \"vin\"        (string, optional) If supplied, only report this MN's "
+			"entry.  Format: \"txid:vout\".\n"
+			"\nResult:\n"
+			"{\n"
+			"  \"chain_height\": n,             (numeric) current chain tip height\n"
+			"  \"scanned_to_height\": n,        (numeric) oldest block scanned by initial walk\n"
+			"  \"masternodes\": [               (array) one entry per enabled masternode\n"
+			"    {\n"
+			"      \"vin\": \"txid-prefix:n\",  (string) collateral outpoint\n"
+			"      \"address\": \"...\",        (string) MN payment address\n"
+			"      \"last_paid_height\": n,     (numeric) most recent payment block, "
+			"or 0 if none in scanned range\n"
+			"      \"blocks_since_paid\": n,    (numeric) chain_height - last_paid_height, "
+			"or chain_height if never seen\n"
+			"      \"voting_recently\": bool,   (boolean) whether this MN has been "
+			"seen voting in the active window (~last 10 blocks).  v2.0.0.7 MNs always "
+			"show false; broken v2.0.0.8 MNs may also show false.\n"
+			"      \"last_vote_height\": n      (numeric) most recent height this MN "
+			"voted for in our local tally, or 0 if not seen.\n"
+			"    }, ...\n"
+			"  ]\n"
+			"}\n"
+		);
+	}
+
+	json_spirit::Object obj;
+
+	int chainHeight = (pindexBest != NULL) ? pindexBest->nHeight : 0;
+	obj.push_back(json_spirit::Pair("chain_height", chainHeight));
+
+	// Filter argument: optional "txid:vout" string.
+	bool fHasFilter = false;
+	COutPoint filterOutpoint;
+
+	if (params.size() == 1)
+	{
+		std::string strVin = params[0].get_str();
+		std::string::size_type colon = strVin.find(':');
+
+		if (colon == std::string::npos)
+		{
+			throw std::runtime_error(
+				"Invalid vin filter format -- expected \"txid:vout\""
+			);
+		}
+
+		std::string strTxid = strVin.substr(0, colon);
+		std::string strVout = strVin.substr(colon + 1);
+
+		uint256 hash;
+		hash.SetHex(strTxid);
+
+		unsigned int n;
+		try
+		{
+			n = boost::lexical_cast<unsigned int>(strVout);
+		}
+		catch (boost::bad_lexical_cast&)
+		{
+			throw std::runtime_error("Invalid vout in vin filter");
+		}
+
+		filterOutpoint = COutPoint(hash, n);
+		fHasFilter = true;
+	}
+
+	json_spirit::Array masternodes;
+
+	// Snapshot MN list to avoid holding cs across the JSON building.
+	std::vector<CMasternode> snapshot = mnodeman.GetFullMasternodeVector();
+
+	// M3 patch 1: snapshot voting activity so we can annotate each MN with
+	// "is this MN actually voting within the active window."  Useful for
+	// spotting MNs that send dseep but aren't operating correctly (broken
+	// chain view -> votes rejected by validity window).
+	std::map<COutPoint, int> voterActivity = voteTracker.GetVoterActivity();
+
+	for (CMasternode& mn : snapshot)
+	{
+		if (!mn.IsEnabled())
+		{
+			continue;
+		}
+
+		if (fHasFilter && !(mn.vin.prevout == filterOutpoint))
+		{
+			continue;
+		}
+
+		int lastPaidHeight = mnodeman.GetLastPaidHeight(mn.vin.prevout);
+		int blocksSincePaid = (lastPaidHeight == 0) ? chainHeight : (chainHeight - lastPaidHeight);
+
+		// Look up voting activity for this MN.  If not in voterActivity map,
+		// the MN hasn't had a vote land in our mapVotes within the active
+		// window (or it's a v2.0.0.7 MN that doesn't vote at all).
+		int lastVoteHeight = 0;
+		std::map<COutPoint, int>::const_iterator vait = voterActivity.find(mn.vin.prevout);
+		if (vait != voterActivity.end())
+		{
+			lastVoteHeight = vait->second;
+		}
+
+		// "Recently" = anywhere in the active vote-tracking window.
+		// mapVotes only retains heights within VOTE_PAST_HORIZON of the tip,
+		// so presence in voterActivity == voted within the last ~10 blocks.
+		bool votingRecently = (lastVoteHeight > 0);
+
+		json_spirit::Object entry;
+		entry.push_back(json_spirit::Pair("vin", mn.vin.prevout.ToString()));
+		entry.push_back(json_spirit::Pair("address", CDigitalNoteAddress(mn.pubkey.GetID()).ToString()));
+		entry.push_back(json_spirit::Pair("last_paid_height", lastPaidHeight));
+		entry.push_back(json_spirit::Pair("blocks_since_paid", blocksSincePaid));
+		entry.push_back(json_spirit::Pair("voting_recently", votingRecently));
+		entry.push_back(json_spirit::Pair("last_vote_height", lastVoteHeight));
+
+		masternodes.push_back(entry);
+	}
+
+	obj.push_back(json_spirit::Pair("masternodes", masternodes));
+
+	return obj;
+}
+
+
+// ===========================================================================
+// v2.0.0.8 M3: vote-system RPCs
+// ===========================================================================
+
+static std::string ScriptToAddress(const CScript &script)
+{
+	CTxDestination dest;
+	if (!ExtractDestination(script, dest))
+	{
+		return std::string("(unparseable)");
+	}
+	return CDigitalNoteAddress(dest).ToString();
+}
+
+json_spirit::Value getvoteinfo(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() > 1)
+	{
+		throw std::runtime_error(
+			"getvoteinfo [height]\n"
+			"\nReports masternode vote tally for a given block height.  If no\n"
+			"height is given, uses the current chain tip + VOTE_LOOKAHEAD.\n"
+			"\nArguments:\n"
+			"1. height       (numeric, optional) The block height to inspect.\n"
+			"\nResult:\n"
+			"{\n"
+			"  \"height\": n,                    (numeric) the queried height\n"
+			"  \"eligible_voters\": n,           (numeric) count of MNs at MIN_VOTING_PROTOCOL_VERSION or higher\n"
+			"  \"total_votes\": n,               (numeric) total votes received for this height (across all payees)\n"
+			"  \"threshold_numerator\": n,       (numeric) consensus threshold (3 for 60%)\n"
+			"  \"threshold_denominator\": n,     (numeric) consensus threshold (5 for 60%)\n"
+			"  \"has_consensus\": bool,          (boolean) whether any payee reached 60%\n"
+			"  \"canonical_payee\": \"...\",     (string) winner address (only if has_consensus is true)\n"
+			"  \"canonical_vote_count\": n,      (numeric) vote count for winner (only if has_consensus is true)\n"
+			"  \"per_payee\": [\n"
+			"    {\n"
+			"      \"address\": \"...\",         (string) payee address\n"
+			"      \"vote_count\": n,            (numeric) how many MNs voted for this payee\n"
+			"      \"voters\": [\"...\"],        (array)  voter vins\n"
+			"      \"first_seen\": n             (numeric) unix time of first vote for this payee\n"
+			"    }, ...\n"
+			"  ]\n"
+			"}\n"
+		);
+	}
+
+	int targetHeight;
+	if (params.size() == 1)
+	{
+		targetHeight = params[0].get_int();
+	}
+	else
+	{
+		if (pindexBest == NULL)
+		{
+			throw std::runtime_error("Chain not loaded");
+		}
+		targetHeight = pindexBest->nHeight + VOTE_LOOKAHEAD;
+	}
+
+	CMasternodeVoteTracker::VoteInfo info = voteTracker.GetVoteInfo(targetHeight);
+
+	json_spirit::Object obj;
+	obj.push_back(json_spirit::Pair("height", info.height));
+	obj.push_back(json_spirit::Pair("eligible_voters", info.eligibleVoters));
+	obj.push_back(json_spirit::Pair("total_votes", info.totalVotes));
+	obj.push_back(json_spirit::Pair("threshold_numerator", VOTED_CONSENSUS_THRESHOLD_NUMERATOR));
+	obj.push_back(json_spirit::Pair("threshold_denominator", VOTED_CONSENSUS_THRESHOLD_DENOMINATOR));
+	obj.push_back(json_spirit::Pair("has_consensus", info.hasConsensus));
+
+	if (info.hasConsensus)
+	{
+		obj.push_back(json_spirit::Pair("canonical_payee", ScriptToAddress(info.canonicalPayee)));
+		obj.push_back(json_spirit::Pair("canonical_vote_count", info.canonicalVoteCount));
+	}
+
+	json_spirit::Array perPayee;
+	for (size_t i = 0; i < info.perPayee.size(); i++)
+	{
+		const CMasternodeVoteTracker::VoteInfoEntry &e = info.perPayee[i];
+
+		json_spirit::Object entry;
+		entry.push_back(json_spirit::Pair("address", ScriptToAddress(e.payeeScript)));
+		entry.push_back(json_spirit::Pair("vote_count", (int)e.voterVins.size()));
+		entry.push_back(json_spirit::Pair("first_seen", (int64_t)e.firstSeen));
+
+		json_spirit::Array voters;
+		for (std::set<COutPoint>::const_iterator vit = e.voterVins.begin();
+			 vit != e.voterVins.end(); ++vit)
+		{
+			voters.push_back(vit->ToString());
+		}
+		entry.push_back(json_spirit::Pair("voters", voters));
+
+		perPayee.push_back(entry);
+	}
+	obj.push_back(json_spirit::Pair("per_payee", perPayee));
+
+	return obj;
+}
+
+json_spirit::Value listequivocators(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() != 0)
+	{
+		throw std::runtime_error(
+			"listequivocators\n"
+			"\nReports masternodes currently marked as equivocators on THIS node.\n"
+			"Equivocator status is per-node; it does not propagate.  Recovery\n"
+			"is via fresh dsee (Path A) or the clearequivocator RPC (Path B).\n"
+			"\nResult:\n"
+			"[\n"
+			"  {\n"
+			"    \"vin\": \"txid:vout\",         (string) collateral outpoint\n"
+			"    \"count\": n,                    (numeric) equivocation events in this session\n"
+			"    \"last_equivocation_time\": n,   (numeric) unix time of last event\n"
+			"    \"auto_clearing_available\": bool  (boolean) true if count < MAX_EQUIVOCATIONS_PER_SESSION\n"
+			"  }, ...\n"
+			"]\n"
+		);
+	}
+
+	std::vector<CMasternodeVoteTracker::EquivocatorInfo> list = voteTracker.GetEquivocatorList();
+
+	json_spirit::Array arr;
+	for (size_t i = 0; i < list.size(); i++)
+	{
+		const CMasternodeVoteTracker::EquivocatorInfo &e = list[i];
+
+		json_spirit::Object entry;
+		entry.push_back(json_spirit::Pair("vin", e.voterVin.ToString()));
+		entry.push_back(json_spirit::Pair("count", e.count));
+		entry.push_back(json_spirit::Pair("last_equivocation_time", e.lastEquivocationTime));
+		entry.push_back(json_spirit::Pair("auto_clearing_available", e.autoClearingAvailable));
+
+		arr.push_back(entry);
+	}
+
+	return arr;
+}
+
+json_spirit::Value clearequivocator(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() != 1)
+	{
+		throw std::runtime_error(
+			"clearequivocator \"vin\"\n"
+			"\nRemoves an equivocator entry from THIS node's tracker.  Local-only;\n"
+			"other nodes still see the MN as an equivocator until they clear it.\n"
+			"\nArguments:\n"
+			"1. \"vin\"        (string, required) Collateral outpoint as \"txid:vout\"\n"
+			"\nResult:\n"
+			"{\n"
+			"  \"cleared\": bool,                (boolean) true if the MN was in the equivocator map\n"
+			"  \"vin\": \"...\"                  (string) the outpoint passed in\n"
+			"}\n"
+		);
+	}
+
+	std::string strVin = params[0].get_str();
+	std::string::size_type colon = strVin.find(':');
+	if (colon == std::string::npos)
+	{
+		throw std::runtime_error("Invalid vin format -- expected \"txid:vout\"");
+	}
+
+	std::string strTxid = strVin.substr(0, colon);
+	std::string strVout = strVin.substr(colon + 1);
+
+	uint256 hash;
+	hash.SetHex(strTxid);
+
+	unsigned int n;
+	try
+	{
+		n = boost::lexical_cast<unsigned int>(strVout);
+	}
+	catch (boost::bad_lexical_cast&)
+	{
+		throw std::runtime_error("Invalid vout");
+	}
+
+	COutPoint outpoint(hash, n);
+
+	bool cleared = voteTracker.ClearEquivocator(outpoint);
+
+	json_spirit::Object obj;
+	obj.push_back(json_spirit::Pair("cleared", cleared));
+	obj.push_back(json_spirit::Pair("vin", outpoint.ToString()));
+
+	return obj;
+}

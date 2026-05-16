@@ -26,7 +26,16 @@ static const int DATABASE_VERSION = 70509;
 //
 // network protocol versioning
 //
-static const int PROTOCOL_VERSION = 62055;
+// v2.0.0.7 was 62055.  Bumped for v2.0.0.8 to give nodes a way to identify
+// each other's protocol level via getpeerinfo / version handshake.  Used as
+// the threshold for MIN_VOTING_PROTOCOL_VERSION (see masternode.h) so the
+// canonical-winner denominator only counts v2.0.0.8+ MNs during deployment.
+//
+// MIN_PEER_PROTO_VERSION is intentionally NOT bumped -- v2.0.0.8 nodes
+// continue to accept v2.0.0.7 peers (62055) for the entire deployment
+// window, and v2.0.0.7 peers continue to accept v2.0.0.8 nodes because
+// 62056 > 62052.  Soft-fork compatible.
+static const int PROTOCOL_VERSION = 62056;
 
 // intial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;

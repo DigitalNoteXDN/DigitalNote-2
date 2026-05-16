@@ -50,6 +50,23 @@ public:
 
 	// enable hot wallet mode (run a masternode with no funds)
 	bool EnableHotColdMasterNode(CTxIn& vin, CService& addr);
+
+	// v2.0.0.8 M2: broadcast a masternode-payment vote.
+	//
+	// Called once per block-connect from main.cpp's ProcessBlock tip-update
+	// path.  Computes the canonical winner for (forHeight) using chain-derived
+	// data (FindOldestNotInVecChainDerived with reorg buffer), signs the
+	// vote with this node's strMasterNodePrivKey, and pushes to all peers.
+	//
+	// Returns false (and logs) if:
+	//   - This node is not running as an active MN (no privkey loaded)
+	//   - This node's MN status isn't capable/enabled (mid-init, expired, etc.)
+	//   - No candidate winner is selectable (e.g., no enabled MNs in list)
+	//   - Sign fails (key mismatch, etc.)
+	//
+	// On success, every connected peer receives an "mnvote" message.  M3
+	// receivers tally; M2 receivers log and relay.
+	bool BroadcastVote(int forHeight);
 };
 
 #endif // CACTIVEMASTERNODE_H

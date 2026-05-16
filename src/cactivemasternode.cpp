@@ -16,6 +16,7 @@
 #include "util.h"
 #include "cmasternode.h"
 #include "cmasternodeman.h"
+#include "cmasternodevotetracker.h"
 #include "masternode.h"
 #include "masternodeman.h"
 #include "masternode_extern.h"
@@ -28,6 +29,8 @@
 #include "ckeyid.h"
 #include "cscriptid.h"
 #include "cstealthaddress.h"
+#include "net/cnode.h"
+#include "cmasternodevote.h"
 #include "version.h"
 
 #include "cactivemasternode.h"
@@ -696,6 +699,109 @@ bool CActiveMasternode::EnableHotColdMasterNode(CTxIn& newVin, CService& newServ
 	this->service = newService;
 
 	LogPrintf("CActiveMasternode::EnableHotColdMasterNode() - Enabled! You may shut down the cold daemon.\n");
+
+	return true;
+}
+// ===========================================================================
+// v2.0.0.8 M2: BroadcastVote
+//
+// Hot wallets running with -masternode=1 call this on every block-connect
+// from main.cpp's ProcessBlock tip-update path.
+// ===========================================================================
+
+bool CActiveMasternode::BroadcastVote(int forHeight)
+{
+	// Gate 1: must be running as an active MN.  Non-MN wallets have an
+	// empty strMasterNodePrivKey and can't sign.  Without -masternode=1
+	// this path is never reached anyway (caller in main.cpp checks
+	// fMasterNode), but defensive belt-and-braces.
+	if (strMasterNodePrivKey.empty())
+	{
+		return false;
+	}
+
+	// Gate 2: must be operationally enabled.  An MN that's still in
+	// MASTERNODE_SYNC_IN_PROCESS or MASTERNODE_NOT_CAPABLE shouldn't yet
+	// produce votes -- other peers would reject them as unverifiable (no
+	// matching pubkey2 in their MN list).
+	if (status != MASTERNODE_IS_CAPABLE && status != MASTERNODE_REMOTELY_ENABLED)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CActiveMasternode::BroadcastVote -- skipping: status %d not capable/enabled\n",
+					  status);
+		}
+
+		return false;
+	}
+
+	// Gate 3: chain state must be sane.
+	if (pindexBest == NULL)
+	{
+		return false;
+	}
+
+	// Compute the canonical winner using chain-derived data with reorg
+	// protection.  Reference height is (currentTip - REORG_DEPTH_BUFFER) so
+	// votes are stable against typical 1-block reorgs.
+	int referenceHeight = pindexBest->nHeight - REORG_DEPTH_BUFFER;
+
+	if (referenceHeight < 0)
+	{
+		// Very early chain; nothing meaningful to vote on yet.
+		return false;
+	}
+
+	CMasternode *winner = mnodeman.FindOldestNotInVecChainDerived(
+			std::vector<CTxIn>(), 0, referenceHeight);
+
+	if (winner == NULL)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CActiveMasternode::BroadcastVote -- no candidate winner for height %d\n",
+					  forHeight);
+		}
+
+		return false;
+	}
+
+	CScript payeeScript = GetScriptForDestination(winner->pubkey.GetID());
+
+	// Build and sign the vote.
+	CMasternodeVote vote(vin, forHeight, payeeScript);
+
+	if (!vote.Sign(strMasterNodePrivKey))
+	{
+		LogPrintf("CActiveMasternode::BroadcastVote -- Sign failed for height %d\n", forHeight);
+
+		return false;
+	}
+
+	LogPrintf("CActiveMasternode::BroadcastVote -- voting MN %s for height %d (winner %s)\n",
+			  vin.prevout.ToString(), forHeight, CDigitalNoteAddress(winner->pubkey.GetID()).ToString());
+
+	// v2.0.0.8 M3 patch 5: process our own vote locally before broadcasting.
+	// Without this, our own getvoteinfo under-counts by 1 (we never see our
+	// own vote arrive as a network message), and during M4 enforcement our
+	// local GetCanonicalWinner could disagree with the network's view.
+	//
+	// ProcessVote is the same code path used for network-received votes:
+	// it does signature-equivalent gating, dedup, equivocation detection,
+	// and aggregation.  Calling with pfrom=NULL is the documented contract
+	// for self-originated votes.
+	voteTracker.ProcessVote(vote, NULL);
+
+	// Push to every connected peer.  v2.0.0.7 peers will silently drop
+	// the unknown "mnvote" command; v2.0.0.8+ peers process it.
+	{
+		LOCK(cs_vNodes);
+
+		for (CNode *pnode : vNodes)
+		{
+			pnode->PushMessage("mnvote", vote);
+		}
+	}
 
 	return true;
 }

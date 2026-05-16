@@ -52,7 +52,13 @@ enum
 	MSG_SPORK,
 	MSG_MASTERNODE_WINNER,
 	MSG_MASTERNODE_SCANNING_ERROR,
-	MSG_DSTX
+	MSG_DSTX,
+	// v2.0.0.8 M2: masternode payment-consensus vote.
+	// New inv type for "mnvote" messages.  Appended at end so the existing
+	// enum values stay wire-compatible -- v2.0.0.7 nodes that receive an inv
+	// with this type fall through to AlreadyHave's "don't know what it is,
+	// just say we already got one" branch and silently drop it.
+	MSG_MASTERNODE_VOTE
 };
 
 struct LocalServiceInfo
