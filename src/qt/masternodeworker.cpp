@@ -57,8 +57,13 @@ void MasternodeWorker::run()
                 }
             }
 
-            if (pwalletMain)
-                pwalletMain->Lock();
+            // v2.0.0.8 UAT-6b: do NOT lock the wallet after start.
+            // Previously this unconditionally re-locked, undoing the
+            // staking-only unlock the user just performed via the
+            // AskPassphraseDialog.  That broke local MN auto-recovery
+            // because ManageStatus needs an unlocked wallet to handle
+            // re-registration after transient network drops.  Honour
+            // the user's chosen lock state instead.
 
             std::string returnObj = "Successfully started " +
                 boost::lexical_cast<std::string>(successful) +
@@ -82,8 +87,16 @@ void MasternodeWorker::run()
                 emit progress(idx, total, QString::fromStdString(mne.getAlias()));
 
                 std::string errorMessage;
+                // v2.0.0.8 PB-13 fix: pass full collateral identity
+                // (txhash + vout) so the correct MN is targeted.  Previous
+                // call used the (ip, privkey, error) overload which fell
+                // back to possibleCoins[0] in GetMasterNodeVin -- always
+                // stopping the same MN (whichever has the first 2M UTXO)
+                // regardless of which alias was selected in the GUI.
                 bool result = activeMasternode.StopMasterNode(
-                    mne.getIp(), mne.getPrivKey(), errorMessage);
+                    mne.getIp(), mne.getPrivKey(),
+                    mne.getTxHash(), mne.getOutputIndex(),
+                    errorMessage);
 
                 if (result) {
                     successful++;
@@ -93,8 +106,8 @@ void MasternodeWorker::run()
                 }
             }
 
-            if (pwalletMain)
-                pwalletMain->Lock();
+            // v2.0.0.8 UAT-6b: do NOT lock the wallet after stop.
+            // (See StartSelected branch above for full rationale.)
 
             std::string returnObj = "Successfully stopped " +
                 boost::lexical_cast<std::string>(successful) +

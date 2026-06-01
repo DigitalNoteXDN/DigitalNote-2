@@ -53,12 +53,20 @@ enum
 	MSG_MASTERNODE_WINNER,
 	MSG_MASTERNODE_SCANNING_ERROR,
 	MSG_DSTX,
-	// v2.0.0.8 M2: masternode payment-consensus vote.
-	// New inv type for "mnvote" messages.  Appended at end so the existing
-	// enum values stay wire-compatible -- v2.0.0.7 nodes that receive an inv
-	// with this type fall through to AlreadyHave's "don't know what it is,
-	// just say we already got one" branch and silently drop it.
-	MSG_MASTERNODE_VOTE
+	// v2.0.0.8 Task B (post-CW5, 2026-06-01): the per-height "mnvote"
+	// path has been removed.  This enum slot is preserved as a reserved
+	// placeholder so MSG_MASTERNODE_VOTE_QUEUE below keeps its existing
+	// wire-protocol numeric value -- removing the line outright would
+	// shift MSG_MASTERNODE_VOTE_QUEUE down by one and break inv-type
+	// interpretation against peers that ship a previous build.  Do not
+	// reuse this slot.
+	MSG_MASTERNODE_VOTE_RESERVED,
+	// v2.0.0.8 M1Q: masternode payment-consensus VOTE QUEUE.
+	// New inv type for "mnvotequeue" messages, the queue-based replacement
+	// for the removed per-height vote path (Task B, 2026-06-01).  Older
+	// nodes (and pre-M1Q v2.0.0.8 nodes) that receive an inv with this
+	// type fall through AlreadyHave and silently drop it.
+	MSG_MASTERNODE_VOTE_QUEUE
 };
 
 struct LocalServiceInfo

@@ -11,6 +11,7 @@
 #include "blockparams.h"
 #include "kernel.h"
 #include "spork.h"
+#include "cmasternodevotetracker.h"
 #include "instantx.h"
 #include "velocity.h"
 #include "checkpoints.h"
@@ -59,6 +60,138 @@ CCriticalSection cs_nBlockSequenceId;
 
 // Blocks loaded from disk are assigned id 0, so start the counter at 1.
 uint32_t nBlockSequenceId = 1;
+
+// v2.0.0.8 M4: Voted-consensus payment activation height.
+//
+// Activation gate is hybrid: a hardcoded floor (compile-time constant) AND
+// an optional spork override (SPORK_15) where set.  Effective activation
+// height = min(floor, spork) when spork>0, else floor.
+//
+// The min() prevents a compromised spork key from activating retroactively
+// (spork can only LOWER the activation, never raise above the hardcoded
+// floor that consensus already agrees on).  Mainnet ships with floor =
+// INT_MAX (effectively never), so initial activation requires spork action.
+// When mainnet is ready, a future release will bake the agreed activation
+// height into VOTED_CONSENSUS_ACTIVATION_FLOOR.
+//
+// Testnet uses a low floor so UAT can run end-to-end activation tests
+// without spork plumbing.  See M4-design-notes.md S4 Pattern 3.
+namespace {
+
+#ifdef VOTED_CONSENSUS_ACTIVATION_FLOOR_MAINNET
+const int VOTED_CONSENSUS_ACTIVATION_FLOOR_MAINNET_VAL = VOTED_CONSENSUS_ACTIVATION_FLOOR_MAINNET;
+#else
+const int VOTED_CONSENSUS_ACTIVATION_FLOOR_MAINNET_VAL = INT_MAX;
+#endif
+
+#ifdef VOTED_CONSENSUS_ACTIVATION_FLOOR_TESTNET
+const int VOTED_CONSENSUS_ACTIVATION_FLOOR_TESTNET_VAL = VOTED_CONSENSUS_ACTIVATION_FLOOR_TESTNET;
+#else
+// v2.0.0.8 voted-consensus determinism fix -- testnet floor raised 1000 -> 2000.
+//
+// The original testnet activation was height 1000.  The testnet chain ran
+// past it (to ~1205) under the pre-fix, non-deterministic GetCanonicalWinner,
+// which produced the payee-disagreement fork.  Raising the floor to 2000 puts
+// activation back ABOVE the current tip: the chain resumes on the legacy
+// (permissive) payee path -- voted consensus OFF -- and then re-activates
+// cleanly at height 2000 on the fully-fixed code, giving a watchable
+// pre-activation -> post-activation transition without a chain reset.
+//
+// This is a TESTNET-ONLY value.  The mainnet floor is unaffected.  Adjust or
+// remove once the determinism fix is soak-proven and a real testnet
+// activation rehearsal has been completed.
+const int VOTED_CONSENSUS_ACTIVATION_FLOOR_TESTNET_VAL = 2000;
+#endif
+
+} // anonymous namespace
+
+// v2.0.0.8 PB-16: moved out of the anonymous namespace above so that
+// CMasternodeMan::FindOldestNotInVecChainDerived (in cmasternodeman.cpp)
+// can read the activation height to clamp stale pre-activation `lastpaid`
+// values.  Behaviour unchanged.  Declared in cblock.h.
+int GetEffectiveVotedConsensusActivationHeight()
+{
+	int floor;
+	if (TestNet())
+	{
+		floor = VOTED_CONSENSUS_ACTIVATION_FLOOR_TESTNET_VAL;
+	}
+	else
+	{
+		floor = VOTED_CONSENSUS_ACTIVATION_FLOOR_MAINNET_VAL;
+	}
+
+	int64_t sporkVal = GetSporkValue(SPORK_15_VOTED_CONSENSUS_ACTIVATION);
+
+	// Spork=0 (default) means "no override".  Non-zero spork lowers the
+	// activation height -- but never raises it above floor.
+	if (sporkVal > 0 && sporkVal < floor)
+	{
+		return (int)sporkVal;
+	}
+
+	return floor;
+}
+
+// v2.0.0.8 M4: validation hook.  Returns the payee that consensus expects
+// for nBlockHeight.  Three regimes:
+//
+//   1. Before activation: legacy behavior -- defer to masternodePayments.
+//      GetBlockPayee, which reads winning entries from the M3-era PoS-only
+//      vWinning map.  Returns false if no winner has been broadcast yet.
+//
+//   2. At/after activation, consensus formed: returns the canonical voted
+//      payee from the vote tracker (M2/M3 machinery).
+//
+//   3. At/after activation, no consensus yet: PERMISSIVE FALLBACK.  Behaves
+//      as before activation (soft-fork).  This avoids stalling the chain
+//      if the voting fleet has insufficient coverage at activation height
+//      (e.g. v2.0.0.7 holdouts, network partition).  See M4-design-notes.md
+//      S5 Option 1.
+bool GetEnforcedPayee(int nBlockHeight, CScript &payeeOut, CTxIn &vinOut)
+{
+	int activationHeight = GetEffectiveVotedConsensusActivationHeight();
+
+	if (nBlockHeight >= activationHeight)
+	{
+		CScript votedPayee;
+		// v2.0.0.8 M1Q: consensus is now read from the queue-based tracker
+		// (GetCanonicalWinnerFromQueues) instead of the per-height point-vote
+		// path (GetCanonicalWinner).  The contract is unchanged: returns
+		// (true, payee) on consensus, false otherwise.  The per-height
+		// GetCanonicalWinner / mapVotes path is retained in the tracker for
+		// one release as defensive deserialization but is no longer the
+		// consensus source.  See v208-M1Q-queue-based-voting-SPEC.md S12.
+		if (voteTracker.GetCanonicalWinnerFromQueues(nBlockHeight, votedPayee))
+		{
+			payeeOut = votedPayee;
+			// v2.0.0.8 latent-11: the vote tracker tracks payees by
+			// scriptPubKey, not by vin, so there is no meaningful vin to
+			// return on the voted path.  vinOut is explicitly CLEARED so
+			// that any caller doing mnodeman.Find(vinOut) gets a
+			// deterministic NULL rather than matching a stale leftover vin.
+			// (The previous nLastPaid consumer in main.cpp ProcessBlock has
+			// been removed entirely -- OnBlockConnected is now the sole
+			// authority for the per-MN last-paid display field -- but the
+			// clear is kept as correct defensive hygiene for the function's
+			// contract: voted path => no vin.)
+			vinOut = CTxIn();
+			return true;
+		}
+
+		// Activation height reached but no consensus -- fall through to
+		// legacy lookup (permissive).  Logged so operators can spot
+		// extended consensus failures.
+		if (fDebug)
+		{
+			LogPrintf("GetEnforcedPayee -- height %d at/after activation %d "
+					  "but no consensus; falling back to legacy GetBlockPayee\n",
+					  nBlockHeight, activationHeight);
+		}
+	}
+
+	return masternodePayments.GetBlockPayee(nBlockHeight, payeeOut, vinOut);
+}
 
 bool CBlock::DoS(int nDoSIn, bool fIn) const
 {
@@ -1079,147 +1212,22 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 	}
 
 	// ----------- masternode / devops - payments -----------
-
-	bool MasternodePayments = false;
-	bool fIsInitialDownload = IsInitialBlockDownload();
-
-	int64_t cTime = nTime;
-	int64_t mTime = START_MASTERNODE_PAYMENTS;
-
-	if(cTime > mTime)
-	{
-		MasternodePayments = true;
-	}
-
-	if (!fIsInitialDownload)
-	{
-		if(MasternodePayments)
-		{
-			LOCK2(cs_main, mempool.cs);
-
-			CBlockIndex *pindex = pindexBest;
-			
-			if(IsProofOfStake() && pindex != NULL)
-			{
-				if(pindex->GetBlockHash() == hashPrevBlock)
-				{
-					// If we don't already have its previous block, skip masternode payment step
-					CAmount masternodePaymentAmount;
-					
-					for(int i = vtx[1].vout.size(); i--> 0; )
-					{
-						masternodePaymentAmount = vtx[1].vout[i].nValue;
-						
-						break;
-					}
-
-					bool foundPaymentAmount = false;
-					bool foundPayee = false;
-					bool foundPaymentAndPayee = false;
-
-					CScript payee;
-					CTxIn vin;
-					
-					if(!masternodePayments.GetBlockPayee(pindexBest->nHeight+1, payee, vin) || payee == CScript())
-					{
-						foundPayee = true; //doesn't require a specific payee
-						foundPaymentAmount = true;
-						foundPaymentAndPayee = true;
-						
-						if(fDebug)
-						{
-							LogPrintf(
-								"CheckBlock() : Using non-specific masternode payments %d\n",
-								pindexBest->nHeight+1
-							);
-						}
-					}
-
-					for (unsigned int i = 0; i < vtx[1].vout.size(); i++)
-					{
-						if(vtx[1].vout[i].nValue == masternodePaymentAmount )
-						{
-							foundPaymentAmount = true;
-						}
-
-						if(vtx[1].vout[i].scriptPubKey == payee )
-						{
-							foundPayee = true;
-						}
-
-						if(vtx[1].vout[i].nValue == masternodePaymentAmount && vtx[1].vout[i].scriptPubKey == payee)
-						{
-							foundPaymentAndPayee = true;
-						}
-					}
-
-					CTxDestination address1;
-					ExtractDestination(payee, address1);
-					CDigitalNoteAddress address2(address1);
-
-					if(!foundPaymentAndPayee)
-					{
-						if(fDebug)
-						{
-							LogPrintf(
-								"CheckBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
-								foundPaymentAmount,
-								masternodePaymentAmount,
-								foundPayee,
-								address2.ToString().c_str(),
-								pindexBest->nHeight+1
-							);
-						}
-
-						return DoS(100, error("CheckBlock() : Couldn't find masternode payment or payee"));
-					}
-					else
-					{
-						LogPrintf(
-							"CheckBlock() : Found payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
-							foundPaymentAmount,
-							masternodePaymentAmount,
-							foundPayee,
-							address2.ToString().c_str(),
-							pindexBest->nHeight+1
-						);
-					}
-				}
-				else
-				{
-					if(fDebug)
-					{
-						LogPrintf(
-							"CheckBlock() : Skipping masternode payment check - nHeight %d Hash %s\n",
-							pindexBest->nHeight+1,
-							GetHash().ToString().c_str()
-						);
-					}
-				}
-			}
-			else
-			{
-				if(fDebug)
-				{
-					LogPrintf("CheckBlock() : pindex is null, skipping masternode payment check\n");
-				}
-			}
-		}
-		else
-		{
-			if(fDebug)
-			{
-				LogPrintf("CheckBlock() : skipping masternode payment checks\n");
-			}
-		}
-	}
-	else
-	{
-		if(fDebug)
-		{
-			LogPrintf("CheckBlock() : Is initial download, skipping masternode payment check %d\n", pindexBest->nHeight+1);
-		}
-	}
+	//
+	// v2.0.0.8: the legacy masternode/devops payee-verification block
+	// that stood here has been REMOVED.  It was dead code: present
+	// unchanged since at least v2.0.0.6, it verified payments via a
+	// "foundPaymentAndPayee" test that required a single output to
+	// carry BOTH the masternode payee script AND the (mis-seeded,
+	// last-vout = devops) payment amount -- a condition that is
+	// unsatisfiable whenever the masternode and devops amounts differ.
+	// It never enforced anything in production: it was either bypassed
+	// by its own permissive branch (legacy GetBlockPayee returning
+	// false) or skipped during IBD.  All real masternode/devops
+	// payment verification is, and always has been, done by the
+	// "Verify coinbase/coinstake tx includes devops payment" block
+	// below (the nProofOfIndexMasternode / fBlockHasPayments block),
+	// which handles PoW and PoS correctly.  Voted-consensus payee
+	// enforcement (GetEnforcedPayee) is folded into that block.
 	
 	uint256 hashBlock = this->GetHash();
 	
@@ -1227,7 +1235,16 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 	{
 		const CBlockIndex* pindex = mapBlockIndex[hashBlock];
 	
-		LogPrintf("pindex->nHeight = %d\n", pindex->nHeight);
+		// Per-block height echo: useful only when tracing the verify pass /
+		// block validation in detail.  Gated so it does not spray the normal
+		// log (it fired once per block, incl. every block of the 500-block
+		// startup verify).  -debug=masternode (or =1) restores it.
+		LogPrint("checkblock", "pindex->nHeight = %d\n", pindex->nHeight);
+
+		// v2.0.0.8: fIsInitialDownload was previously declared in the now-
+		// removed legacy payee block above; this block depends on it for
+		// the masternode-checks-delay timing below, so it is declared here.
+		bool fIsInitialDownload = IsInitialBlockDownload();
 		
 		// Verify coinbase/coinstake tx includes devops payment -
 		// first check for start of devops payments
@@ -1290,7 +1307,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 			nMasternodePayment = GetMasternodePayment(pindex->nHeight, nStandardPayment) / COIN;
 			nDevopsPayment = GetDevOpsPayment(pindex->nHeight, nStandardPayment) / COIN;
 			
-			LogPrintf("Hardset MasternodePayment: %lu | Hardset DevOpsPayment: %lu \n", nMasternodePayment, nDevopsPayment);
+			LogPrint("checkblock", "Hardset MasternodePayment: %lu | Hardset DevOpsPayment: %lu \n", nMasternodePayment, nDevopsPayment);
 			
 			// Increase time for Masternode checks delay during sync per-block
 			if (fIsInitialDownload)
@@ -1320,34 +1337,175 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 				// PoS Checks
 				if (isProofOfStake)
 				{
-					// Check for PoS masternode payment
-					if (i == nProofOfIndexMasternode)
+					// Check for PoS masternode payment.
+					//
+					// v2.0.0.8 Spec C fix (corrected): the masternode-payee
+					// verification below (weak check + voted-consensus
+					// enforcement) depends on runtime, present-moment state
+					// -- the MN list (vMasternodes) and the vote tracker.
+					// It is meaningful ONLY when checking a brand-new block
+					// at the live chain tip on a synced node.  It must be
+					// skipped during (a) IBD catch-up and (b) the startup
+					// "Verifying last N blocks" re-validation pass -- in
+					// both, that state is absent and the check would
+					// wrongly reject the node's own valid history
+					// (observed: repeated multi-hundred-block rollbacks).
+					//
+					// The pre-2.0.0.8 legacy payee block had TWO guards for
+					// exactly these two cases; v2.0.0.8 deleted the block
+					// and both guards.  This reinstates both, faithfully:
+					//   - !fIsInitialDownload : skip during IBD catch-up.
+					//   - hashPrevBlock == hashBestChain : this block EXTENDS
+					//     the current best tip.  This is the original
+					//     2.0.0.6 / 2.0.0.7 guard (legacy block:
+					//     pindex->GetBlockHash() == hashPrevBlock with
+					//     pindex = pindexBest), restored verbatim in meaning.
+					//     A genuinely new block being connected at the live
+					//     tip has hashPrevBlock == the still-current
+					//     hashBestChain (pindexBest/hashBestChain are updated
+					//     only AFTER ConnectBlock, at SetBestChain ~953-954),
+					//     so the check RUNS.  During the startup "Verifying
+					//     last N blocks" pass NO block satisfies this -- not
+					//     even the stored tip, whose hashPrevBlock points at
+					//     tip-1, not at itself -- so the whole verify pass is
+					//     skipped.  During a reorg the connecting blocks do
+					//     not extend the pre-reorg tip either, so the check
+					//     skips there and falls through to legacy (the safe
+					//     direction; those blocks were already strict-checked
+					//     on first receipt via ProcessBlock).
+					// SUPERSEDES the session-14b `pindex->pnext == NULL`
+					// substitute, which was NOT equivalent: pnext == NULL is
+					// true for BOTH a live new tip and the stored tip during
+					// the verify pass, so it could not distinguish them and
+					// rejected the node's own tip on post-activation restart.
+					// NOTE: !fIsInitialDownload ALONE is insufficient --
+					// IsInitialBlockDownload() is a staleness heuristic and
+					// returns false during the startup verify pass whenever
+					// the stored tip is recent (<8h old), i.e. on every
+					// normal restart.  The hashPrevBlock guard is what covers
+					// that.  The devops + miner-reward checks are NOT gated --
+					// they do not depend on MN-list state and are valid at
+					// startup (and always ran there historically).
+					if (i == nProofOfIndexMasternode && !fIsInitialDownload &&
+						hashPrevBlock == hashBestChain)
 					{
 						if (mnodeman.IsPayeeAValidMasternode(rawPayee) ||
 							addressOut.ToString() == strVfyDevopsAddress)
 						{
-							LogPrintf("CheckBlock() : PoS Recipient masternode address validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoS Recipient masternode address validity succesfully verified\n");
 						}
 						else
 						{
+							// v2.0.0.8 Spec C D2: fMnAdvRelay gate removed.
+							// A payee that is neither a registered
+							// masternode nor the devops fallback address
+							// is invalid -- reject unconditionally once
+							// the checks-delay warmup has elapsed.
 							if (nMasterNodeChecksEngageTime != 0)
 							{
-								if (fMnAdvRelay)
-								{
-									LogPrintf("CheckBlock() : PoS Recipient masternode address validity could not be verified\n");
+								LogPrintf("CheckBlock() : PoS Recipient masternode address validity could not be verified -- rejecting\n");
 
-									fBlockHasPayments = false;
+								fBlockHasPayments = false;
+							}
+						}
+
+						// v2.0.0.8 PB-POWENF: voted-consensus payee enforcement
+						// for PoS blocks.  Mirror of the PoW-side block below.
+						//
+						// The weak check above only verifies the payee is SOME
+						// registered masternode.  The legacy payee-verification
+						// block that previously held the PoS GetEnforcedPayee
+						// hook has been removed (it was dead code -- see the
+						// note where it stood).  Without this, the PoS path
+						// would have NO voted-consensus enforcement while the
+						// PoW path does -- an asymmetry.  This closes it: a
+						// staker that pays a valid-but-not-voted masternode has
+						// its block rejected, identically to the PoW path.
+						//
+						// GetEnforcedPayee returns the voted-consensus payee
+						// only when past activation height AND consensus formed;
+						// otherwise false/empty, and we fall through to the
+						// weak check above (preserving soft-fork rollout --
+						// nothing strict happens pre-activation or with no
+						// 60% vote).
+						//
+						// Gated identically to the PoW block: the post-startup
+						// checks-delay warmup must have elapsed
+						// (nMasterNodeChecksEngageTime != 0), so PoS and PoW
+						// enforce under identical conditions.
+						// v2.0.0.8 Spec C: fMnAdvRelay gate removed.  The strict
+						// voted-consensus check now engages on its own merits --
+						// warmup elapsed (nMasterNodeChecksEngageTime != 0) plus
+						// GetEnforcedPayee returning an enforceable payee (which
+						// itself self-gates on activation height + consensus).
+						if (nMasterNodeChecksEngageTime != 0)
+						{
+							CScript enforcedPayee;
+							CTxIn   enforcedVin;
+
+							if (GetEnforcedPayee(pindex->nHeight, enforcedPayee, enforcedVin) &&
+								enforcedPayee != CScript())
+							{
+								if (rawPayee == enforcedPayee)
+								{
+									LogPrint("checkblock", "CheckBlock() : PoS masternode payee matches voted consensus\n");
+								}
+								else if (addressOut.ToString() == strVfyDevopsAddress)
+								{
+									// v2.0.0.8 Spec C D3/D4: the block pays the devops
+									// address in the MN slot -- the rare "masternode
+									// cannot be determined" fallback.  The weak check
+									// allows this (see the IsPayeeAValidMasternode ||
+									// devops test above); the strict check must not
+									// reject it or it would reject blocks the weak
+									// check passes.  ALLOW it -- but loudly: at/after
+									// activation this means voted consensus produced
+									// NO payee for this height, which should not
+									// happen if consensus is healthy.  Unconditional
+									// LogPrintf (NOT fDebug) -- monitored signal.
+									{
+										int nVotedActivation = GetEffectiveVotedConsensusActivationHeight();
+
+										if (pindex->nHeight >= nVotedActivation)
+										{
+											LogPrintf("CheckBlock() : NOTICE - PoS height %d at/after "
+													  "voted-consensus activation %d but block pays the "
+													  "devops fallback in the masternode slot -- voted "
+													  "consensus produced no payee for this height. "
+													  "Consensus coverage gap; investigate.\n",
+													  pindex->nHeight, nVotedActivation);
+										}
+									}
 								}
 								else
 								{
-									LogPrintf("CheckBlock() : PoS Recipient masternode address validity skipping, Checks delay still active!\n");
+									CTxDestination encDest;
+									ExtractDestination(enforcedPayee, encDest);
+									CBitcoinAddress encAddr(encDest);
+
+									LogPrintf("CheckBlock() : PoS masternode payee %s does NOT match "
+											  "voted-consensus payee %s at height %d -- rejecting\n",
+											  addressOut.ToString().c_str(),
+											  encAddr.ToString().c_str(),
+											  pindex->nHeight);
+
+									fBlockHasPayments = false;
+								}
+							}
+							else
+							{
+								if (fDebug)
+								{
+									LogPrintf("CheckBlock() : PoS no enforceable voted payee at height %d "
+											  "(pre-activation or no consensus) -- weak check only\n",
+											  pindex->nHeight);
 								}
 							}
 						}
 
 						if (nIndexedMasternodePayment == nMasternodePayment)
 						{
-							LogPrintf("CheckBlock() : PoS Recipient masternode amount validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoS Recipient masternode amount validity succesfully verified\n");
 						}
 						else
 						{
@@ -1362,7 +1520,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 					{
 						if (addressOut.ToString() == strVfyDevopsAddress)
 						{
-							LogPrintf("CheckBlock() : PoS Recipient devops address validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoS Recipient devops address validity succesfully verified\n");
 						}
 						else
 						{
@@ -1379,7 +1537,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 						
 						if (nIndexedDevopsPayment == nDevopsPayment)
 						{
-							LogPrintf("CheckBlock() : PoS Recipient devops amount validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoS Recipient devops amount validity succesfully verified\n");
 						}
 						else
 						{
@@ -1408,33 +1566,132 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 				// PoW Checks
 				else
 				{
-					// Check for PoW masternode payment
-					if (i == nProofOfIndexMasternode)
+					// Check for PoW masternode payment.
+					// v2.0.0.8 Spec C fix (corrected): two-guard gate --
+					// see the PoS counterpart above for full rationale.
+					// !fIsInitialDownload skips IBD catch-up;
+					// hashPrevBlock == hashBestChain restricts the check to a
+					// block that EXTENDS the current best tip -- the original
+					// 2.0.0.6 / 2.0.0.7 guard.  This skips the startup verify
+					// pass (no stored block, not even the tip, extends the
+					// current tip) and reorg connects, while still running on
+					// a live new tip block.  SUPERSEDES the session-14b
+					// pindex->pnext == NULL substitute, which rejected the
+					// node's own tip on post-activation restart.
+					if (i == nProofOfIndexMasternode && !fIsInitialDownload &&
+						hashPrevBlock == hashBestChain)
 					{
 						if (mnodeman.IsPayeeAValidMasternode(rawPayee) ||
 							addressOut.ToString() == strVfyDevopsAddress)
 						{
-						  LogPrintf("CheckBlock() : PoW Recipient masternode address validity succesfully verified\n");
+						  LogPrint("checkblock", "CheckBlock() : PoW Recipient masternode address validity succesfully verified\n");
 						}
 						else
 						{
+							// v2.0.0.8 Spec C D2: fMnAdvRelay gate removed.
+							// See PoS counterpart above.
 							if (nMasterNodeChecksEngageTime != 0)
 							{
-								if (fMnAdvRelay)
+								LogPrintf("CheckBlock() : PoW Recipient masternode address validity could not be verified -- rejecting\n");
+								fBlockHasPayments = false;
+							}
+						}
+
+						// v2.0.0.8 PB-POWENF: voted-consensus payee enforcement
+						// for PoW blocks.
+						//
+						// The weak check above only verifies the payee is SOME
+						// registered masternode.  Pre-this-patch, the PoW path
+						// stopped there -- so a PoW miner could pay any valid MN
+						// (e.g. one it controls) instead of the consensus-voted
+						// winner, and the block was accepted.  The PoS path is
+						// strict (GetEnforcedPayee match enforced in the earlier
+						// masternode-payment block); the PoW path was not.  This
+						// closes that asymmetry: a PoW miner that ignores the
+						// vote now has its block rejected.
+						//
+						// GetEnforcedPayee returns the voted-consensus payee
+						// only when past activation height AND consensus formed;
+						// otherwise it returns false / empty.  When it does NOT
+						// return an enforceable payee we fall through to the
+						// weak check above -- this preserves the soft-fork
+						// rollout behaviour (nothing strict happens until the
+						// chain is past activation and a 60% vote exists).
+						//
+						// Gated the same way as the weak check:
+						//   - nMasterNodeChecksEngageTime != 0 : the post-startup
+						//     "checks delay" warmup has elapsed (the node has a
+						//     settled MN list and synced vote state).  Enforcing
+						//     before this would wrongly reject good blocks.
+						//
+						// Companion to the PoS-side enforcement; see also
+						// GetEnforcedPayee in this file and miner.cpp (the block
+						// CREATOR already routes through GetEnforcedPayee, so an
+						// honest miner is unaffected -- only a miner that pays
+						// the wrong MN is rejected).
+						// v2.0.0.8 Spec C: fMnAdvRelay gate removed.  See the PoS
+						// counterpart above for rationale.
+						if (nMasterNodeChecksEngageTime != 0)
+						{
+							CScript enforcedPayee;
+							CTxIn   enforcedVin;
+
+							if (GetEnforcedPayee(pindex->nHeight, enforcedPayee, enforcedVin) &&
+								enforcedPayee != CScript())
+							{
+								if (rawPayee == enforcedPayee)
 								{
-									LogPrintf("CheckBlock() : PoW Recipient masternode address validity could not be verified\n");
-									fBlockHasPayments = false;
+									LogPrint("checkblock", "CheckBlock() : PoW masternode payee matches voted consensus\n");
+								}
+								else if (addressOut.ToString() == strVfyDevopsAddress)
+								{
+									// v2.0.0.8 Spec C D3/D4: devops-fallback payee in
+									// the MN slot.  Allow (the weak check does); but
+									// loudly NOTICE it at/after activation -- see the
+									// PoS counterpart above for full rationale.
+									{
+										int nVotedActivation = GetEffectiveVotedConsensusActivationHeight();
+
+										if (pindex->nHeight >= nVotedActivation)
+										{
+											LogPrintf("CheckBlock() : NOTICE - PoW height %d at/after "
+													  "voted-consensus activation %d but block pays the "
+													  "devops fallback in the masternode slot -- voted "
+													  "consensus produced no payee for this height. "
+													  "Consensus coverage gap; investigate.\n",
+													  pindex->nHeight, nVotedActivation);
+										}
+									}
 								}
 								else
 								{
-									LogPrintf("CheckBlock() : PoW Recipient masternode address validity skipping, Checks delay still active!\n");
+									CTxDestination encDest;
+									ExtractDestination(enforcedPayee, encDest);
+									CBitcoinAddress encAddr(encDest);
+
+									LogPrintf("CheckBlock() : PoW masternode payee %s does NOT match "
+											  "voted-consensus payee %s at height %d -- rejecting\n",
+											  addressOut.ToString().c_str(),
+											  encAddr.ToString().c_str(),
+											  pindex->nHeight);
+
+									fBlockHasPayments = false;
+								}
+							}
+							else
+							{
+								if (fDebug)
+								{
+									LogPrintf("CheckBlock() : PoW no enforceable voted payee at height %d "
+											  "(pre-activation or no consensus) -- weak check only\n",
+											  pindex->nHeight);
 								}
 							}
 						}
 
 						if (nAmount == nMasternodePayment)
 						{
-							LogPrintf("CheckBlock() : PoW Recipient masternode amount validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoW Recipient masternode amount validity succesfully verified\n");
 						}
 						else
 						{
@@ -1448,7 +1705,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 					{
 						if (addressOut.ToString() == strVfyDevopsAddress)
 						{
-							LogPrintf("CheckBlock() : PoW Recipient devops address validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoW Recipient devops address validity succesfully verified\n");
 						}
 						else
 						{
@@ -1465,7 +1722,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 					   
 						if (nAmount == nDevopsPayment)
 						{
-							LogPrintf("CheckBlock() : PoW Recipient devops amount validity succesfully verified\n");
+							LogPrint("checkblock", "CheckBlock() : PoW Recipient devops amount validity succesfully verified\n");
 						}
 						else
 						{
@@ -1494,13 +1751,24 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 			// Final checks (DevOps/Masternode payments)
 			if (fBlockHasPayments)
 			{
-				LogPrintf("CheckBlock() : PoW/PoS non-miner reward payments succesfully verified\n");
+				LogPrint("checkblock", "CheckBlock() : PoW/PoS non-miner reward payments succesfully verified\n");
 			}
 			else
 			{
 				LogPrintf("CheckBlock() : PoW/PoS non-miner reward payments could not be verified\n");
-				
-				return DoS(10, error("CheckBlock() : PoW/PoS invalid payments in current block\n"));
+
+				// v2.0.0.8: raised from DoS(10) to DoS(100).  A block that
+				// reaches here with fBlockHasPayments == false has a genuine
+				// payment violation -- wrong masternode/devops amount, wrong
+				// coinbase/coinstake output structure, or (post warmup, with
+				// advisory relay on) a masternode payee that does not match
+				// voted consensus.  All of these are hard consensus failures,
+				// not minor misbehaviour, so the peer is scored accordingly.
+				// The startup checks-delay grace window is handled UPSTREAM:
+				// the address-validity branches only set fBlockHasPayments =
+				// false once nMasterNodeChecksEngageTime != 0, so a node still
+				// in warmup never reaches this DoS for an address reason.
+				return DoS(100, error("CheckBlock() : PoW/PoS invalid payments in current block\n"));
 			}
 		}
 
@@ -1637,8 +1905,25 @@ bool CBlock::AcceptBlock()
 		The following block has this case:
 			46921, 46923, 46924
 	*/
-	if (nHeight != 46921 && nHeight != 46923 && nHeight != 46924 && nHeight != 403116 && nBits != GetNextTargetRequired(pindexPrev, IsProofOfStake()))
+	// v2.0.0.8 RESYNC FIX: pass this block's OWN timestamp (GetBlockTime())
+	// as nNewBlockTime.  The VRX difficulty-recovery curve must measure
+	// stall time from the targeted block's fixed timestamp, not from the
+	// validating node's wall clock -- otherwise re-validating a historical
+	// block during a resync computes a different nBits than the block
+	// carries and AcceptBlock rejects the entire chain past height 130.
+	// GetBlockTime() here is the candidate block's real, committed
+	// timestamp -- identical on every node, now and forever.
+	//
+	// v2.0.0.8 DIAGNOSTIC: compute the required target once into a local
+	// so the failure path can log BOTH the value the block carries and the
+	// value this node computed.  Pure logging -- no behaviour change.
+	unsigned int nBitsRequired = GetNextTargetRequired(pindexPrev, IsProofOfStake(), GetBlockTime());
+
+	if (nHeight != 46921 && nHeight != 46923 && nHeight != 46924 && nHeight != 403116 && nBits != nBitsRequired)
 	{
+		LogPrintf("AcceptBlock() : nBits MISMATCH at height %d -- block carries nBits=%08x, this node computed=%08x, blockTime=%d\n",
+				  nHeight, nBits, nBitsRequired, (int64_t)GetBlockTime());
+
 		return DoS(100, error("AcceptBlock() : incorrect %s", IsProofOfWork() ? "proof-of-work" : "proof-of-stake"));
 	}
 
@@ -2002,6 +2287,34 @@ bool CBlock::SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew)
 	{
 		mempool.remove(tx);
 	}
+
+	// v2.0.0.8 PB-NEW: update the chain-derived lastPaidHeight cache here,
+	// once per block that joins the main chain, with THIS block and ITS
+	// OWN height.
+	//
+	// Previously the only normal-path hook was in ProcessBlock, called
+	// once per ProcessBlock() invocation with (*pblock, pindexBest->nHeight).
+	// ProcessBlock connects the handed block AND recursively connects any
+	// orphan blocks chained off it -- so a single ProcessBlock call can
+	// advance the tip by many blocks.  The single post-loop hook therefore:
+	//   1. recorded only the FIRST block's payee (the other connected
+	//      blocks' MN payments were never cached at all), and
+	//   2. recorded it at the FINAL tip height, not the block's own height.
+	// The cache ended up sparse and height-shifted, so
+	// FindOldestNotInVecChainDerived kept selecting MNs whose payments had
+	// never registered -- producing the persistent vote-rotation looping
+	// seen on testnet (e.g. tFdB winning heights 1058-1061 despite being
+	// paid repeatedly in that range).
+	//
+	// SetBestChainInner is the correct home: it is invoked exactly once
+	// for every block that joins the main chain -- both the normal
+	// single-block extension (SetBestChain branch hashPrevBlock ==
+	// hashBestChain) and each secondary reconnect block.  `this` is the
+	// block, `pindexNew->nHeight` is that block's own height.  The
+	// Reorganize() path has its own per-block OnBlockConnected call and
+	// does NOT route through SetBestChainInner, so there is no double
+	// counting.
+	mnodeman.OnBlockConnected(*this, pindexNew->nHeight);
 
 	return true;
 }

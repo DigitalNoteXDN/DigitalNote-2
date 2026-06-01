@@ -1823,8 +1823,32 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
 
 	if (!strDest)
 	{
+		// v2.0.0.8 Fix D: duplicate-connection detection must key on the
+		// full IP:port, NOT on IP alone.
+		//
+		// The original guard included FindNode((CNetAddr)addrConnect),
+		// which matches on IP only (CNetAddr carries no port).  On any
+		// topology that runs multiple masternodes behind one IP separated
+		// by port -- the standard mainnet MN-hosting setup -- that term
+		// makes the FIRST connected peer on an IP block ALL further
+		// outbound connections to other ports on the same IP.  The node
+		// then holds at most one outbound link per IP, the connection
+		// manager retries the rejected ports on its cycle (the observed
+		// ~41s disconnect/retry beat, WSA 10053), and same-IP masternodes
+		// are partially unreachable -- starving vote propagation.
+		//
+		// The remaining check, FindNode(addrConnect.ToStringIPPort()),
+		// matches on the full IP:port (addrName) and is the correct
+		// duplicate guard: it still rejects a genuine duplicate of the
+		// exact same peer, while correctly treating IP:portA and
+		// IP:portB as two distinct peers.  The IP-only term is therefore
+		// removed -- it is both wrong for this topology and redundant.
+		//
+		// Netgroup diversity (one outbound peer per /16, via
+		// setConnected/GetGroup in the addrman-select path) is a separate
+		// mechanism and is unaffected by this change.
 		if(IsLocal(addrConnect) ||
-			FindNode((CNetAddr)addrConnect) || CNode::IsBanned(addrConnect) ||
+			CNode::IsBanned(addrConnect) ||
 			FindNode(addrConnect.ToStringIPPort().c_str()))
 		{
 			return false;

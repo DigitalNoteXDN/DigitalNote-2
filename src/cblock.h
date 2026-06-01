@@ -13,6 +13,24 @@ class CTxDB;
 class CWallet;
 class CBlock;
 class CTransaction;
+class CScript;
+class CTxIn;
+
+// v2.0.0.8 M4: validation hook.  Defined in cblock.cpp.  Returns the payee
+// that consensus expects at nBlockHeight.  Pre-activation OR
+// post-activation-with-no-consensus: defers to legacy
+// masternodePayments.GetBlockPayee.  Post-activation with consensus: returns
+// the canonical voted payee from voteTracker.  M5 routes block CREATION
+// through this same hook so creators agree with validators post-activation.
+bool GetEnforcedPayee(int nBlockHeight, CScript &payeeOut, CTxIn &vinOut);
+
+// v2.0.0.8 PB-16: expose the spork-aware activation height so consensus-
+// adjacent code (notably CMasternodeMan::FindOldestNotInVecChainDerived)
+// can clamp pre-activation `lastpaid` values to a single tied "epoch
+// zero" -- preventing stale legacy lastpaid distributions from biasing
+// post-activation rotation.  Returns INT_MAX when activation is not set
+// (the v2.0.0.8 mainnet ship default until spork broadcast).
+int GetEffectiveVotedConsensusActivationHeight();
 
 typedef std::unique_ptr<CBlock> CBlockPtr;
 

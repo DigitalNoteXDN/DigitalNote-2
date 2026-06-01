@@ -4045,7 +4045,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 	}
 	else if (Params().NetworkID() == CChainParams_Network::TESTNET)
 	{
-		devopaddress = CBitcoinAddress("");
+		devopaddress = CBitcoinAddress(TESTNET_DEVELOPER_ADDRESS);
 	}
 	else if (Params().NetworkID() == CChainParams_Network::REGTEST)
 	{
@@ -4092,17 +4092,64 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 	if(bMasterNodePayment)
 	{
 		//spork
-		if(!masternodePayments.GetBlockPayee(pindexPrev->nHeight+1, payee, vin))
+		// v2.0.0.8 M5: route through GetEnforcedPayee.  See PoW counterpart
+		// in miner.cpp for full rationale -- creator must agree with
+		// validator post-activation.  Also replaces the
+		// GetCurrentMasterNode(1) fallback with FindOldestNotInVec (same
+		// fix as miner.cpp's PoW path got in M3p5).
+		if(!GetEnforcedPayee(pindexPrev->nHeight+1, payee, vin))
 		{
-			CMasternode* winningNode = mnodeman.GetCurrentMasterNode(1);
-			
-			if(winningNode)
+			CMasternode* pmn = mnodeman.FindOldestNotInVec(std::vector<CTxIn>(), 0);
+
+			if(pmn)
 			{
-				payee = GetScriptForDestination(winningNode->pubkey.GetID());
+				payee = GetScriptForDestination(pmn->pubkey.GetID());
 			}
 			else
 			{
 				payee = GetScriptForDestination(devopaddress.Get());
+			}
+		}
+		else
+		{
+			// v2.0.0.8 Mechanism 2: GetEnforcedPayee returned a consensus
+			// winner, but the winner may have gone offline inside the
+			// recast window.  See miner.cpp PoW counterpart for full
+			// rationale.  This site mirrors that one -- the predicate
+			// symmetry (builder uses the same reachability test as the
+			// validator's weak check) is what closes the C3 stall.
+			CTxDestination addrDest;
+			ExtractDestination(payee, addrDest);
+			CBitcoinAddress addrOut(addrDest);
+			std::string strDevopsAddress = getDevelopersAdress(pindexPrev);
+
+			if (!mnodeman.IsPayeeAValidMasternode(payee) &&
+				addrOut.ToString() != strDevopsAddress)
+			{
+				LogPrintf("NOTICE - voted consensus winner for height %d "
+						  "(%s) is not in local list; falling back to "
+						  "legacy payee selection\n",
+						  pindexPrev->nHeight + 1,
+						  addrOut.ToString().c_str());
+
+				// Demote to the legacy path -- same as the no-consensus
+				// branch above.
+				payee = CScript();
+				vin = CTxIn();
+
+				if (!masternodePayments.GetBlockPayee(pindexPrev->nHeight + 1, payee, vin))
+				{
+					CMasternode* pmn = mnodeman.FindOldestNotInVec(std::vector<CTxIn>(), 0);
+
+					if(pmn)
+					{
+						payee = GetScriptForDestination(pmn->pubkey.GetID());
+					}
+					else
+					{
+						payee = GetScriptForDestination(devopaddress.Get());
+					}
+				}
 			}
 		}
 	}

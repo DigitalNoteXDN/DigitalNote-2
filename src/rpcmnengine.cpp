@@ -19,11 +19,11 @@
 #include "ckey.h"
 #include "main_extern.h"
 #include "cblockindex.h"
+#include "cblock.h"
 #include "cmasternode.h"
 #include "cmasternodeman.h"
 #include "cmasternodepayments.h"
 #include "cmasternodevotetracker.h"
-#include "cmasternodevote.h"
 #include "cmasternodeconfig.h"
 #include "cmasternodeconfigentry.h"
 #include "masternode.h"
@@ -670,7 +670,12 @@ json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp)
 			CScript payee;
 			CTxIn vin;
 			
-			if(masternodePayments.GetBlockPayee(nHeight, payee, vin))
+			// v2.0.0.8 M5 follow-up: route through GetEnforcedPayee so
+			// post-activation displayed "winners" reflect the voted
+			// consensus rather than the legacy vWinning map.  Pre-
+			// activation behaviour unchanged (GetEnforcedPayee falls
+			// through to masternodePayments.GetBlockPayee).
+			if(GetEnforcedPayee(nHeight, payee, vin))
 			{
 				CTxDestination address1;
 				ExtractDestination(payee, address1);
@@ -1352,7 +1357,7 @@ json_spirit::Value getmnlastpaid(const json_spirit::Array& params, bool fHelp)
 	// "is this MN actually voting within the active window."  Useful for
 	// spotting MNs that send dseep but aren't operating correctly (broken
 	// chain view -> votes rejected by validity window).
-	std::map<COutPoint, int> voterActivity = voteTracker.GetVoterActivity();
+	std::map<COutPoint, int> voterActivity = voteTracker.GetQueueVoterActivity();
 
 	for (CMasternode& mn : snapshot)
 	{
@@ -1421,26 +1426,28 @@ json_spirit::Value getvoteinfo(const json_spirit::Array& params, bool fHelp)
 	{
 		throw std::runtime_error(
 			"getvoteinfo [height]\n"
-			"\nReports masternode vote tally for a given block height.  If no\n"
-			"height is given, uses the current chain tip + VOTE_LOOKAHEAD.\n"
+			"\nReports the masternode voted-consensus QUEUE tally for a given\n"
+			"block height (M1Q queue-based voting).  If no height is given,\n"
+			"uses the current chain tip + VOTE_LOOKAHEAD.\n"
 			"\nArguments:\n"
 			"1. height       (numeric, optional) The block height to inspect.\n"
 			"\nResult:\n"
 			"{\n"
 			"  \"height\": n,                    (numeric) the queried height\n"
-			"  \"eligible_voters\": n,           (numeric) count of MNs at MIN_VOTING_PROTOCOL_VERSION or higher\n"
-			"  \"total_votes\": n,               (numeric) total votes received for this height (across all payees)\n"
+			"  \"eligible_voters\": n,           (numeric) MNs at MIN_VOTING_PROTOCOL_VERSION+ eligible to vote for this height\n"
+			"  \"queue_height_used\": n,         (numeric) the queue-height whose position was tallied (-1 if none)\n"
+			"  \"position\": n,                  (numeric) position within the queue for this height (-1 if none)\n"
+			"  \"queues_seen\": n,               (numeric) number of queues tallied at that queue-height\n"
 			"  \"threshold_numerator\": n,       (numeric) consensus threshold (3 for 60%)\n"
 			"  \"threshold_denominator\": n,     (numeric) consensus threshold (5 for 60%)\n"
-			"  \"has_consensus\": bool,          (boolean) whether any payee reached 60%\n"
+			"  \"has_consensus\": bool,          (boolean) whether a payee reached the threshold (authoritative)\n"
 			"  \"canonical_payee\": \"...\",     (string) winner address (only if has_consensus is true)\n"
-			"  \"canonical_vote_count\": n,      (numeric) vote count for winner (only if has_consensus is true)\n"
+			"  \"canonical_vote_count\": n,      (numeric) queue-votes for the winner at this position\n"
 			"  \"per_payee\": [\n"
 			"    {\n"
-			"      \"address\": \"...\",         (string) payee address\n"
-			"      \"vote_count\": n,            (numeric) how many MNs voted for this payee\n"
-			"      \"voters\": [\"...\"],        (array)  voter vins\n"
-			"      \"first_seen\": n             (numeric) unix time of first vote for this payee\n"
+			"      \"address\": \"...\",         (string) payee address at this position\n"
+			"      \"vote_count\": n,            (numeric) how many MNs queued this payee at this position\n"
+			"      \"voters\": [\"...\"]         (array)  voter vins\n"
 			"    }, ...\n"
 			"  ]\n"
 			"}\n"
@@ -1461,12 +1468,14 @@ json_spirit::Value getvoteinfo(const json_spirit::Array& params, bool fHelp)
 		targetHeight = pindexBest->nHeight + VOTE_LOOKAHEAD;
 	}
 
-	CMasternodeVoteTracker::VoteInfo info = voteTracker.GetVoteInfo(targetHeight);
+	CMasternodeVoteTracker::QueueInfo info = voteTracker.GetQueueInfo(targetHeight);
 
 	json_spirit::Object obj;
 	obj.push_back(json_spirit::Pair("height", info.height));
 	obj.push_back(json_spirit::Pair("eligible_voters", info.eligibleVoters));
-	obj.push_back(json_spirit::Pair("total_votes", info.totalVotes));
+	obj.push_back(json_spirit::Pair("queue_height_used", info.queueHeightUsed));
+	obj.push_back(json_spirit::Pair("position", info.position));
+	obj.push_back(json_spirit::Pair("queues_seen", info.totalQueues));
 	obj.push_back(json_spirit::Pair("threshold_numerator", VOTED_CONSENSUS_THRESHOLD_NUMERATOR));
 	obj.push_back(json_spirit::Pair("threshold_denominator", VOTED_CONSENSUS_THRESHOLD_DENOMINATOR));
 	obj.push_back(json_spirit::Pair("has_consensus", info.hasConsensus));
@@ -1485,7 +1494,6 @@ json_spirit::Value getvoteinfo(const json_spirit::Array& params, bool fHelp)
 		json_spirit::Object entry;
 		entry.push_back(json_spirit::Pair("address", ScriptToAddress(e.payeeScript)));
 		entry.push_back(json_spirit::Pair("vote_count", (int)e.voterVins.size()));
-		entry.push_back(json_spirit::Pair("first_seen", (int64_t)e.firstSeen));
 
 		json_spirit::Array voters;
 		for (std::set<COutPoint>::const_iterator vit = e.voterVins.begin();

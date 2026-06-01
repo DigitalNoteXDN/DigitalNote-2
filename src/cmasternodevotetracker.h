@@ -13,7 +13,7 @@
 #include "cscript.h"
 #include "uint/uint256.h"
 
-#include "cmasternodevote.h"
+#include "cmasternodevotequeue.h"
 
 class CBlock;
 class CNode;
@@ -33,42 +33,26 @@ struct EquivocationRecord
 };
 
 /**
- * VoteRecord -- per-(height, payee) aggregation of voters.
- * The set of voter outpoints provides automatic deduplication.
- */
-struct VoteRecord
-{
-	int nBlockHeight;
-	CScript payeeScript;
-	std::set<COutPoint> voterVins;
-	int64_t nFirstSeen;
-
-	VoteRecord() : nBlockHeight(0), nFirstSeen(0) {}
-};
-
-/**
- * CMasternodeVoteTracker -- collects votes, deduplicates per-voter-per-height,
- * detects equivocation, derives canonical winner when threshold is reached.
+ * CMasternodeVoteTracker -- v2.0.0.8 M1Q queue-based voting tracker.
+ *
+ * Collects per-voter ordered payee queues for upcoming heights,
+ * detects equivocation (two distinct queues from the same voter at the
+ * same nQueueHeight), and exposes a queue-based canonical-winner
+ * lookup for enforcement.
+ *
+ * Storage shape: mapQueues[nQueueHeight][voterVin] -> CMasternodeVoteQueue.
+ * One queue per voter per nQueueHeight; any second distinct queue is
+ * equivocation (M1Q spec S8).
  *
  * Design references:
- *   PhaseC-design.md  S9    ProcessVote, GetCanonicalWinner
- *   PhaseC-design.md  S14.3 equivocation recovery (Path A/B/C)
- *   PhaseC-design.md  S17.5 reorg handling
- *
- * Implementation deferred to milestone M3 (see PhaseD-implementation.md S2).
- * M0 provides only the declaration so includes resolve and the build system
- * registers the file.
+ *   v208-M1Q-queue-based-voting-SPEC.md
+ *   PhaseC-design.md S14.3 (equivocation recovery -- still applicable)
+ *   PhaseC-design.md S17.5 (reorg handling -- still applicable)
  */
 class CMasternodeVoteTracker
 {
 public:
 	mutable CCriticalSection cs;
-
-	// Primary state: [height][payee] -> aggregated record
-	std::map<int, std::map<CScript, VoteRecord> > mapVotes;
-
-	// Per-voter-per-height dedup
-	std::set<std::pair<int, COutPoint> > setSeenVoter;
 
 	// Equivocation detection: voter -> (height, payee) for last seen vote
 	std::map<COutPoint, std::pair<int, CScript> > mapEquivocationDetection;
@@ -78,39 +62,47 @@ public:
 
 	CMasternodeVoteTracker();
 
-	// Implemented in M3:
-	bool ProcessVote(const CMasternodeVote &vote, CNode *pfrom);
-	bool GetCanonicalWinner(int nBlockHeight, CScript &payeeOut);
-
-	// Block lifecycle hooks (M3):
-	void OnBlockConnected(int nBlockHeight);
-	void OnBlockDisconnected(int nBlockHeight);
-
 	// Equivocation recovery (M3):
 	void OnFreshDsee(const COutPoint &voterVin);
 	bool ClearEquivocator(const COutPoint &voterVin);
 	bool IsEquivocator(const COutPoint &voterVin) const;
 
-	// Internal helper (M3):
-	void RemoveVoterVote(int nBlockHeight, const COutPoint &voterVin);
+	// =====================================================================
+	// v2.0.0.8 M1Q -- queue-based voting state and interface.
+	//
+	// These REPLACE the per-height mapVotes path post-activation.  Storage
+	// shape: [nQueueHeight][voterVin] -> the voter's queue.  ONE queue per
+	// voter per nQueueHeight; a second distinct queue from the same voter
+	// at the same nQueueHeight is equivocation (M1Q spec S8).
+	//
+	// Definitions land in M1Q step 3 (this declaration block is added in
+	// step 2 so the message-handler references resolve).  See
+	// v208-M1Q-queue-based-voting-SPEC.md.
+	// =====================================================================
+	std::map<int, std::map<COutPoint, CMasternodeVoteQueue> > mapQueues;
+	std::map<uint256, CMasternodeVoteQueue> mapQueuesByHash;
 
-	// M3 inv-based relay support:
-	// - mapVotesByHash maps GetHash() -> full CMasternodeVote so getdata responses
-	//   can serve the actual vote bytes from our storage.
-	// - AlreadyHaveVote tells main.cpp's AlreadyHave whether we already know
-	//   a given inv-hash.
-	// - GetVoteByHash retrieves a stored vote for getdata response.
-	std::map<uint256, CMasternodeVote> mapVotesByHash;
-	bool AlreadyHaveVote(const uint256 &hash) const;
-	bool GetVoteByHash(const uint256 &hash, CMasternodeVote &voteOut) const;
+	// Receive path:
+	bool ProcessQueue(const CMasternodeVoteQueue &q, CNode *pfrom);
 
-	// M3 sync: when a peer connects we push them our recent votes via inv.
-	// Sends invs for all stored votes within the active height range.
-	void Sync(CNode *pnode);
+	// Consensus read: walk in-flight queues covering nTargetHeight
+	// newest-first, return the first with supermajority agreement at the
+	// relevant position.
+	bool GetCanonicalWinnerFromQueues(int nTargetHeight, CScript &payeeOut);
+
+	// Block lifecycle (queue pruning / reorg invalidation):
+	void OnBlockConnectedQueues(int nBlockHeight);
+	void OnBlockDisconnectedQueues(int nBlockHeight);
+
+	// Inv-relay support (mirrors the vote equivalents):
+	bool AlreadyHaveQueue(const uint256 &hash) const;
+	bool GetQueueByHash(const uint256 &hash, CMasternodeVoteQueue &queueOut) const;
+
+	// Peer sync (mirrors Sync for queues):
+	void SyncQueues(CNode *pnode);
 
 	// M3 RPC support:
 	// - GetEquivocatorList: snapshot of mapEquivocators for listequivocators RPC
-	// - GetVoteInfo: per-height tally summary for getvoteinfo RPC
 	struct EquivocatorInfo
 	{
 		COutPoint voterVin;
@@ -119,6 +111,7 @@ public:
 		bool autoClearingAvailable;  // true if count < MAX_EQUIVOCATIONS_PER_SESSION
 	};
 
+	// Per-payee tally entry, reused by GetQueueInfo (M1Q getvoteinfo RPC).
 	struct VoteInfoEntry
 	{
 		CScript payeeScript;
@@ -126,35 +119,43 @@ public:
 		int64_t firstSeen;
 	};
 
-	struct VoteInfo
-	{
-		int height;
-		int totalVotes;           // sum across all payees
-		int eligibleVoters;       // CountEnabled filtered to MIN_VOTING_PROTOCOL_VERSION
-		std::vector<VoteInfoEntry> perPayee;
-		bool hasConsensus;
-		CScript canonicalPayee;
-		int canonicalVoteCount;
-	};
-
 	std::vector<EquivocatorInfo> GetEquivocatorList() const;
-	VoteInfo GetVoteInfo(int nBlockHeight) const;
 
-	// M3 patch 1: surface "which voters have voted recently".
-	// Returns map of voter outpoint -> most recent height they voted for,
-	// across all currently-tracked mapVotes state.  Voters NOT in the result
-	// haven't voted within the active window (VOTE_PAST_HORIZON to
-	// VOTE_LOOKAHEAD around tip) -- this is the diagnostic for "broken MN
-	// is online enough to ping but not actually voting."  Returns local
-	// view only; other nodes may see different activity depending on
-	// network propagation and their own pruning state.
-	std::map<COutPoint, int> GetVoterActivity() const;
+	// M1Q: queue-path analogue of GetVoteInfo, for the getvoteinfo RPC.
+	// Reports the per-payee tally at the position covering nTargetHeight,
+	// taken from the NEWEST queue-height that has any queues (mirrors the
+	// newest-first walk in GetCanonicalWinnerFromQueues).  The authoritative
+	// winner/has_consensus is taken from GetCanonicalWinnerFromQueues itself
+	// (not recomputed here) so the RPC can never disagree with enforcement.
+	// Visibility only -- does not make a consensus decision.
+	struct QueueInfo
+	{
+		int height;               // nTargetHeight queried
+		int eligibleVoters;       // CountVotingEligible(nTargetHeight)
+		int queueHeightUsed;      // the qh whose position was tallied (-1 if none)
+		int position;             // position within the queue (-1 if none)
+		int totalQueues;          // number of queues tallied at that qh
+		std::vector<VoteInfoEntry> perPayee;   // payee -> voters at that position
+		bool hasConsensus;        // from GetCanonicalWinnerFromQueues
+		CScript canonicalPayee;   // valid only if hasConsensus
+		int canonicalVoteCount;   // voters for the canonical payee at the position
+	};
+	QueueInfo GetQueueInfo(int nTargetHeight);
+
+	// Queue-path voter activity (used by getmnlastpaid RPC).
+	// Returns: voterOutpoint -> highest queue-height that voter has
+	// broadcast a queue for, walking mapQueues. Used as the streak-
+	// activity column in the masternode list display.
+	std::map<COutPoint, int> GetQueueVoterActivity() const;
 };
 
 extern CMasternodeVoteTracker voteTracker;
 
-// v2.0.0.8 M2: message dispatcher for "mnvote" and "getmnvotes" commands.
-// Called from main.cpp's main message dispatcher alongside ProcessSpork etc.
+// v2.0.0.8 M1Q (post-Task-B, 2026-06-01): message dispatcher for the
+// "mnvotequeue" and "getmnqueues" commands.  Called from main.cpp's
+// main message dispatcher alongside ProcessSpork etc.  Pre-Task-B this
+// also handled the per-height "mnvote" and "getmnvotes" path; those
+// were removed when the queue mechanism became the sole consensus path.
 void ProcessMessageMasternodeVote(CNode *pfrom, std::string &strCommand, CDataStream &vRecv);
 
 #endif // CMASTERNODEVOTETRACKER_H

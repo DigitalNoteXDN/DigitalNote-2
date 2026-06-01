@@ -37,7 +37,7 @@
      <item>
       <widget class="QTabWidget" name="tabWidget">
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="tab">
         <attribute name="title">
@@ -193,7 +193,7 @@
              </column>
              <column>
               <property name="text">
-               <string>IP/Onion</string>
+               <string>IP Address</string>
               </property>
              </column>
              <column>
@@ -203,7 +203,7 @@
              </column>
              <column>
               <property name="text">
-               <string>Lock</string>
+               <string>Collateral</string>
               </property>
              </column>
             </widget>

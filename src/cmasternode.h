@@ -83,6 +83,21 @@ public:
 	bool UpdatedWithin(int seconds);
 	void Disable();
 	bool IsEnabled();
+	// v2.0.0.8 voted-consensus: deterministic, chain-derived voting eligibility.
+	// Unlike IsEnabled() (which depends on wall-clock lastTimeSeen and is
+	// therefore different on every node), IsVotingEligible(N) is a pure
+	// function of committed chain state: it is true iff this MN's collateral
+	// is confirmed at least VOTER_ELIGIBILITY_DEPTH blocks before height N.
+	// This is the ONLY eligibility predicate that may feed a consensus rule.
+	bool IsVotingEligible(int nBlockHeight) const;
+
+	// v2.0.0.8 Spec B: the block height at which this MN's collateral tx
+	// was confirmed on the active chain.  Pure committed-chain fact --
+	// identical on every synced node -- so it is consensus-safe to use in
+	// the candidate selector.  Returns -1 if the collateral tx cannot be
+	// resolved on this node.
+	int GetCollateralConfirmedHeight() const;
+
 	int GetMasternodeInputAge();
 	std::string Status();
 

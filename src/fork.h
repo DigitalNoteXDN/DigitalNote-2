@@ -59,6 +59,22 @@ static const int64_t VELOCITY_TDIFF = 0; // Use Velocity's retargetting method.
 #define VERION_1_0_4_2_MANDATORY_UPDATE_BLOCK	403117
 #define VERION_1_0_4_2_DEVELOPER_ADDRESS		"dafC1LknpDu7eALTf5DPcnPq2dwq7f9YPE"
 
+/* Testnet developer address (v2.0.0.8 testnet bootstrap).
+ * Block construction and validation on testnet always uses this regardless
+ * of mainnet fork-date logic.  Mainnet logic still chooses between the
+ * three mainnet developer addresses above based on block height/time. */
+#define TESTNET_DEVELOPER_ADDRESS				"tRutwwW5LVYyYw72s3uTiWVGemNXh6FT5d"
+
+/* Testnet reserve-phase cutoff.
+ * On mainnet the reserve phase (80M XDN/block) ran from block 2 onwards
+ * until money supply hit 8 billion -- a bootstrap mechanism for the legacy
+ * cryptonote?standard codebase swap.  Testnet has no such legacy, so we
+ * cap reserve phase to a small number of blocks early in chain history
+ * (preserving the "first few blocks paid huge" pattern that mirrors
+ * mainnet conceptually) and force all subsequent blocks to standard
+ * 300 XDN regardless of supply. */
+#define TESTNET_RESERVE_PHASE_END_HEIGHT			20
+
 std::string getDevelopersAdress(const CBlockIndex* pindex);
 
 #endif // FORK_H

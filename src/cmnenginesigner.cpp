@@ -63,7 +63,7 @@ bool CMNengineSigner::SetKey(const std::string &strSecret, std::string& errorMes
 	key = vchSecret.GetKey();
 	pubkey = key.GetPubKey();
 
-	LogPrintf("CMNengineSetKey(): SetKey now set successfully \n");
+	LogPrint("masternode", "CMNengineSetKey(): SetKey now set successfully \n");
 
 	return true;
 }

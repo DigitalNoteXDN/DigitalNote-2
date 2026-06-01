@@ -7,6 +7,7 @@
 
 #include "compat.h"
 
+#include <cmath>
 #include <iostream>
 
 #include <QApplication>
@@ -96,6 +97,16 @@ extern bool fOnlyTor;
 extern CWallet* pwalletMain;
 extern int64_t nLastCoinStakeSearchInterval;
 double GetPoSKernelPS();
+
+// v2.0.0.8 CW2: published miner-thread state for staking-icon state machine.
+// Defined in miner.cpp.  Read without lock (std::atomic).
+#include <atomic>
+extern std::atomic<int64_t> nLastStakeLoopTime;
+extern std::atomic<bool> fLastStakeLoopProductive;
+
+// File-local freshness windows for the staking-icon state machine.
+static constexpr int64_t STAKE_LOOP_FRESHNESS_SECS_INITIAL = 30;
+static constexpr int64_t STAKE_LOOP_FRESHNESS_SECS_LATCHED = 5 * 60;
 bool fGUIunlock;
 
 DigitalNoteGUI::DigitalNoteGUI(QWidget *parent):
@@ -117,6 +128,7 @@ DigitalNoteGUI::DigitalNoteGUI(QWidget *parent):
     rpcConsole(0),
     prevBlocks(0),
     nWeight(0),
+    m_bHammerLatched(false),
     seedPhraseDialog(0),
     nBatchTxCount(0),
     fInBatchMode(false),
@@ -574,22 +586,33 @@ void DigitalNoteGUI::createToolBars()
 
 void DigitalNoteGUI::setClientModel(ClientModel *clientModel)
 {
-    if(!fOnlyTor)
-    {
-        netLabel->setText("MAINNET");
-        netLabel->setToolTip(tr("Connected to the XDN Mainnet"));
-    }
-    else
-    {
-    if(!IsLimited(NET_TOR))
-    {
-    netLabel->setText("TOR");
-    }
-    }
-
     this->clientModel = clientModel;
     if(clientModel)
     {
+        // Set network label first so testnet check can override mainnet default.
+        // Previously this was unconditional "MAINNET" -- testnet builds showed
+        // the wrong label in the status bar.
+        if(!fOnlyTor)
+        {
+            if(clientModel->isTestNet())
+            {
+                netLabel->setText("TESTNET");
+                netLabel->setToolTip(tr("Connected to the XDN Testnet"));
+            }
+            else
+            {
+                netLabel->setText("MAINNET");
+                netLabel->setToolTip(tr("Connected to the XDN Mainnet"));
+            }
+        }
+        else
+        {
+            if(!IsLimited(NET_TOR))
+            {
+                netLabel->setText("TOR");
+            }
+        }
+
         // Replace some strings and icons, when using the testnet
         if(clientModel->isTestNet())
         {
@@ -797,10 +820,25 @@ void DigitalNoteGUI::setNumBlocks(int count)
         progressBarLabel->setVisible(false);
         progressBar->setVisible(false);
 
-        // Update MAINNET label tooltip with current block height
+        // Update network label tooltip with current block height.
+        // v2.0.0.8 PB-12: branch on testnet vs mainnet to match the
+        // initial netLabel tooltip set at startup (~line 585-594).
+        // Previously this was unconditional "Mainnet" -- testnet builds
+        // showed the wrong label here even though the rest of the UI
+        // correctly identified itself as testnet.
         if (netLabel)
-            netLabel->setToolTip(tr("Synced to the XDN Mainnet (Block Height: %1)")
-                .arg(count));
+        {
+            if (clientModel && clientModel->isTestNet())
+            {
+                netLabel->setToolTip(tr("Synced to the XDN Testnet (Block Height: %1)")
+                    .arg(count));
+            }
+            else
+            {
+                netLabel->setToolTip(tr("Synced to the XDN Mainnet (Block Height: %1)")
+                    .arg(count));
+            }
+        }
 
         // A9: catchup just finished -- emit summary toast for any
         // transactions whose individual toasts were suppressed during
@@ -1798,55 +1836,246 @@ void DigitalNoteGUI::updateWeight()
     nWeight = pwalletMain->GetStakeWeight();
 }
 
+// ===========================================================================
+// v2.0.0.8 CW2: staking-icon state machine.
+//
+// See v208-staking-icon-state-machine-SPEC.md for the design rationale.
+//
+// The legacy implementation read `nLastCoinStakeSearchInterval` -- a counter
+// that's only updated when SignBlock EXITS its kernel search WITHOUT finding
+// a block.  On a wallet that finds blocks successfully the counter stays at
+// 0, so the legacy code displayed the "warming up" clock indefinitely even
+// while blocks were being produced.
+//
+// The new state machine reads two atomics published by ThreadStakeMiner
+// (heartbeat + productivity flag) and uses a hammer-latch with a 5-minute
+// safety floor so the icon doesn't flutter on transient §29 defers.  The
+// expected-time-between-blocks tooltip is recomputed from nWeight +
+// difficulty rather than the broken counter.
+// ===========================================================================
+
+QString DigitalNoteGUI::ComputeHammerTooltip() const
+{
+    // Expected time between PoS blocks for THIS wallet:
+    //
+    //   T = GetTargetSpacing * networkWeight / walletWeight
+    //
+    // Intuition: your wallet holds (walletWeight / networkWeight) of the
+    // total stake; the network produces a block every GetTargetSpacing
+    // seconds; so on average you find one block per
+    // (networkWeight / walletWeight) blocks the network produces, i.e.
+    // every GetTargetSpacing * (networkWeight / walletWeight) seconds.
+    // Stochastic in practice; user-meaningful as an order-of-magnitude
+    // estimate.
+    //
+    // This is the same formula the legacy pre-CW2 staking-icon body used.
+    // GetPoSKernelPS() returns the network's total stakeable weight
+    // (despite the "PS" naming convention -- this codebase exposes it as
+    // "netstakeweight" in the getstakinginfo RPC; see rpcmining.cpp:151
+    // for the canonical use).
+    const uint64_t nNetworkWeight = static_cast<uint64_t>(GetPoSKernelPS());
+    if (nWeight == 0 || nNetworkWeight == 0)
+    {
+        return tr("Wallet is actively staking");
+    }
+
+    // Integer arithmetic.  GetTargetSpacing * nNetworkWeight could
+    // theoretically overflow uint64 on extreme network-weight values, but
+    // realistic ranges keep this well within bounds (120 * 10^15 = 10^17;
+    // uint64 max ~1.8 * 10^19).
+    const uint64_t nExpectedSecs =
+        static_cast<uint64_t>(GetTargetSpacing) * nNetworkWeight / nWeight;
+
+    QString sExpected;
+    if (nExpectedSecs >= 86400)
+    {
+        sExpected = tr("%1d %2h")
+            .arg(static_cast<qulonglong>(nExpectedSecs / 86400))
+            .arg(static_cast<qulonglong>((nExpectedSecs % 86400) / 3600));
+    }
+    else if (nExpectedSecs >= 3600)
+    {
+        sExpected = tr("%1h %2m")
+            .arg(static_cast<qulonglong>(nExpectedSecs / 3600))
+            .arg(static_cast<qulonglong>((nExpectedSecs % 3600) / 60));
+    }
+    else if (nExpectedSecs >= 60)
+    {
+        sExpected = tr("%1m %2s")
+            .arg(static_cast<qulonglong>(nExpectedSecs / 60))
+            .arg(static_cast<qulonglong>(nExpectedSecs % 60));
+    }
+    else
+    {
+        sExpected = tr("%1s").arg(static_cast<qulonglong>(nExpectedSecs));
+    }
+
+    return tr("Wallet is actively staking. Expected time between "
+              "blocks at current weight and network stake: %1.")
+              .arg(sExpected);
+}
+
+DigitalNoteGUI::StakingIconState
+DigitalNoteGUI::ComputeStakingIconStatePhaseA(
+    bool fIBD, bool fWalletLocked, QString &tooltipOut) const
+{
+    if (fWalletLocked)
+    {
+        tooltipOut = tr("Not staking because wallet is locked");
+        return StakingIconState::None;
+    }
+    if (!GetBoolArg("-staking", true))
+    {
+        tooltipOut = tr("Not staking -- disabled in configuration");
+        return StakingIconState::None;
+    }
+    if (nWeight == 0)
+    {
+        tooltipOut = tr("Not staking because you don't have mature coins");
+        return StakingIconState::None;
+    }
+    if (fIBD)
+    {
+        tooltipOut = tr("Not staking because wallet is syncing");
+        return StakingIconState::Clock;
+    }
+    if (vNodes.empty())
+    {
+        tooltipOut = tr("Not staking because wallet is offline");
+        return StakingIconState::Clock;
+    }
+
+    const int64_t loopAge = GetTime() - nLastStakeLoopTime.load();
+    if (loopAge > STAKE_LOOP_FRESHNESS_SECS_INITIAL)
+    {
+        tooltipOut = tr("Staking thread not responding -- restart wallet");
+        return StakingIconState::None;
+    }
+
+    if (!fLastStakeLoopProductive.load())
+    {
+        tooltipOut = tr(
+            "Staking is starting up.  Stakeable weight is present, "
+            "but the most recent staking-loop iteration deferred "
+            "(typically waiting for the masternode vote queue, "
+            "post-activation).");
+        return StakingIconState::Clock;
+    }
+
+    tooltipOut = ComputeHammerTooltip();
+    return StakingIconState::Hammer;
+}
+
+DigitalNoteGUI::StakingIconState
+DigitalNoteGUI::ComputeStakingIconStatePhaseB(
+    bool fIBD, bool fWalletLocked, QString &tooltipOut) const
+{
+    if (fWalletLocked)
+    {
+        tooltipOut = tr("Not staking because wallet is locked");
+        return StakingIconState::None;
+    }
+    if (!GetBoolArg("-staking", true))
+    {
+        tooltipOut = tr("Not staking -- disabled in configuration");
+        return StakingIconState::None;
+    }
+    if (nWeight == 0)
+    {
+        tooltipOut = tr("Not staking because you don't have mature coins");
+        return StakingIconState::None;
+    }
+    if (fIBD)
+    {
+        tooltipOut = tr("Not staking because wallet is syncing");
+        return StakingIconState::Clock;
+    }
+    if (vNodes.empty())
+    {
+        tooltipOut = tr("Not staking because wallet is offline");
+        return StakingIconState::Clock;
+    }
+
+    // Safety floor: 5-minute heartbeat staleness drops the latch.
+    const int64_t loopAge = GetTime() - nLastStakeLoopTime.load();
+    if (loopAge > STAKE_LOOP_FRESHNESS_SECS_LATCHED)
+    {
+        tooltipOut = tr("Staking thread not responding -- restart wallet");
+        return StakingIconState::None;
+    }
+
+    tooltipOut = ComputeHammerTooltip();
+    return StakingIconState::Hammer;
+}
+
 void DigitalNoteGUI::updateStakingIcon()
 {
     updateWeight();
 
-    if (nLastCoinStakeSearchInterval && nWeight)
+    // Avoid taking cs_main directly from a Qt timer thread: IsInitialBlockDownload()
+    // and pwalletMain->IsLocked() each acquire heavy locks, and if held by a slow
+    // operation (ProcessMessages, block connect, the ThreadStakeMiner queue probe
+    // under §29's cs_main hold) the GUI thread blocks for the duration -- triggers
+    // "Not Responding" and freezes the wallet UI.  Use TRY_LOCK and bail out on
+    // contention -- the icon refreshes again on the next timer fire when locks are
+    // free.  Matches the precedent in updateWeight() just above.
+    TRY_LOCK(cs_main, lockMain);
+    if (!lockMain)
+        return;
+
+    bool fIBD = IsInitialBlockDownload();
+    bool fWalletLocked = false;
+    if (pwalletMain)
     {
-        uint64_t nWeight = this->nWeight;
-        uint64_t nNetworkWeight = GetPoSKernelPS();
-        unsigned nEstimateTime = 0;
-        nEstimateTime = GetTargetSpacing * nNetworkWeight / nWeight;
+        TRY_LOCK(pwalletMain->cs_wallet, lockWallet);
+        // If we can't get cs_wallet, skip this refresh rather than risk a stale
+        // answer -- next timer fire will retry when the lock is free.
+        if (!lockWallet)
+            return;
+        fWalletLocked = pwalletMain->IsLocked();
+    }
 
-        QString text;
-        if (nEstimateTime < 60)
-        {
-            text = tr("%n second(s)", "", nEstimateTime);
-        }
-        else if (nEstimateTime < 60*60)
-        {
-            text = tr("%n minute(s)", "", nEstimateTime/60);
-        }
-        else if (nEstimateTime < 24*60*60)
-        {
-            text = tr("%n hour(s)", "", nEstimateTime/(60*60));
-        }
-        else
-        {
-            text = tr("%n day(s)", "", nEstimateTime/(60*60*24));
-        }
+    QString tooltip;
+    StakingIconState state;
 
-        nWeight /= COIN;
-        nNetworkWeight /= COIN;
-
-        labelStakingIcon->setPixmap(QIcon(":/icons/staking_on").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-        labelStakingIcon->setToolTip(tr("Staking.<br>Your weight is %1<br>Network weight is %2<br>Expected time to earn reward is %3").arg(nWeight).arg(nNetworkWeight).arg(text));
+    if (m_bHammerLatched)
+    {
+        // Phase B: only check invalidating events + safety floor.
+        state = ComputeStakingIconStatePhaseB(fIBD, fWalletLocked, tooltip);
+        if (state != StakingIconState::Hammer)
+        {
+            // An invalidating event fired; drop the latch.  Next tick will
+            // re-evaluate via Phase A.
+            m_bHammerLatched = false;
+        }
     }
     else
     {
-        labelStakingIcon->setPixmap(QIcon(":/icons/staking_off").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-        if (pwalletMain && pwalletMain->IsLocked())
-            labelStakingIcon->setToolTip(tr("Not staking because wallet is locked"));
-        else if (vNodes.empty())
-            labelStakingIcon->setToolTip(tr("Not staking because wallet is offline"));
-        else if (IsInitialBlockDownload())
-            labelStakingIcon->setToolTip(tr("Not staking because wallet is syncing"));
-        else if (!nWeight)
-            labelStakingIcon->setToolTip(tr("Not staking because you don't have mature coins"));
-        else
-            labelStakingIcon->setToolTip(tr("Not staking"));
+        // Phase A: full prerequisite walk including loop-productivity.
+        state = ComputeStakingIconStatePhaseA(fIBD, fWalletLocked, tooltip);
+        if (state == StakingIconState::Hammer)
+        {
+            // First-time entry into Hammer; latch.
+            m_bHammerLatched = true;
+        }
     }
+
+    switch (state)
+    {
+        case StakingIconState::Hammer:
+            labelStakingIcon->setPixmap(QIcon(":/icons/staking_on")
+                .pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
+            break;
+        case StakingIconState::Clock:
+            labelStakingIcon->setPixmap(QIcon(":/icons/staking_wait")
+                .pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
+            break;
+        case StakingIconState::None:
+            labelStakingIcon->setPixmap(QIcon(":/icons/staking_off")
+                .pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
+            break;
+    }
+    labelStakingIcon->setToolTip(tooltip);
 }
 
 void DigitalNoteGUI::detectShutdown()

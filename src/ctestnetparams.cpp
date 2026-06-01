@@ -49,7 +49,17 @@ CTestNetParams::CTestNetParams()
 	vFixedSeeds.clear();
 	vSeeds.clear();
 
-	base58Prefixes[CChainParams_Base58Type::PUBKEY_ADDRESS] = std::vector<unsigned char>(1,91);
+	// Testnet seed node (xdn-explorer). Hostname first so it survives an
+	// IP change; literal IPv4 as a direct fallback if DNS is unavailable.
+	// seed.host is run through the normal resolve path (net.cpp ~660), which
+	// accepts a bare IP literal as well as a hostname -- same idiom mainnet
+	// uses (cmainparams.cpp). Default testnet port 28092 is applied by the
+	// resolver; no port suffix needed here. IPv6 (2a02:c207:2331:8636::1)
+	// is reachable via the same hostname for v6-capable peers.
+	vSeeds.push_back(CDNSSeedData("xdn-explorer", "testnet.xdn-explorer.com"));
+	vSeeds.push_back(CDNSSeedData("xdn-explorer-ip4", "161.97.187.39"));
+
+	base58Prefixes[CChainParams_Base58Type::PUBKEY_ADDRESS] = std::vector<unsigned char>(1,127);
 	base58Prefixes[CChainParams_Base58Type::SCRIPT_ADDRESS] = std::vector<unsigned char>(1,100);
 	base58Prefixes[CChainParams_Base58Type::SECRET_KEY] = std::vector<unsigned char>(1,102);
 	base58Prefixes[CChainParams_Base58Type::STEALTH_ADDRESS] = std::vector<unsigned char>(1,106);

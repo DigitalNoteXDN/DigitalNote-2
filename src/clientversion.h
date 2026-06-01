@@ -15,7 +15,7 @@
 //
 // Stays false through milestones M0-M6 of v2.0.0.8 development.  Switched
 // to true at M7 (the actual release build).
-#define CLIENT_VERSION_IS_RELEASE  false
+#define CLIENT_VERSION_IS_RELEASE  true
 
 // Converts the parameter X to a string after macro replacement on X has been performed.
 // Don't merge these into one macro!

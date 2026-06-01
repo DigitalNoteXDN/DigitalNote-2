@@ -25,6 +25,7 @@
 
 #include "clientmodel.h"
 #include "walletmodel.h"
+#include "askpassphrasedialog.h"
 #include "cmasternode.h"
 #include "cmasternodeman.h"
 #include "masternodeman.h"
@@ -107,6 +108,14 @@ MasternodeManager::MasternodeManager(QWidget *parent) :
 
     ui->tableWidgetMasternodes->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->tableWidget_2->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+
+    // v2.0.0.8 UAT-2: disable header section highlighting on both MN
+    // tables.  Default Qt behaviour is to bold the column header above
+    // the currently-selected row -- visually noisy and unhelpful when
+    // the user just wants to act on a selection.  Headers stay normal
+    // weight regardless of selection state.
+    ui->tableWidgetMasternodes->horizontalHeader()->setHighlightSections(false);
+    ui->tableWidget_2->horizontalHeader()->setHighlightSections(false);
     // Override stretchLastSection (set in masternodemanager.ui).  With
     // ResizeToContents on every column, stretching the last column
     // would just give Lock excess whitespace.  Disable so columns fit
@@ -353,8 +362,26 @@ void MasternodeManager::unlockSelectedCollateral()
     refreshCollateralCell(row);
 }
 
-static QString seconds_to_DHMS(quint32 duration)
+// v2.0.0.8 UAT-6a: format a duration in seconds as days/hours/minutes/seconds.
+// Takes a signed 64-bit input so callers can pass `lastTimeSeen - sigTime`
+// directly without narrowing.  Returns a marker string when the input is
+// not a meaningful duration (negative, zero, or unreasonably large -- the
+// latter indicates uninitialized timestamps in the MN entry, typically
+// sigTime=0 which makes the apparent duration equal the current unix
+// time, e.g. "20570 days" or larger).
+static QString seconds_to_DHMS(qint64 duration)
 {
+	// Sentinel: if either source timestamp was missing the delta will be
+	// out of plausible range.  No MN has actually been alive for 10 years
+	// or longer (the codebase is younger).  Display a placeholder so the
+	// column doesn't claim a bogus value.
+	static const qint64 kMaxPlausibleSeconds = qint64(10) * 365 * 24 * 60 * 60; // ~10 years
+
+	if (duration <= 0 || duration > kMaxPlausibleSeconds)
+	{
+		return QString("—");
+	}
+
 	QString res;
 	int seconds = (int) (duration % 60);
 	duration /= 60;
@@ -409,7 +436,11 @@ void MasternodeManager::updateNodeList()
 		QTableWidgetItem* addressItem = new QTableWidgetItem(QString::fromStdString(mn.addr.ToString()));
 		QTableWidgetItem* protocolItem = new QTableWidgetItem(QString::number(mn.protocolVersion));
 		QTableWidgetItem* statusItem = new QTableWidgetItem(QString::number(mn.IsEnabled()));
-		QTableWidgetItem* activeSecondsItem = new QTableWidgetItem(seconds_to_DHMS((qint64)(mn.lastTimeSeen - mn.sigTime)));
+		// v2.0.0.8 UAT-6a: pass the raw signed delta.  seconds_to_DHMS
+		// now refuses to format negative or wildly-out-of-range values
+		// (which indicate uninitialised mn.sigTime), returning "—" instead
+		// of a 47000-day display.
+		QTableWidgetItem* activeSecondsItem = new QTableWidgetItem(seconds_to_DHMS((qint64)mn.lastTimeSeen - (qint64)mn.sigTime));
 		QTableWidgetItem* lastSeenItem = new QTableWidgetItem(QString::fromStdString(DateTimeStrFormat(mn.lastTimeSeen)));
 
 		CScript pubkey;
@@ -515,6 +546,48 @@ void MasternodeManager::onWorkerError(QString message)
     QMessageBox::critical(this, tr("Masternode Error"), message);
 }
 
+// v2.0.0.8 UAT-6b: prompt the user to unlock the wallet for staking
+// before starting/stopping a masternode.  Returns true if the wallet
+// is unlocked (already, or by user action just now) and false if the
+// caller must abort.
+//
+// The dialog is launched in UnlockStaking mode (not plain Unlock) so
+// the staking-only checkbox is pre-checked.  When the user accepts:
+//
+//   * If they keep the checkbox checked: wallet unlocks with
+//     fWalletUnlockStakingOnly = true.  Master key stays decrypted
+//     indefinitely (no auto-relock timer expires it).  MN operations
+//     -- including ManageStatus re-registration after transient
+//     network drops -- continue to work because IsLocked() returns
+//     false.  Sends and other wallet-modifying ops remain blocked.
+//
+//   * If they uncheck the box: wallet unlocks fully but is subject to
+//     the normal auto-relock behaviour.  Local MN remains at risk of
+//     the historical relock-breaks-recovery issue.  Inform-only --
+//     we honour the user's choice.
+//
+bool MasternodeManager::ensureWalletUnlocked()
+{
+    if (!pwalletMain || !pwalletMain->IsLocked()) {
+        return true;
+    }
+
+    AskPassphraseDialog dlg(AskPassphraseDialog::UnlockStaking, this);
+    dlg.setModel(walletModel);
+    if (dlg.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    // Dialog accepted -- verify the unlock actually succeeded (the
+    // dialog handles its own error reporting on a wrong passphrase,
+    // but we still need to check the resulting state).
+    if (pwalletMain->IsLocked()) {
+        return false;
+    }
+
+    return true;
+}
+
 void MasternodeManager::on_startButton_clicked()
 {
     QItemSelectionModel* selectionModel = ui->tableWidget_2->selectionModel();
@@ -525,8 +598,8 @@ void MasternodeManager::on_startButton_clicked()
         return;
     }
 
-    if (pwalletMain->IsLocked()) {
-        QMessageBox::warning(this, tr("Wallet Locked"), tr("Please unlock your wallet to start a Masternode."));
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
         return;
     }
 
@@ -547,8 +620,8 @@ void MasternodeManager::on_startButton_clicked()
 
 void MasternodeManager::on_startAllButton_clicked()
 {
-    if (pwalletMain->IsLocked()) {
-        QMessageBox::warning(this, tr("Wallet Locked"), tr("Please unlock your wallet to start Masternodes."));
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
         return;
     }
     std::vector<CMasternodeConfigEntry> entries = masternodeConfig.getEntries();
@@ -565,8 +638,8 @@ void MasternodeManager::on_stopButton_clicked()
         return;
     }
 
-    if (pwalletMain->IsLocked()) {
-        QMessageBox::warning(this, tr("Wallet Locked"), tr("Please unlock your wallet to stop a Masternode."));
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
         return;
     }
 
@@ -587,8 +660,8 @@ void MasternodeManager::on_stopButton_clicked()
 
 void MasternodeManager::on_stopAllButton_clicked()
 {
-    if (pwalletMain->IsLocked()) {
-        QMessageBox::warning(this, tr("Wallet Locked"), tr("Please unlock your wallet to stop Masternodes."));
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
         return;
     }
     std::vector<CMasternodeConfigEntry> entries = masternodeConfig.getEntries();

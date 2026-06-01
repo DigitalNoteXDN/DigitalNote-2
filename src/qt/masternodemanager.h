@@ -80,6 +80,18 @@ private:
      *  lock state from CWallet via the model and updates the cell. */
     void refreshCollateralCell(int row);
 
+    /** v2.0.0.8 UAT-6b: ensure the wallet has the master key decrypted
+     *  before kicking off an MN start/stop operation.  If already
+     *  unlocked (either fully or staking-only), returns true immediately.
+     *  If locked, presents an AskPassphraseDialog in UnlockStaking mode
+     *  so the user gets a checkbox-default for "keep unlocked for
+     *  staking" -- which keeps the MN functional after the worker
+     *  finishes (vs. the old plain-Unlock which lets the wallet auto-
+     *  relock and breaks local MN re-registration on transient network
+     *  hiccups).  Returns false if the user cancelled or the unlock
+     *  failed -- in which case the caller must abort the operation. */
+    bool ensureWalletUnlocked();
+
 private slots:
     void showContextMenu(const QPoint&);
     /** B2: show lock/unlock context menu over tableWidget_2.  Enables

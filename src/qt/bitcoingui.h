@@ -140,6 +140,30 @@ private:
 
     uint64_t nWeight;
 
+    // v2.0.0.8 CW2: staking-icon state machine.
+    //
+    // m_bHammerLatched: once updateStakingIcon() resolves the icon to
+    // Hammer via the full Phase-A prerequisite walk, latch this flag.
+    // While latched, only the invalidating-events set + a 5-minute
+    // staleness floor can drop us off Hammer; transient §29 defers do
+    // not flutter the icon.  Single-threaded (only the GUI main thread
+    // touches it), so no atomic.
+    mutable bool m_bHammerLatched;
+
+    enum class StakingIconState { None, Hammer, Clock };
+
+    // Phase-A walk: full prerequisite check including loop-productivity.
+    StakingIconState ComputeStakingIconStatePhaseA(
+        bool fIBD, bool fWalletLocked, QString &tooltipOut) const;
+
+    // Phase-B walk: invalidating-events only, plus the 5-minute floor.
+    StakingIconState ComputeStakingIconStatePhaseB(
+        bool fIBD, bool fWalletLocked, QString &tooltipOut) const;
+
+    // Tooltip-detail computation for the Hammer state -- expected
+    // time-between-blocks from nWeight + chain difficulty.
+    QString ComputeHammerTooltip() const;
+
     // A9: count of incoming-tx notifications suppressed during the
     // current batch period (IBD/catchup or explicit rescan import).
     // When the batch ends, we fire ONE summary toast naming the count

@@ -31,7 +31,7 @@
 #include "cunsignedalert.h"
 #include "cblock.h"
 #include "csporkmessage.h"
-#include "cmasternodevote.h"
+#include "cmasternodevotequeue.h"
 #include "cmnenginequeue.h"
 #include "ctransaction.h"
 #include "cmasternodeman.h"
@@ -250,7 +250,7 @@ TmpSerialize2(CDataStream, CPubKey);
 TmpSerialize2(CDataStream, CScriptCompressor);
 TmpSerialize2(CDataStream, CService);
 TmpSerialize2(CDataStream, CSporkMessage);
-TmpSerialize2(CDataStream, CMasternodeVote);
+TmpSerialize2(CDataStream, CMasternodeVoteQueue);
 TmpSerialize2(CDataStream, CStealthAddress);
 TmpSerialize2(CDataStream, CStealthKeyMetadata);
 TmpSerialize2(CDataStream, CSubNet);

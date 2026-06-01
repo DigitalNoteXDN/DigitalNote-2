@@ -29,6 +29,17 @@
 // allocate a fresh ID (SPORK_15+).
 #define SPORK_14_TEST_SIGNATURES					10013
 
+// SPORK_15 controls activation of masternode-voted payment consensus (M4).
+// Semantics differ from time-window sporks above: this value is a BLOCK HEIGHT
+// override, not a timestamp gate.
+// - 0 (default): no spork override; activation height is the hardcoded floor
+//   (see GetEffectiveVotedConsensusActivationHeight in cblock.cpp).
+// - >0: activation at min(hardcoded_floor, spork_value).  The min() prevents
+//   a compromised spork key from activating retroactively or pushing the gate
+//   past the hardcoded floor.  Set this BELOW the hardcoded floor to advance
+//   activation, never above.
+#define SPORK_15_VOTED_CONSENSUS_ACTIVATION			10014
+
 #define SPORK_1_MASTERNODE_PAYMENTS_ENFORCEMENT_DEFAULT		4070908800		// OFF
 #define SPORK_2_INSTANTX_DEFAULT							0				// ON
 #define SPORK_3_INSTANTX_BLOCK_FILTERING_DEFAULT			0				// ON
@@ -42,6 +53,7 @@
 #define SPORK_12_RECONSIDER_BLOCKS_DEFAULT					0				// ON
 #define SPORK_13_ENABLE_SUPERBLOCKS_DEFAULT					4070908800		// OFF
 #define SPORK_14_TEST_SIGNATURES_DEFAULT					4070908800		// OFF (default never matters -- spork is not connected to any code)
+#define SPORK_15_VOTED_CONSENSUS_ACTIVATION_DEFAULT			0				// 0 = no override (use hardcoded floor)
 
 class CSporkMessage;
 class uint256;

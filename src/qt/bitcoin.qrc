@@ -53,6 +53,7 @@
         <file alias="debugwindow">res/icons/debugwindow.png</file>
         <file alias="staking_off">res/icons/staking_off.png</file>
         <file alias="staking_on">res/icons/staking_on.png</file>
+        <file alias="staking_wait">res/icons/staking_wait.png</file>
         <file alias="onion">res/icons/onion.png</file>
         <file alias="onionblack">res/icons/onion-black.png</file>
         <file alias="browse">res/icons/browse.png</file>
@@ -86,6 +87,7 @@
         <file alias="lock_open_solid">res/icons/dark/lock_open.png</file>
         <file alias="staking_off">res/icons/dark/staking_off.png</file>
         <file alias="staking_on">res/icons/dark/staking_on.png</file>
+        <file alias="staking_wait">res/icons/dark/staking_wait.png</file>
         <file alias="bitcoin-dark">res/icons/dark/digitalnote_dark.png</file>
         <file alias="bitcoin-dark_testnet">res/icons/dark/digitalnote_dark_testnet.png</file>
         <file alias="toolbar-dark">res/icons/dark/digitalnote_dark-16.png</file>

@@ -25,6 +25,9 @@
 #include "guiconstants.h"
 #include "init.h"
 #include "util.h"
+
+#include <cctype>
+
 #include "paymentserver.h"
 #include "wallet.h"
 #include "cscript.h"
@@ -111,12 +114,66 @@ static void InitMessage(const std::string &message)
 {
     if(splashref)
     {
+        // The splash always shows the full, live message (including running
+        // counts like "Loading block index... 1175000 entries") -- that is
+        // exactly what a progress splash is for.
         splashref->showMessage(QString::fromStdString(message), splashMessageAlign, splashMessageColor);
         splashref->raise();
         splashref->activateWindow();
         QApplication::instance()->processEvents();
     }
-    LogPrintf("init message: %s\n", message);
+
+    // Log gating: many init phases emit a high-frequency progress message
+    // that differs only in a running count (e.g. "Loading block index... N
+    // entries" every 1000 entries, "Rescanning... block N / M", "MN cache:
+    // N/M", "Loading wallet... (P %)").  On mainnet that floods debug.log
+    // with thousands of near-identical lines.  We want ONE line per phase on
+    // the normal log -- the milestone -- and the per-count updates only when
+    // the operator asks for them with -debug=init.
+    //
+    // The "phase" is the message with any trailing progress detail removed:
+    // everything from the first run of "... " or a digit onward.  When the
+    // phase changes we log it once unconditionally (the milestone); repeated
+    // updates within the same phase are gated behind the "init" category.
+    std::string phase = message;
+    {
+        // Trim at the first "..." (most progress messages are
+        // "<Phase>... <count>") , else at the first digit.
+        size_t cut = phase.find("...");
+        if (cut == std::string::npos)
+        {
+            for (size_t i = 0; i < phase.size(); ++i)
+            {
+                if (isdigit((unsigned char)phase[i]))
+                {
+                    cut = i;
+                    break;
+                }
+            }
+        }
+        if (cut != std::string::npos)
+        {
+            phase = phase.substr(0, cut);
+        }
+        // strip trailing spaces
+        while (!phase.empty() && phase[phase.size()-1] == ' ')
+        {
+            phase.erase(phase.size()-1);
+        }
+    }
+
+    static std::string lastPhase;
+    if (phase != lastPhase)
+    {
+        // New phase -> milestone line on the normal log.
+        lastPhase = phase;
+        LogPrintf("init message: %s\n", message);
+    }
+    else
+    {
+        // Same phase, progress update -> only with -debug=init.
+        LogPrint("init", "init message: %s\n", message.c_str());
+    }
 }
 
 /*
@@ -203,6 +260,12 @@ int main(int argc, char *argv[])
                               QString("Error: Specified data directory \"%1\" does not exist.").arg(QString::fromStdString(mapArgs["-datadir"])));
         return 1;
     }
+    // v2.0.0.8 testnet-conf-generator: generate a default conf in the
+    // network-specific data directory if absent, before ReadConfigFile,
+    // so a freshly-generated conf is read on this same run.  Mirrors the
+    // daemon path in bitcoind.cpp.
+    GenerateDefaultConfigFile();
+
     ReadConfigFile(mapArgs, mapMultiArgs);
 
     // Application identification (must be set before OptionsModel is initialized,

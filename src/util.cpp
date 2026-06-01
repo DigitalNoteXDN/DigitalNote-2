@@ -123,8 +123,6 @@ int64_t nLiveForkToggle = 0;
 std::string strRollbackToBlock = "";
 //MasterNode recipient verification delay base time
 int64_t nMasterNodeChecksDelayBaseTime = 0;
-//MasterNode peer IP advanced relay system toggle
-bool fMnAdvRelay = false;
 int maxBlockHeight = -1;
 
 void MilliSleep(int64_t n)
@@ -1484,13 +1482,66 @@ void ClearDatadirCache()
 			  boost::filesystem::path());
 }
 
+// v2.0.0.8 testnet-conf-generator: resolve the network-specific data
+// directory from the COMMAND-LINE network flags alone.
+//
+// GetDataDir(true) resolves the network subdir via Params(), which is
+// only valid after SelectParams() has run.  Several startup paths --
+// the early ReadConfigFile, and the -daemon pidfile creation -- need
+// the network-specific directory BEFORE SelectParams() runs.  Using
+// GetDataDir(false) there (the old behaviour) put the testnet conf and
+// the testnet pidfile in the MAINNET data directory, and made a
+// -testnet launch read the mainnet conf.
+//
+// The network is fully determined by the -testnet / -regtest
+// command-line flags (SelectParamsFromCommandLine itself does nothing
+// more than read those two GetBoolArgs).  ParseParameters() populates
+// mapArgs before any of these early paths run, so this helper is valid
+// from the very start of startup.
+//
+// Returns the base data dir for mainnet, <datadir>/testnet for -testnet,
+// <datadir>/regtest for -regtest.  Creates the directory if absent, so
+// callers can write into it immediately.
+//
+// Note: network selection is by the -testnet / -regtest command-line
+// switch ONLY.  A testnet= line inside a conf file does NOT select the
+// network -- the conf is only read once the network (hence which conf)
+// is already known.
+static boost::filesystem::path GetNetworkConfigDir()
+{
+	boost::filesystem::path pathBase = GetDataDir(false);
+
+	bool fRegTest = GetBoolArg("-regtest", false);
+	bool fTestNet = GetBoolArg("-testnet", false);
+
+	boost::filesystem::path path = pathBase;
+
+	if (fRegTest)
+	{
+		path = pathBase / "regtest";
+	}
+	else if (fTestNet)
+	{
+		path = pathBase / "testnet";
+	}
+	// mainnet: base dir, no subdir.
+
+	boost::filesystem::create_directory(path);
+
+	return path;
+}
+
 boost::filesystem::path GetConfigFile()
 {
 	boost::filesystem::path pathConfigFile(GetArg("-conf", "DigitalNote.conf"));
 	
 	if (!pathConfigFile.is_complete())
 	{
-		pathConfigFile = GetDataDir(false) / pathConfigFile;
+		// v2.0.0.8: network-specific.  A -testnet launch reads
+		// <datadir>/testnet/DigitalNote.conf; mainnet reads
+		// <datadir>/DigitalNote.conf.  The two networks no longer share
+		// a conf file, so there is no cross-network contamination.
+		pathConfigFile = GetNetworkConfigDir() / pathConfigFile;
 	}
 	
 	return pathConfigFile;
@@ -1508,69 +1559,177 @@ boost::filesystem::path GetMasternodeConfigFile()
 	return pathConfigFile;
 }
 
+// v2.0.0.8 testnet-conf-generator: write a default DigitalNote.conf into
+// the network-specific data directory if one does not already exist.
+//
+// Background: earlier versions auto-generated a conf with hardcoded
+// MAINNET ports/addnodes, before network selection, into the mainnet
+// datadir even under -testnet.  That generator was removed (worked
+// around) rather than fixed.  This is the proper fix.
+//
+// Targets GetNetworkConfigDir() -- <datadir>/testnet under -testnet,
+// <datadir>/ on mainnet -- i.e. exactly the path GetConfigFile() (and
+// therefore the subsequent ReadConfigFile) will read.  Emits ports
+// correct for the selected network, a CSPRNG-generated rpcpassword
+// (server=1 makes an empty/equal rpcpassword a fatal startup error),
+// and only writes if the file is absent (never overwrites a user conf).
+//
+// Must be called after ParseParameters() (so the -testnet flag is
+// known) and before ReadConfigFile() (so a freshly-generated conf is
+// read on the same run).
+void GenerateDefaultConfigFile()
+{
+	boost::filesystem::path pathConfig = GetConfigFile();
+
+	// Never overwrite an existing conf.
+	if (boost::filesystem::exists(pathConfig))
+	{
+		return;
+	}
+
+	bool fRegTest = GetBoolArg("-regtest", false);
+	bool fTestNet = GetBoolArg("-testnet", false);
+
+	// Default P2P / RPC ports for the network selected on the command
+	// line.  Hardcoded here (rather than via Params()) because Params()
+	// is not valid before SelectParams(); these match cmainparams.cpp /
+	// ctestnetparams.cpp.
+	int nP2PPort;
+	int nRPCPort;
+
+	if (fTestNet)
+	{
+		nP2PPort = 28092;
+		nRPCPort = 28094;
+	}
+	else
+	{
+		// mainnet (regtest also falls here for the default conf; regtest
+		// users invariably override on the command line anyway).
+		nP2PPort = 18092;
+		nRPCPort = 18094;
+	}
+
+	// Random rpcpassword (hex).  server=1 makes an empty or
+	// user==password rpcpassword a fatal startup error.
+	unsigned char rand_pwd[32];
+	GetRandBytes(rand_pwd, 32);
+
+	std::string strRpcPassword;
+	{
+		static const char hexmap[] = "0123456789abcdef";
+		for (int i = 0; i < 32; i++)
+		{
+			strRpcPassword += hexmap[(rand_pwd[i] >> 4) & 0x0F];
+			strRpcPassword += hexmap[rand_pwd[i] & 0x0F];
+		}
+	}
+
+	boost::filesystem::ofstream stream(pathConfig);
+
+	if (!stream.good())
+	{
+		LogPrintf("GenerateDefaultConfigFile -- could not create %s\n",
+				  pathConfig.string().c_str());
+		return;
+	}
+
+	// Note: deliberately NO "testnet=1" line.  Network selection is by
+	// the -testnet command-line switch only; a testnet= line in the conf
+	// would mislead users into thinking the switch is optional.
+
+	stream << "listen=1\n";
+	stream << "server=1\n";
+	stream << "#daemon=1\n";
+	stream << "maxconnections=150\n";
+	stream << "port=" << nP2PPort << "\n";
+	stream << "#bind=0.0.0.0:" << nP2PPort << "\n";
+	stream << "#bind=[::]:" << nP2PPort << "\n";
+	stream << "\n";
+	stream << "rpcuser=DigitalNoterpc\n";
+	stream << "rpcpassword=" << strRpcPassword << "\n";
+	stream << "rpcport=" << nRPCPort << "\n";
+	stream << "rpcallowip=127.0.0.1\n";
+	stream << "rpcworkqueue=64\n";
+	stream << "\n";
+	stream << "#externalip=\n";
+	stream << "# add a second externalip line if also running IPv6\n";
+	stream << "\n";
+
+	// Addnodes.
+	//
+	// Mainnet: the original 2.0.0.7 addnode list, verbatim.  These are a
+	// starting set of mainnet peers; some may be stale and should be
+	// reviewed/pruned before a release.
+	//
+	// Testnet: no addnodes.  A commented placeholder only -- testnet peer
+	// discovery is intended to be served by the testnet explorer once it
+	// is online, at which point its hostname becomes the testnet addnode
+	// (and ideally also goes into ctestnetparams.cpp vSeeds).
+	// Testnet: the testnet explorer is now online and serves as the
+	// testnet seed (see the matching vSeeds entries in
+	// ctestnetparams.cpp).  Hostname first (survives an IP change), with
+	// the literal IPv4 and IPv6 as direct fallbacks if DNS is down.  No
+	// port suffix -> the default testnet P2P port (28092) is used.
+	if (fTestNet)
+	{
+		stream << "addnode=testnet.xdn-explorer.com\n";
+		stream << "addnode=161.97.187.39\n";
+		stream << "addnode=[2a02:c207:2331:8636::1]\n";
+	}
+	else
+	{
+		stream << "addnode=103.164.54.203\n";
+		stream << "addnode=192.241.147.56\n";
+		stream << "addnode=20.193.89.74\n";
+		stream << "addnode=161.97.92.102\n";
+		stream << "addnode=161.97.106.85:18060\n";
+		stream << "addnode=161.97.106.85:18061\n";
+		stream << "addnode=161.97.106.85:18062\n";
+		stream << "addnode=161.97.106.85:18063\n";
+		stream << "addnode=95.111.225.123:18063\n";
+		stream << "addnode=95.111.225.123:18092\n";
+		stream << "addnode=62.171.150.246:18060\n";
+		stream << "addnode=62.171.150.246:18062\n";
+		stream << "addnode=62.171.150.246:18064\n";
+		stream << "addnode=62.171.150.246:18066\n";
+		stream << "addnode=62.171.150.246:18068\n";
+		stream << "addnode=62.171.150.246:18070\n";
+		stream << "addnode=62.171.150.246:18072\n";
+		stream << "addnode=62.171.150.246:18093\n";
+		stream << "addnode=seed1n.digitalnote.biz\n";
+		stream << "addnode=seed2n.digitalnote.biz\n";
+		stream << "addnode=seed3n.digitalnote.biz\n";
+		stream << "addnode=seed4n.digitalnote.biz\n";
+	}
+	stream << "\n";
+	stream << "#masternode=1\n";
+	stream << "#masternodeaddr=\n";
+	stream << "#masternodeprivkey=\n";
+	stream << "\n";
+	stream << "staking=0\n";
+	stream << "gen=0\n";
+
+	stream.flush();
+	stream.close();
+
+	LogPrintf("GenerateDefaultConfigFile -- wrote default %s conf to %s\n",
+			  fRegTest ? "regtest" : (fTestNet ? "testnet" : "mainnet"),
+			  pathConfig.string().c_str());
+}
+
 void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet,
 		std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet)
 {
-	int confLoop = 0;
-	injectConfig:
+	// GetConfigFile() is network-aware (v2.0.0.8): a -testnet launch
+	// reads <datadir>/testnet/DigitalNote.conf, mainnet reads
+	// <datadir>/DigitalNote.conf.  One read, the correct network's conf.
 	boost::filesystem::ifstream streamConfig(GetConfigFile());
-	
+
+	// If no conf file exists, silently continue with built-in defaults.
 	if (!streamConfig.good())
 	{
-		boost::filesystem::path ConfPath;
-		
-		ConfPath = GetDataDir() / "DigitalNote.conf";
-		
-		FILE* ConfFile = fopen(ConfPath.string().c_str(), "w");
-		
-		fprintf(ConfFile, "listen=1\n");
-		fprintf(ConfFile, "server=1\n");
-		fprintf(ConfFile, "maxconnections=150\n");
-		fprintf(ConfFile, "rpcuser=yourusername\n");
-
-		char s[32];
-		for (int i = 0; i < 32; ++i)
-		{
-		   s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-		}
-
-		std::string str(s, 32);
-		fprintf(ConfFile, "rpcpassword=%s\n", str.c_str());
-		fprintf(ConfFile, "port=18092\n");
-		fprintf(ConfFile, "rpcport=18094\n");
-		fprintf(ConfFile, "rpcconnect=127.0.0.1\n");
-		fprintf(ConfFile, "rpcallowip=127.0.0.1\n");
-		fprintf(ConfFile, "addnode=103.164.54.203\n");
-		fprintf(ConfFile, "addnode=192.241.147.56\n");
-		fprintf(ConfFile, "addnode=20.193.89.74\n");
-		fprintf(ConfFile, "addnode=161.97.92.102\n");
-		fprintf(ConfFile, "addnode=161.97.106.85:18060\n");
-		fprintf(ConfFile, "addnode=161.97.106.85:18061\n");
-		fprintf(ConfFile, "addnode=161.97.106.85:18062\n");
-		fprintf(ConfFile, "addnode=161.97.106.85:18063\n");
-		fprintf(ConfFile, "addnode=95.111.225.123:18063\n");
-		fprintf(ConfFile, "addnode=95.111.225.123:18092\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18060\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18062\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18064\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18066\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18068\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18070\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18072\n");
-		fprintf(ConfFile, "addnode=62.171.150.246:18093\n");
-		fprintf(ConfFile, "addnode=seed1n.digitalnote.biz\n");
-		fprintf(ConfFile, "addnode=seed2n.digitalnote.biz\n");
-		fprintf(ConfFile, "addnode=seed3n.digitalnote.biz\n");
-		fprintf(ConfFile, "addnode=seed4n.digitalnote.biz\n");
-
-		fclose(ConfFile);
-	}
-
-	// Wallet will reload config file so it is properly read...
-	if (confLoop < 1)
-	{
-		++confLoop;
-		goto injectConfig;
+		return;
 	}
 
 	std::set<std::string> setOptions;
@@ -1578,7 +1737,7 @@ void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet,
 
 	for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
 	{
-		// Don't overwrite existing settings so command line settings override bitcoin.conf
+		// Don't overwrite existing settings so command line settings override the conf file
 		std::string strKey = std::string("-") + it->string_key;
 		if (mapSettingsRet.count(strKey) == 0)
 		{
@@ -1598,7 +1757,11 @@ boost::filesystem::path GetPidFile()
 
 	if (!pathPidFile.is_complete())
 	{
-		pathPidFile = GetDataDir() / pathPidFile;
+		// v2.0.0.8: network-specific, via the command-line flags, so the
+		// pidfile created in the early -daemon path (before SelectParams)
+		// lands in <datadir>/testnet under -testnet rather than the
+		// mainnet datadir.
+		pathPidFile = GetNetworkConfigDir() / pathPidFile;
 	}
 
 	return pathPidFile;

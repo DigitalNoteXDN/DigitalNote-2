@@ -230,7 +230,10 @@ json_spirit::Value checkkernel(const json_spirit::Array& params, bool fHelp)
 
 	COutPoint kernel;
 	CBlockIndex* pindexPrev = pindexBest;
-	unsigned int nBits = GetNextTargetRequired(pindexPrev, true);
+	// v2.0.0.8 RESYNC FIX: block timestamp not finalised here -- pass
+	// GetAdjustedTime() explicitly (matches the nTime computed just below
+	// and the pre-fix behaviour). Determinism is enforced on validation.
+	unsigned int nBits = GetNextTargetRequired(pindexPrev, true, GetAdjustedTime());
 	int64_t nTime = GetAdjustedTime();
 	nTime &= ~STAKE_TIMESTAMP_MASK;
 
@@ -838,13 +841,18 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 		result.push_back(json_spirit::Pair("enforce_devops_payments", true));
 
 		// Include Masternode payments
-		// Fix: use GetBlockPayee (same algorithm as block validation) rather than
-		// GetCurrentMasterNode(1) which used genesis block hash and always returned
-		// the same winner for every block.
+		// v2.0.0.8 M5 follow-up: route through GetEnforcedPayee instead
+		// of directly calling masternodePayments.GetBlockPayee.  Post-
+		// activation with consensus, GetEnforcedPayee returns the voted
+		// consensus payee -- matching what the block constructor in
+		// miner.cpp:CreateNewBlock will pick.  Without this, BIP22
+		// (getblocktemplate) miners would receive a stale legacy
+		// payee that disagrees with the actual block being built
+		// (companion fix to miner.cpp:546).
 		CAmount masternodeSplit = masternodePayment;
 		CScript mnPayee;
 		CTxIn mnVin;
-		if(masternodePayments.GetBlockPayee(pindexPrev->nHeight + 1, mnPayee, mnVin))
+		if(GetEnforcedPayee(pindexPrev->nHeight + 1, mnPayee, mnVin))
 		{
 			CTxDestination address1;
 			ExtractDestination(mnPayee, address1);
@@ -853,7 +861,9 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 		}
 		else
 		{
-			// vWinning has no entry - fall back to FindOldestNotInVec (same as ProcessBlock)
+			// vWinning has no entry AND vote consensus not formed -- fall
+			// back to FindOldestNotInVec (same as ProcessBlock's secondary
+			// path).  This matches the equivalent fallback in miner.cpp.
 			CMasternode* pmn = mnodeman.FindOldestNotInVec(std::vector<CTxIn>(), 0);
 			if(pmn)
 			{

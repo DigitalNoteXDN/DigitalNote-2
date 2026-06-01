@@ -1,6 +1,7 @@
 #include "compat.h"
 
 #include "cmasternodevotetracker.h"
+#include "cmasternodevotequeue.h"
 
 #include "util.h"
 #include "thread.h"
@@ -19,30 +20,30 @@
 #include "cinv.h"
 
 /*
- * v2.0.0.8 M3 vote tracker.
+ * v2.0.0.8 M1Q queue-based voting tracker.
  *
- * State model (PhaseC-design.md S9):
- *   mapVotes[height][payee]: VoteRecord of voters who voted for this payee.
- *     Updated by ProcessVote.  Pruned by OnBlockConnected when height drops
- *     below (currentTip - VOTE_PAST_HORIZON).
+ * State model (v208-M1Q-queue-based-voting-SPEC.md):
+ *   mapQueues[nQueueHeight][voterVin]: CMasternodeVoteQueue.  One queue
+ *     per voter per nQueueHeight.  Storage of all in-flight queues.
+ *     Pruned by OnBlockConnectedQueues when nQueueHeight falls below
+ *     (currentTip - VOTE_PAST_HORIZON).
  *
- *   setSeenVoter: per-(height, voterVin) dedup.  ProcessVote checks before
- *     adding to mapVotes; if already present, the vote is a duplicate (drop)
- *     or an equivocation (handle).
+ *   mapQueuesByHash: queue.GetHash() -> full queue, for inv-based relay
+ *     (AlreadyHaveQueue + getdata).  Pruned in lockstep with mapQueues.
  *
- *   mapEquivocationDetection[voterVin] = (lastHeight, lastPayee): tracks the
- *     last (height, payee) we saw from each voter.  When a NEW vote comes in
- *     for the SAME height but a DIFFERENT payee, we have equivocation.
+ *   mapEquivocationDetection[voterVin] = (nQueueHeight, queueHash):
+ *     last queue we saw from each voter.  A NEW queue from the same
+ *     voter at the same nQueueHeight with a different hash is
+ *     equivocation.
  *
- *   mapEquivocators[voterVin]: voters whose votes we currently reject.
+ *   mapEquivocators[voterVin]: voters whose queues we currently reject.
  *     Cleared by OnFreshDsee (Path A) or ClearEquivocator RPC (Path B).
  *
- *   mapVotesByHash: vote.GetHash() -> full vote, for inv-based relay support
- *     (AlreadyHave + getdata).  Pruned in lockstep with mapVotes.
- *
- * Threading: every public method acquires cs.  Internal helpers assume cs is
- * already held; documented in their per-method comments.  No external locks
- * are acquired while holding cs to avoid lock-order issues.
+ * Threading: every public method acquires cs.  Internal helpers assume
+ * cs is already held; documented in their per-method comments.
+ * GetCanonicalWinnerFromQueues and GetQueueInfo take LOCK2(cs_main, cs)
+ * because they descend into CountVotingEligible -> GetTransaction
+ * (cs_main) and would otherwise violate canonical lock order (see CW5).
  */
 
 CMasternodeVoteTracker voteTracker;
@@ -52,282 +53,13 @@ CMasternodeVoteTracker::CMasternodeVoteTracker()
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers (assume cs is held by caller)
-// ---------------------------------------------------------------------------
-
-static std::pair<int, COutPoint> MakeVoterKey(int nBlockHeight, const COutPoint &voterVin)
-{
-	return std::make_pair(nBlockHeight, voterVin);
-}
-
 // ---------------------------------------------------------------------------
 // Public methods
 // ---------------------------------------------------------------------------
 
-bool CMasternodeVoteTracker::ProcessVote(const CMasternodeVote &vote, CNode *pfrom)
-{
-	if (pindexBest == NULL)
-	{
-		return false;
-	}
 
-	int currentTip = pindexBest->nHeight;
 
-	if (vote.nBlockHeight > currentTip + VOTE_LOOKAHEAD + REORG_DEPTH_BUFFER)
-	{
-		if (fDebug)
-		{
-			LogPrintf("CMasternodeVoteTracker::ProcessVote -- reject: vote height %d "
-					  "exceeds tip %d + lookahead+buffer\n",
-					  vote.nBlockHeight, currentTip);
-		}
-		return false;
-	}
 
-	if (vote.nBlockHeight < currentTip - VOTE_PAST_HORIZON)
-	{
-		if (fDebug)
-		{
-			LogPrintf("CMasternodeVoteTracker::ProcessVote -- reject: vote height %d "
-					  "below tip %d - past horizon %d\n",
-					  vote.nBlockHeight, currentTip, VOTE_PAST_HORIZON);
-		}
-		return false;
-	}
-
-	int64_t now = GetAdjustedTime();
-	if (vote.nTimeSigned > now + VOTE_TIME_WINDOW_SECONDS)
-	{
-		LogPrintf("CMasternodeVoteTracker::ProcessVote -- reject: vote nTimeSigned %d "
-				  "is %d seconds in the future\n",
-				  (int)vote.nTimeSigned, (int)(vote.nTimeSigned - now));
-		return false;
-	}
-	if (vote.nTimeSigned < now - VOTE_TIME_WINDOW_SECONDS)
-	{
-		if (fDebug)
-		{
-			LogPrintf("CMasternodeVoteTracker::ProcessVote -- reject: vote nTimeSigned %d "
-					  "is %d seconds in the past\n",
-					  (int)vote.nTimeSigned, (int)(now - vote.nTimeSigned));
-		}
-		return false;
-	}
-
-	LOCK(cs);
-
-	COutPoint voterOutpoint = vote.voterVin.prevout;
-
-	if (mapEquivocators.count(voterOutpoint))
-	{
-		if (fDebug)
-		{
-			LogPrintf("CMasternodeVoteTracker::ProcessVote -- reject: voter %s "
-					  "is equivocator (count %d)\n",
-					  voterOutpoint.ToString(),
-					  mapEquivocators[voterOutpoint].count);
-		}
-		return false;
-	}
-
-	std::pair<int, COutPoint> voterKey = MakeVoterKey(vote.nBlockHeight, voterOutpoint);
-
-	if (setSeenVoter.count(voterKey))
-	{
-		std::map<COutPoint, std::pair<int, CScript> >::iterator detIt =
-				mapEquivocationDetection.find(voterOutpoint);
-
-		if (detIt != mapEquivocationDetection.end() &&
-			detIt->second.first == vote.nBlockHeight &&
-			detIt->second.second != vote.payeeScript)
-		{
-			LogPrintf("CMasternodeVoteTracker::ProcessVote -- EQUIVOCATION detected: "
-					  "voter %s at height %d voted for two different payees\n",
-					  voterOutpoint.ToString(), vote.nBlockHeight);
-
-			RemoveVoterVote(vote.nBlockHeight, voterOutpoint);
-
-			EquivocationRecord &rec = mapEquivocators[voterOutpoint];
-			rec.count++;
-			rec.lastEquivocationTime = now;
-
-			return false;
-		}
-
-		return false;
-	}
-
-	setSeenVoter.insert(voterKey);
-	mapEquivocationDetection[voterOutpoint] = std::make_pair(vote.nBlockHeight, vote.payeeScript);
-
-	VoteRecord &record = mapVotes[vote.nBlockHeight][vote.payeeScript];
-
-	if (record.voterVins.empty())
-	{
-		record.nBlockHeight = vote.nBlockHeight;
-		record.payeeScript = vote.payeeScript;
-		record.nFirstSeen = now;
-	}
-
-	record.voterVins.insert(voterOutpoint);
-
-	mapVotesByHash[vote.GetHash()] = vote;
-
-	if (fDebug)
-	{
-		LogPrintf("CMasternodeVoteTracker::ProcessVote -- recorded vote from %s "
-				  "for height %d (%u voters now agree on this payee)\n",
-				  voterOutpoint.ToString(),
-				  vote.nBlockHeight,
-				  (unsigned)record.voterVins.size());
-	}
-
-	(void)pfrom;
-	return true;
-}
-
-bool CMasternodeVoteTracker::GetCanonicalWinner(int nBlockHeight, CScript &payeeOut)
-{
-	LOCK(cs);
-
-	std::map<int, std::map<CScript, VoteRecord> >::iterator heightIt = mapVotes.find(nBlockHeight);
-	if (heightIt == mapVotes.end())
-	{
-		return false;
-	}
-
-	int eligibleVoters = mnodeman.CountEnabled(MIN_VOTING_PROTOCOL_VERSION);
-
-	if (eligibleVoters < MIN_ENABLED_FOR_CONSENSUS)
-	{
-		if (fDebug)
-		{
-			LogPrintf("CMasternodeVoteTracker::GetCanonicalWinner -- below floor: "
-					  "only %d eligible voters (< %d)\n",
-					  eligibleVoters, MIN_ENABLED_FOR_CONSENSUS);
-		}
-		return false;
-	}
-
-	const std::map<CScript, VoteRecord> &payees = heightIt->second;
-
-	for (std::map<CScript, VoteRecord>::const_iterator pit = payees.begin();
-		 pit != payees.end(); ++pit)
-	{
-		int voteCount = (int)pit->second.voterVins.size();
-
-		if ((int64_t)voteCount * VOTED_CONSENSUS_THRESHOLD_DENOMINATOR >=
-			(int64_t)eligibleVoters * VOTED_CONSENSUS_THRESHOLD_NUMERATOR)
-		{
-			payeeOut = pit->first;
-
-			if (fDebug)
-			{
-				LogPrintf("CMasternodeVoteTracker::GetCanonicalWinner -- height %d: "
-						  "consensus reached (%d/%d voters, threshold %d/%d)\n",
-						  nBlockHeight, voteCount, eligibleVoters,
-						  VOTED_CONSENSUS_THRESHOLD_NUMERATOR,
-						  VOTED_CONSENSUS_THRESHOLD_DENOMINATOR);
-			}
-
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void CMasternodeVoteTracker::OnBlockConnected(int nBlockHeight)
-{
-	LOCK(cs);
-
-	int pruneBelow = nBlockHeight - VOTE_PAST_HORIZON;
-
-	for (std::map<int, std::map<CScript, VoteRecord> >::iterator it = mapVotes.begin();
-		 it != mapVotes.end(); )
-	{
-		if (it->first < pruneBelow)
-		{
-			int heightToPrune = it->first;
-
-			const std::map<CScript, VoteRecord> &payees = it->second;
-			for (std::map<CScript, VoteRecord>::const_iterator pit = payees.begin();
-				 pit != payees.end(); ++pit)
-			{
-				for (std::set<COutPoint>::const_iterator vit = pit->second.voterVins.begin();
-					 vit != pit->second.voterVins.end(); ++vit)
-				{
-					setSeenVoter.erase(MakeVoterKey(heightToPrune, *vit));
-				}
-			}
-
-			for (std::map<COutPoint, std::pair<int, CScript> >::iterator dit =
-					mapEquivocationDetection.begin();
-				 dit != mapEquivocationDetection.end(); )
-			{
-				if (dit->second.first == heightToPrune)
-				{
-					mapEquivocationDetection.erase(dit++);
-				}
-				else
-				{
-					++dit;
-				}
-			}
-
-			mapVotes.erase(it++);
-		}
-		else
-		{
-			++it;
-		}
-	}
-
-	for (std::map<uint256, CMasternodeVote>::iterator it = mapVotesByHash.begin();
-		 it != mapVotesByHash.end(); )
-	{
-		if (it->second.nBlockHeight < pruneBelow)
-		{
-			mapVotesByHash.erase(it++);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-void CMasternodeVoteTracker::OnBlockDisconnected(int nBlockHeight)
-{
-	LOCK(cs);
-
-	for (std::map<COutPoint, std::pair<int, CScript> >::iterator dit =
-			mapEquivocationDetection.begin();
-		 dit != mapEquivocationDetection.end(); )
-	{
-		if (dit->second.first == nBlockHeight)
-		{
-			mapEquivocationDetection.erase(dit++);
-		}
-		else
-		{
-			++dit;
-		}
-	}
-
-	for (std::set<std::pair<int, COutPoint> >::iterator it = setSeenVoter.begin();
-		 it != setSeenVoter.end(); )
-	{
-		if (it->first == nBlockHeight)
-		{
-			setSeenVoter.erase(it++);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
 
 void CMasternodeVoteTracker::OnFreshDsee(const COutPoint &voterVin)
 {
@@ -385,52 +117,39 @@ bool CMasternodeVoteTracker::IsEquivocator(const COutPoint &voterVin) const
 	return mapEquivocators.count(voterVin) > 0;
 }
 
-void CMasternodeVoteTracker::RemoveVoterVote(int nBlockHeight, const COutPoint &voterVin)
-{
-	// Assumes cs is held by caller.
 
-	setSeenVoter.erase(MakeVoterKey(nBlockHeight, voterVin));
 
-	std::map<int, std::map<CScript, VoteRecord> >::iterator heightIt = mapVotes.find(nBlockHeight);
-	if (heightIt == mapVotes.end())
-	{
-		return;
-	}
+// ===========================================================================
+// v2.0.0.8 M1Q -- queue-based voting method definitions.
+//
+// Storage shape: mapQueues[nQueueHeight][voterVin] -> the voter's queue.
+// One queue per voter per nQueueHeight.  See
+// v208-M1Q-queue-based-voting-SPEC.md.
+// ===========================================================================
 
-	std::map<CScript, VoteRecord> &payees = heightIt->second;
-	for (std::map<CScript, VoteRecord>::iterator pit = payees.begin();
-		 pit != payees.end(); ++pit)
-	{
-		pit->second.voterVins.erase(voterVin);
-	}
-}
-
-// ---------------------------------------------------------------------------
-// M3 inv-based relay support
-// ---------------------------------------------------------------------------
-
-bool CMasternodeVoteTracker::AlreadyHaveVote(const uint256 &hash) const
+bool CMasternodeVoteTracker::AlreadyHaveQueue(const uint256 &hash) const
 {
 	LOCK(cs);
 
-	return mapVotesByHash.count(hash) > 0;
+	return mapQueuesByHash.count(hash) > 0;
 }
 
-bool CMasternodeVoteTracker::GetVoteByHash(const uint256 &hash, CMasternodeVote &voteOut) const
+bool CMasternodeVoteTracker::GetQueueByHash(const uint256 &hash,
+											CMasternodeVoteQueue &queueOut) const
 {
 	LOCK(cs);
 
-	std::map<uint256, CMasternodeVote>::const_iterator it = mapVotesByHash.find(hash);
-	if (it == mapVotesByHash.end())
+	std::map<uint256, CMasternodeVoteQueue>::const_iterator it = mapQueuesByHash.find(hash);
+	if (it == mapQueuesByHash.end())
 	{
 		return false;
 	}
 
-	voteOut = it->second;
+	queueOut = it->second;
 	return true;
 }
 
-void CMasternodeVoteTracker::Sync(CNode *pnode)
+void CMasternodeVoteTracker::SyncQueues(CNode *pnode)
 {
 	if (pnode == NULL)
 	{
@@ -442,12 +161,12 @@ void CMasternodeVoteTracker::Sync(CNode *pnode)
 	{
 		LOCK(cs);
 
-		vInv.reserve(mapVotesByHash.size());
+		vInv.reserve(mapQueuesByHash.size());
 
-		for (std::map<uint256, CMasternodeVote>::const_iterator it = mapVotesByHash.begin();
-			 it != mapVotesByHash.end(); ++it)
+		for (std::map<uint256, CMasternodeVoteQueue>::const_iterator it = mapQueuesByHash.begin();
+			 it != mapQueuesByHash.end(); ++it)
 		{
-			vInv.push_back(CInv(MSG_MASTERNODE_VOTE, it->first));
+			vInv.push_back(CInv(MSG_MASTERNODE_VOTE_QUEUE, it->first));
 		}
 	}
 
@@ -457,9 +176,342 @@ void CMasternodeVoteTracker::Sync(CNode *pnode)
 
 		if (fDebug)
 		{
-			LogPrintf("CMasternodeVoteTracker::Sync -- pushed %u vote invs to peer %d\n",
+			LogPrintf("CMasternodeVoteTracker::SyncQueues -- pushed %u queue invs to peer %d\n",
 					  (unsigned)vInv.size(), pnode->GetId());
 		}
+	}
+}
+
+bool CMasternodeVoteTracker::ProcessQueue(const CMasternodeVoteQueue &q, CNode *pfrom)
+{
+	if (pindexBest == NULL)
+	{
+		return false;
+	}
+
+	int currentTip = pindexBest->nHeight;
+
+	// Window check on nQueueHeight (defense in depth; the message handler
+	// also checks, but ProcessQueue must be safe if called from elsewhere).
+	if (q.nQueueHeight > currentTip + REORG_DEPTH_BUFFER)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: nQueueHeight %d "
+					  "exceeds tip %d + reorg buffer\n",
+					  q.nQueueHeight, currentTip);
+		}
+		return false;
+	}
+
+	if (q.nQueueHeight < currentTip - VOTE_PAST_HORIZON)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: nQueueHeight %d "
+					  "below tip %d - past horizon %d\n",
+					  q.nQueueHeight, currentTip, VOTE_PAST_HORIZON);
+		}
+		return false;
+	}
+
+	// Time-window check (mirrors ProcessVote).
+	int64_t now = GetAdjustedTime();
+	if (q.nTimeSigned > now + VOTE_TIME_WINDOW_SECONDS)
+	{
+		LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: nTimeSigned %d "
+				  "is %d seconds in the future\n",
+				  (int)q.nTimeSigned, (int)(q.nTimeSigned - now));
+		return false;
+	}
+	if (q.nTimeSigned < now - VOTE_TIME_WINDOW_SECONDS)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: nTimeSigned %d "
+					  "is %d seconds in the past\n",
+					  (int)q.nTimeSigned, (int)(now - q.nTimeSigned));
+		}
+		return false;
+	}
+
+	// Queue-length bound (defense in depth; the message handler also checks).
+	if ((int)q.vPayeeQueue.size() != VOTE_QUEUE_LENGTH)
+	{
+		LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: queue size %d "
+				  "!= VOTE_QUEUE_LENGTH %d\n",
+				  (int)q.vPayeeQueue.size(), VOTE_QUEUE_LENGTH);
+		return false;
+	}
+
+	LOCK(cs);
+
+	COutPoint voterOutpoint = q.voterVin.prevout;
+
+	// Equivocator gate -- a voter previously marked equivocator is refused
+	// (persists across the wire-format change; same mapEquivocators as the
+	// per-height vote path, keyed on voterVin -- M1Q decision Q-C).
+	if (mapEquivocators.count(voterOutpoint))
+	{
+		if (fDebug)
+		{
+			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- reject: voter %s "
+					  "is equivocator (count %d)\n",
+					  voterOutpoint.ToString(),
+					  mapEquivocators[voterOutpoint].count);
+		}
+		return false;
+	}
+
+	// Equivocation detection (M1Q spec S8): a queue is uniquely identified
+	// by (voterVin, nQueueHeight).  If we already hold a queue from this
+	// voter at this nQueueHeight:
+	//   * identical hash    -> duplicate, drop silently (no error).
+	//   * different hash     -> EQUIVOCATION (two distinct queues for the
+	//                           same identity), record and reject.
+	std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >::iterator qhIt =
+			mapQueues.find(q.nQueueHeight);
+
+	if (qhIt != mapQueues.end())
+	{
+		std::map<COutPoint, CMasternodeVoteQueue>::iterator existing =
+				qhIt->second.find(voterOutpoint);
+
+		if (existing != qhIt->second.end())
+		{
+			if (existing->second.GetHash() == q.GetHash())
+			{
+				// Exact duplicate -- already stored, nothing to do.
+				return false;
+			}
+
+			// Distinct queue for the same (voter, nQueueHeight) -- equivocation.
+			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- EQUIVOCATION detected: "
+					  "voter %s at nQueueHeight %d sent two distinct queues\n",
+					  voterOutpoint.ToString(), q.nQueueHeight);
+
+			// Remove the prior queue (and its by-hash entry) and record the
+			// equivocator.  The new queue is rejected.
+			mapQueuesByHash.erase(existing->second.GetHash());
+			qhIt->second.erase(existing);
+
+			EquivocationRecord &rec = mapEquivocators[voterOutpoint];
+			rec.count++;
+			rec.lastEquivocationTime = now;
+
+			return false;
+		}
+	}
+
+	// Record the queue.
+	mapQueues[q.nQueueHeight][voterOutpoint] = q;
+	mapQueuesByHash[q.GetHash()] = q;
+
+	if (fDebug)
+	{
+		LogPrintf("CMasternodeVoteTracker::ProcessQueue -- recorded queue from %s "
+				  "for nQueueHeight %d\n",
+				  voterOutpoint.ToString(), q.nQueueHeight);
+	}
+
+	(void)pfrom;
+	return true;
+}
+
+bool CMasternodeVoteTracker::GetCanonicalWinnerFromQueues(int nTargetHeight, CScript &payeeOut)
+{
+	// CW5 (2026-05-31): canonical lock order is cs_main -> voteTracker.cs.
+	// This function descends into CountVotingEligible -> IsVotingEligible
+	// -> GetCollateralConfirmedHeight -> GetTransaction, which takes
+	// cs_main.  Without holding cs_main here, any caller that did not
+	// pre-acquire it would violate canonical order and ABBA against
+	// ProcessGetData (which holds cs_main and may call GetQueueByHash
+	// for voteTracker.cs).  Observed live in the 2026-05-31 wedge
+	// (18h into soak; gdb capture proved Thread 18 (ThreadStakeMiner
+	// via SignBlock -> CreateCoinStake -> GetEnforcedPayee) held
+	// voteTracker.cs waiting on cs_main, while Thread 10
+	// (ThreadMessageHandler -> ProcessGetData) held cs_main waiting
+	// on voteTracker.cs).  Acquiring both locks here, in canonical
+	// order, makes the function self-protecting against every current
+	// and future caller -- CW0's per-call-site wrapper at miner.cpp:990
+	// becomes structurally redundant (recursive re-acquire is a no-op
+	// for boost::recursive_mutex) but is retained for explicit
+	// documentation of intent.
+	LOCK2(cs_main, cs);
+
+	if (pindexBest == NULL)
+	{
+		return false;
+	}
+
+	// Commit-point gate (M1Q spec S9): no winner until the chain has reached
+	// (nTargetHeight - VOTE_COMMIT_BUFFER).  Gives late queues time to
+	// propagate before the read commits.
+	int currentTip = pindexBest->nHeight;
+	if (currentTip < nTargetHeight - VOTE_COMMIT_BUFFER)
+	{
+		return false;
+	}
+
+	// Denominator: eligible-voter count must be a pure function of
+	// nTargetHeight and committed chain state (same rule as the per-height
+	// GetCanonicalWinner -- CountVotingEligible, never CountEnabled).
+	int eligibleVoters = mnodeman.CountVotingEligible(nTargetHeight, MIN_VOTING_PROTOCOL_VERSION);
+
+	if (eligibleVoters < MIN_ENABLED_FOR_CONSENSUS)
+	{
+		if (fDebug)
+		{
+			LogPrintf("CMasternodeVoteTracker::GetCanonicalWinnerFromQueues -- below floor: "
+					  "only %d eligible voters (< %d)\n",
+					  eligibleVoters, MIN_ENABLED_FOR_CONSENSUS);
+		}
+		return false;
+	}
+
+	// Walk in-flight queue-heights newest-first.  The newest queue covering
+	// nTargetHeight reflects the most recent chain state; older queues are
+	// the fallback if the newer ones have not yet arrived.
+	for (int qh = nTargetHeight - 1; qh >= nTargetHeight - VOTE_QUEUE_LENGTH; --qh)
+	{
+		std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >::const_iterator qhIt =
+				mapQueues.find(qh);
+
+		if (qhIt == mapQueues.end())
+		{
+			continue;
+		}
+
+		int position = nTargetHeight - 1 - qh;   // 0 .. VOTE_QUEUE_LENGTH-1
+
+		// Tally per-payee at this position across all voters at this qh.
+		std::map<CScript, std::set<COutPoint> > tallyByPayee;
+
+		for (std::map<COutPoint, CMasternodeVoteQueue>::const_iterator vit = qhIt->second.begin();
+			 vit != qhIt->second.end(); ++vit)
+		{
+			const CMasternodeVoteQueue &q = vit->second;
+
+			if (position >= 0 && position < (int)q.vPayeeQueue.size())
+			{
+				tallyByPayee[q.vPayeeQueue[position]].insert(vit->first);
+			}
+		}
+
+		// Supermajority + uniqueness rule, identical to the per-height
+		// GetCanonicalWinner: find payees clearing the threshold; require
+		// exactly one.  Two clearers is an ambiguous (contested) position,
+		// not a consensus -- skip to the next (older) queue-height.
+		int nClearingCount = 0;
+		int nBestVotes = -1;
+		CScript bestPayee;
+
+		for (std::map<CScript, std::set<COutPoint> >::const_iterator pit = tallyByPayee.begin();
+			 pit != tallyByPayee.end(); ++pit)
+		{
+			int voteCount = (int)pit->second.size();
+
+			bool clearsThreshold =
+				((int64_t)voteCount * VOTED_CONSENSUS_THRESHOLD_DENOMINATOR >=
+				 (int64_t)eligibleVoters * VOTED_CONSENSUS_THRESHOLD_NUMERATOR);
+
+			if (!clearsThreshold)
+			{
+				continue;
+			}
+
+			nClearingCount++;
+
+			if (voteCount > nBestVotes)
+			{
+				nBestVotes = voteCount;
+				bestPayee = pit->first;
+			}
+		}
+
+		if (nClearingCount == 1)
+		{
+			payeeOut = bestPayee;
+
+			if (fDebug)
+			{
+				LogPrintf("CMasternodeVoteTracker::GetCanonicalWinnerFromQueues -- height %d: "
+						  "consensus from queue-height %d position %d (%d/%d voters)\n",
+						  nTargetHeight, qh, position, nBestVotes, eligibleVoters);
+			}
+
+			return true;
+		}
+
+		if (nClearingCount > 1)
+		{
+			// Ambiguous at this queue-height's position.  Do not name a
+			// winner from it; try the next older queue-height.
+			if (fDebug)
+			{
+				LogPrintf("CMasternodeVoteTracker::GetCanonicalWinnerFromQueues -- height %d: "
+						  "queue-height %d position %d AMBIGUOUS (%d payees cleared), "
+						  "trying older queue\n",
+						  nTargetHeight, qh, position, nClearingCount);
+			}
+		}
+		// nClearingCount == 0: no consensus at this queue-height; try older.
+	}
+
+	return false;
+}
+
+void CMasternodeVoteTracker::OnBlockConnectedQueues(int nBlockHeight)
+{
+	LOCK(cs);
+
+	int pruneBelow = nBlockHeight - VOTE_PAST_HORIZON;
+
+	for (std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >::iterator it = mapQueues.begin();
+		 it != mapQueues.end(); )
+	{
+		if (it->first < pruneBelow)
+		{
+			// Erase the by-hash entries for every queue at this height.
+			const std::map<COutPoint, CMasternodeVoteQueue> &voters = it->second;
+			for (std::map<COutPoint, CMasternodeVoteQueue>::const_iterator vit = voters.begin();
+				 vit != voters.end(); ++vit)
+			{
+				mapQueuesByHash.erase(vit->second.GetHash());
+			}
+
+			mapQueues.erase(it++);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+void CMasternodeVoteTracker::OnBlockDisconnectedQueues(int nBlockHeight)
+{
+	LOCK(cs);
+
+	// M1Q spec S10.1: a queue cast at nQueueHeight == the disconnected height
+	// was computed against an mapLastPaidHeight that included the
+	// now-disconnected block's payment.  Erase those queues; the casting MN
+	// will re-broadcast a fresh queue against the new ancestry on the next
+	// block-connect.  Queues at nQueueHeight < the disconnected height were
+	// computed against earlier (unaffected) state and remain valid.
+	std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >::iterator qhIt =
+			mapQueues.find(nBlockHeight);
+
+	if (qhIt != mapQueues.end())
+	{
+		const std::map<COutPoint, CMasternodeVoteQueue> &voters = qhIt->second;
+		for (std::map<COutPoint, CMasternodeVoteQueue>::const_iterator vit = voters.begin();
+			 vit != voters.end(); ++vit)
+		{
+			mapQueuesByHash.erase(vit->second.GetHash());
+		}
+
+		mapQueues.erase(qhIt);
 	}
 }
 
@@ -489,104 +541,144 @@ CMasternodeVoteTracker::GetEquivocatorList() const
 	return result;
 }
 
-CMasternodeVoteTracker::VoteInfo
-CMasternodeVoteTracker::GetVoteInfo(int nBlockHeight) const
+CMasternodeVoteTracker::QueueInfo CMasternodeVoteTracker::GetQueueInfo(int nTargetHeight)
 {
-	LOCK(cs);
+	QueueInfo qi;
+	qi.height = nTargetHeight;
+	qi.eligibleVoters = 0;
+	qi.queueHeightUsed = -1;
+	qi.position = -1;
+	qi.totalQueues = 0;
+	qi.hasConsensus = false;
+	qi.canonicalVoteCount = 0;
 
-	VoteInfo info;
-	info.height = nBlockHeight;
-	info.totalVotes = 0;
-	info.eligibleVoters = mnodeman.CountEnabled(MIN_VOTING_PROTOCOL_VERSION);
-	info.hasConsensus = false;
-	info.canonicalVoteCount = 0;
-
-	std::map<int, std::map<CScript, VoteRecord> >::const_iterator heightIt =
-			mapVotes.find(nBlockHeight);
-	if (heightIt == mapVotes.end())
+	// Authoritative winner first -- never recompute the decision here, so the
+	// RPC can never disagree with enforcement (GetCanonicalWinnerFromQueues
+	// is the single source of truth).  It takes cs internally.
+	CScript winner;
+	qi.hasConsensus = GetCanonicalWinnerFromQueues(nTargetHeight, winner);
+	if (qi.hasConsensus)
 	{
-		return info;
+		qi.canonicalPayee = winner;
 	}
 
-	const std::map<CScript, VoteRecord> &payees = heightIt->second;
+	// Breakdown (visibility only) under the same lock discipline.
+	//
+	// CW5 (2026-05-31): canonical lock order is cs_main -> voteTracker.cs.
+	// The breakdown block below calls mnodeman.CountVotingEligible
+	// (line 958), which descends into IsVotingEligible ->
+	// GetCollateralConfirmedHeight -> GetTransaction (cs_main).  Taking
+	// only voteTracker.cs here would violate canonical order and
+	// re-introduce the same ABBA that the LOCK2 in
+	// GetCanonicalWinnerFromQueues was added to prevent.  Same fix
+	// shape: acquire both locks here, in canonical order, so this
+	// function (reached via getvoteinfo RPC at rpcmnengine.cpp:1472)
+	// cannot deadlock against ProcessGetData.
+	LOCK2(cs_main, cs);
 
-	int bestCount = 0;
-	CScript bestPayee;
-
-	for (std::map<CScript, VoteRecord>::const_iterator pit = payees.begin();
-		 pit != payees.end(); ++pit)
+	if (pindexBest == NULL)
 	{
-		VoteInfoEntry entry;
-		entry.payeeScript = pit->first;
-		entry.voterVins = pit->second.voterVins;
-		entry.firstSeen = pit->second.nFirstSeen;
+		return qi;
+	}
 
-		info.perPayee.push_back(entry);
+	qi.eligibleVoters = mnodeman.CountVotingEligible(nTargetHeight, MIN_VOTING_PROTOCOL_VERSION);
 
-		int n = (int)pit->second.voterVins.size();
-		info.totalVotes += n;
+	// Mirror the newest-first walk: report the first (newest) queue-height
+	// that actually has queues covering nTargetHeight.  This is the position
+	// the consensus read would have looked at first.
+	for (int qh = nTargetHeight - 1; qh >= nTargetHeight - VOTE_QUEUE_LENGTH; --qh)
+	{
+		std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >::const_iterator qhIt =
+				mapQueues.find(qh);
 
-		if (n > bestCount)
+		if (qhIt == mapQueues.end())
 		{
-			bestCount = n;
-			bestPayee = pit->first;
+			continue;
 		}
+
+		int position = nTargetHeight - 1 - qh;
+
+		std::map<CScript, std::set<COutPoint> > tallyByPayee;
+
+		for (std::map<COutPoint, CMasternodeVoteQueue>::const_iterator vit = qhIt->second.begin();
+			 vit != qhIt->second.end(); ++vit)
+		{
+			const CMasternodeVoteQueue &q = vit->second;
+
+			if (position >= 0 && position < (int)q.vPayeeQueue.size())
+			{
+				tallyByPayee[q.vPayeeQueue[position]].insert(vit->first);
+			}
+		}
+
+		if (tallyByPayee.empty())
+		{
+			continue;
+		}
+
+		qi.queueHeightUsed = qh;
+		qi.position = position;
+		qi.totalQueues = (int)qhIt->second.size();
+
+		for (std::map<CScript, std::set<COutPoint> >::const_iterator pit = tallyByPayee.begin();
+			 pit != tallyByPayee.end(); ++pit)
+		{
+			VoteInfoEntry e;
+			e.payeeScript = pit->first;
+			e.voterVins = pit->second;
+			e.firstSeen = 0;   // queues are per-broadcast, no per-payee first-seen
+			qi.perPayee.push_back(e);
+
+			if (qi.hasConsensus && pit->first == qi.canonicalPayee)
+			{
+				qi.canonicalVoteCount = (int)pit->second.size();
+			}
+		}
+
+		// Only the newest covering queue-height is reported (the one the
+		// consensus read consults first).
+		break;
 	}
 
-	if (info.eligibleVoters >= MIN_ENABLED_FOR_CONSENSUS &&
-		(int64_t)bestCount * VOTED_CONSENSUS_THRESHOLD_DENOMINATOR >=
-		(int64_t)info.eligibleVoters * VOTED_CONSENSUS_THRESHOLD_NUMERATOR)
-	{
-		info.hasConsensus = true;
-		info.canonicalPayee = bestPayee;
-		info.canonicalVoteCount = bestCount;
-	}
-
-	return info;
+	return qi;
 }
 
+
+
+
 std::map<COutPoint, int>
-CMasternodeVoteTracker::GetVoterActivity() const
+CMasternodeVoteTracker::GetQueueVoterActivity() const
 {
 	LOCK(cs);
-
-	// Walk every (height, payee, voter) entry, recording the max height per
-	// voter.  Single pass; total work is sum of all voter sets across mapVotes.
-	// At ~30 MNs * ~20 active heights this is trivial (~600 entries max).
-	std::map<COutPoint, int> result;
-
-	for (std::map<int, std::map<CScript, VoteRecord> >::const_iterator hit = mapVotes.begin();
-		 hit != mapVotes.end(); ++hit)
+	std::map<COutPoint, int> activity;
+	for (std::map<int, std::map<COutPoint, CMasternodeVoteQueue> >
+			::const_iterator hIt = mapQueues.begin();
+		 hIt != mapQueues.end(); ++hIt)
 	{
-		int height = hit->first;
-
-		for (std::map<CScript, VoteRecord>::const_iterator pit = hit->second.begin();
-			 pit != hit->second.end(); ++pit)
+		const int qh = hIt->first;
+		for (std::map<COutPoint, CMasternodeVoteQueue>
+				::const_iterator vIt = hIt->second.begin();
+			 vIt != hIt->second.end(); ++vIt)
 		{
-			for (std::set<COutPoint>::const_iterator vit = pit->second.voterVins.begin();
-				 vit != pit->second.voterVins.end(); ++vit)
+			const COutPoint &voter = vIt->first;
+			std::map<COutPoint, int>::iterator existing = activity.find(voter);
+			if (existing == activity.end() || existing->second < qh)
 			{
-				// Insert or update with max-height-seen.
-				std::map<COutPoint, int>::iterator existing = result.find(*vit);
-
-				if (existing == result.end())
-				{
-					result[*vit] = height;
-				}
-				else if (height > existing->second)
-				{
-					existing->second = height;
-				}
+				activity[voter] = qh;
 			}
 		}
 	}
-
-	return result;
+	return activity;
 }
 
-// ---------------------------------------------------------------------------
-// M3: message dispatcher (refactored from M2 -- uses real tracker state now)
-// ---------------------------------------------------------------------------
+// v2.0.0.8 PB-INFLIGHT REVERTED: GetConsensusCommittedHeights() removed.
+// It iterated mapVotes (node-local, in-flight tally state) and was folded
+// into FindOldestNotInVecChainDerived's payee selection -- making the
+// vote a node casts depend on node-local state, which caused
+// geographically separated masternode clusters to compute different
+// winners (testnet 5/2 split, 2026-05-24).  The streak problem it was
+// meant to fix did not exist on a correctly-configured fleet.  See the
+// revert note in CMasternodeMan::FindOldestNotInVecChainDerived.
 
 void ProcessMessageMasternodeVote(CNode *pfrom, std::string &strCommand, CDataStream &vRecv)
 {
@@ -595,17 +687,30 @@ void ProcessMessageMasternodeVote(CNode *pfrom, std::string &strCommand, CDataSt
 		return;
 	}
 
-	if (strCommand == "mnvote")
+
+	// =======================================================================
+	// v2.0.0.8 M1Q -- queue-based voting message handler.
+	//
+	// "mnvotequeue" is the sole payment-consensus message post-Task-B (the
+	// per-height "mnvote" handler was removed 2026-06-01).  Structure is
+	// relay-before-validate to avoid black-holing peers that cannot
+	// validate the queue locally (e.g. due to missing chain data), with an
+	// amplification-DoS guard (junk signatures for a known voter are never
+	// relayed) and a queue-length bound check (M1Q spec S18.2): a queue
+	// whose length is not exactly VOTE_QUEUE_LENGTH is a protocol violation.
+	// =======================================================================
+
+	if (strCommand == "mnvotequeue")
 	{
-		CMasternodeVote vote;
+		CMasternodeVoteQueue q;
 
 		try
 		{
-			vRecv >> vote;
+			vRecv >> q;
 		}
 		catch (std::exception &e)
 		{
-			LogPrintf("mnvote -- failed to deserialize from peer %d: %s\n",
+			LogPrintf("mnvotequeue -- failed to deserialize from peer %d: %s\n",
 					  pfrom ? pfrom->GetId() : -1, e.what());
 			if (pfrom)
 			{
@@ -619,55 +724,119 @@ void ProcessMessageMasternodeVote(CNode *pfrom, std::string &strCommand, CDataSt
 			return;
 		}
 
-		CMasternode *voter = mnodeman.Find(vote.voterVin);
-		if (voter == NULL)
+		// M1Q spec S18.2: enforce the protocol queue length exactly.  The
+		// stream-level size guard already rejects an absurdly large message,
+		// but the application layer enforces the protocol constant: a queue
+		// of any length other than VOTE_QUEUE_LENGTH is malformed.  Checked
+		// before anything else so a malformed queue is neither relayed nor
+		// recorded.
+		if ((int)q.vPayeeQueue.size() != VOTE_QUEUE_LENGTH)
 		{
-			if (fDebug)
-			{
-				LogPrintf("mnvote -- unknown voter %s at height %d, asking for dsee\n",
-						  vote.voterVin.prevout.ToString(), vote.nBlockHeight);
-			}
-			if (pfrom)
-			{
-				mnodeman.AskForMN(pfrom, vote.voterVin);
-			}
-			return;
-		}
-
-		if (!vote.CheckSignature(voter->pubkey2))
-		{
-			LogPrintf("mnvote -- invalid signature from %s height %d (peer %d)\n",
-					  vote.voterVin.prevout.ToString(), vote.nBlockHeight,
+			LogPrintf("mnvotequeue -- reject: queue size %d != VOTE_QUEUE_LENGTH %d "
+					  "from peer %d\n",
+					  (int)q.vPayeeQueue.size(), VOTE_QUEUE_LENGTH,
 					  pfrom ? pfrom->GetId() : -1);
 			if (pfrom)
 			{
-				Misbehaving(pfrom->GetId(), 100);
+				Misbehaving(pfrom->GetId(), 20);
 			}
 			return;
 		}
 
-		// Early-out for known votes (avoids the heavier tally path).
-		if (voteTracker.AlreadyHaveVote(vote.GetHash()))
+		// Cheap guardrail 1: already seen -> already relayed, stop here.
+		if (voteTracker.AlreadyHaveQueue(q.GetHash()))
 		{
 			return;
 		}
 
-		bool added = voteTracker.ProcessVote(vote, pfrom);
-
-		if (!added)
+		// Cheap guardrail 2: nQueueHeight must be within the accepted
+		// window (same bounds philosophy ProcessQueue enforces).  A queue
+		// cast too far ahead (beyond a peer being legitimately ahead of us
+		// by the reorg buffer) or too far behind (old enough that none of
+		// its positions are still useful) is neither relayed nor recorded.
 		{
+			int currentTip = pindexBest->nHeight;
+
+			if (q.nQueueHeight > currentTip + REORG_DEPTH_BUFFER ||
+				q.nQueueHeight < currentTip - VOTE_PAST_HORIZON)
+			{
+				if (fDebug)
+				{
+					LogPrintf("mnvotequeue -- nQueueHeight %d outside window (tip %d), "
+							  "not relaying or recording\n",
+							  q.nQueueHeight, currentTip);
+				}
+
+				return;
+			}
+		}
+
+		// Relay-before-validate, split exactly as the mnvote handler:
+		// relay on the uncheckable (voter==NULL) branch so an incomplete-MN-
+		// list node does not suppress the queue for the fleet; otherwise
+		// relay only AFTER the signature verifies, so a junk-signature queue
+		// for a known voter never propagates.
+
+		CMasternode *voter = mnodeman.Find(q.voterVin);
+		if (voter == NULL)
+		{
+			// Uncheckable: relay so the queue is not suppressed for peers
+			// that DO know the voter, then ask for the missing dsee.
+			{
+				CInv inv(MSG_MASTERNODE_VOTE_QUEUE, q.GetHash());
+				std::vector<CInv> vInv;
+				vInv.push_back(inv);
+
+				LOCK(cs_vNodes);
+
+				for (CNode *pnode : vNodes)
+				{
+					if (pnode == pfrom)
+					{
+						continue;
+					}
+					pnode->PushMessage("inv", vInv);
+				}
+			}
+
+			if (fDebug)
+			{
+				LogPrintf("mnvotequeue -- unknown voter %s at nQueueHeight %d, relayed; "
+						  "asking for dsee\n",
+						  q.voterVin.prevout.ToString(), q.nQueueHeight);
+			}
+			if (pfrom)
+			{
+				mnodeman.AskForMN(pfrom, q.voterVin);
+			}
 			return;
 		}
 
-		LogPrintf("mnvote -- accepted vote from %s for height %d (peer %d)\n",
-				  vote.voterVin.prevout.ToString(), vote.nBlockHeight,
-				  pfrom ? pfrom->GetId() : -1);
-
-		CInv inv(MSG_MASTERNODE_VOTE, vote.GetHash());
-		std::vector<CInv> vInv;
-		vInv.push_back(inv);
-
+		if (!q.CheckSignature(voter->pubkey2))
 		{
+			// Same low-score rationale as the mnvote handler: a stale local
+			// MN-list entry (voter re-registered with a new key we have not
+			// yet processed) makes an honest queue fail here, so the score
+			// is low.  A junk-signature queue is NOT relayed (relay for the
+			// checkable case is below, after this check), so junk signatures
+			// do not propagate regardless of score.
+			LogPrintf("mnvotequeue -- invalid signature from %s nQueueHeight %d (peer %d)\n",
+					  q.voterVin.prevout.ToString(), q.nQueueHeight,
+					  pfrom ? pfrom->GetId() : -1);
+			if (pfrom)
+			{
+				Misbehaving(pfrom->GetId(), 5);
+			}
+			return;
+		}
+
+		// Signature verified -- relay now (relay-after-validate for the
+		// checkable case).  Only signature-valid queues ever reach here.
+		{
+			CInv inv(MSG_MASTERNODE_VOTE_QUEUE, q.GetHash());
+			std::vector<CInv> vInv;
+			vInv.push_back(inv);
+
 			LOCK(cs_vNodes);
 
 			for (CNode *pnode : vNodes)
@@ -680,12 +849,23 @@ void ProcessMessageMasternodeVote(CNode *pfrom, std::string &strCommand, CDataSt
 			}
 		}
 
+		bool added = voteTracker.ProcessQueue(q, pfrom);
+
+		if (!added)
+		{
+			return;
+		}
+
+		LogPrint("masternode", "mnvotequeue -- accepted queue from %s for nQueueHeight %d (peer %d)\n",
+				  q.voterVin.prevout.ToString(), q.nQueueHeight,
+				  pfrom ? pfrom->GetId() : -1);
+
 		return;
 	}
 
-	if (strCommand == "getmnvotes")
+	if (strCommand == "getmnqueues")
 	{
-		voteTracker.Sync(pfrom);
+		voteTracker.SyncQueues(pfrom);
 		return;
 	}
 }

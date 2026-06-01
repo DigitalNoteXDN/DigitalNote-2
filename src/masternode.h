@@ -28,18 +28,6 @@ class uint256;
 // These govern the masternode-voted payment selection system introduced in
 // v2.0.0.8.  Full design rationale lives in PhaseC-design.md; brief notes:
 //
-//   VOTED_CONSENSUS_ACTIVATION_HEIGHT
-//     Block height at which validators begin enforcing the voted-consensus
-//     payment rule.  Pre-activation: existing behaviour (any valid MN
-//     payee accepted).  Post-activation: payee must match canonical voted
-//     winner if consensus exists, else permissive fallback.
-//
-//     For M0/M1/M2/M3/M4 development builds: set to INT_MAX so enforcement
-//     never triggers and the wallet runs identically to v2.0.0.7.
-//     For M6 pre-release testing: still INT_MAX.
-//     For M7 release: set to release_height + ~80,000 blocks (~6 months at
-//     observed 3.23 min/block rate).
-//
 //   VOTE_LOOKAHEAD
 //     Number of blocks ahead each masternode votes for.  An MN observing
 //     block N broadcasts a vote for block N + VOTE_LOOKAHEAD.  Matches the
@@ -76,10 +64,8 @@ class uint256;
 //
 //   MIN_VOTING_PROTOCOL_VERSION
 //     Minimum peer protocol version that counts toward the consensus
-//     denominator.  Set equal to v2.0.0.8's PROTOCOL_VERSION (62056).
-// ---------------------------------------------------------------------------
-
-#define VOTED_CONSENSUS_ACTIVATION_HEIGHT				INT_MAX
+//     denominator.
+//
 #define VOTE_LOOKAHEAD									10
 #define VOTE_PAST_HORIZON								10
 #define VOTE_TIME_WINDOW_SECONDS						(30 * 60)
@@ -88,12 +74,46 @@ class uint256;
 #define VOTED_CONSENSUS_THRESHOLD_NUMERATOR				3
 #define VOTED_CONSENSUS_THRESHOLD_DENOMINATOR			5
 #define MAX_EQUIVOCATIONS_PER_SESSION					3
-#define MIN_VOTING_PROTOCOL_VERSION						62056
+#define MIN_VOTING_PROTOCOL_VERSION						62058
+
+// v2.0.0.8 M1Q -- queue-based voting.
+//   VOTE_QUEUE_LENGTH
+//     The number of forward payee positions each queue carries.  Position
+//     p (0-indexed) predicts the payee for height (nQueueHeight + 1 + p).
+//     Equal to VOTE_LOOKAHEAD so that any height is covered by up to
+//     VOTE_LOOKAHEAD in-flight queues after warm-up.  See
+//     v208-M1Q-queue-based-voting-SPEC.md S4.
+//   VOTE_COMMIT_BUFFER
+//     GetCanonicalWinnerFromQueues returns no winner until the chain has
+//     reached (targetHeight - VOTE_COMMIT_BUFFER).  Gives late-arriving
+//     queues time to propagate before the consensus read commits.  See
+//     spec S9.  Reorgs shallower than this preserve in-flight commits;
+//     deeper reorgs may disturb them (spec S10.2).
+#define VOTE_QUEUE_LENGTH								VOTE_LOOKAHEAD
+#define VOTE_COMMIT_BUFFER								3
 
 // Maximum depth the initial chain-walk for mapLastPaidHeight will look back.
 // At observed 3.23min/block, 50000 blocks is ~112 days of history -- enough
 // to find a recent payment for every active MN.
 #define MAX_LASTPAID_SCAN_DEPTH							50000
+
+// ---------------------------------------------------------------------------
+// VOTER_ELIGIBILITY_DEPTH
+//   Minimum chain depth, relative to the block being voted on, that a
+//   masternode's 2,000,000 XDN collateral must have before that masternode
+//   counts toward the voted-consensus denominator.
+//
+//   = MASTERNODE_MIN_CONFIRMATIONS (collateral maturity, 7) +
+//     REORG_DEPTH_BUFFER          (reorg-stability margin, 10)
+//
+//   The buffer guarantees the eligible-voter set for height N cannot change
+//   under any reorg shallower than REORG_DEPTH_BUFFER, which is the deepest
+//   reorg the vote system itself tolerates (see VOTE_PAST_HORIZON / the
+//   ProcessVote window).  This makes CountVotingEligible(N) a pure function
+//   of committed chain state and therefore identical on every synced node --
+//   the property GetCanonicalWinner requires to be deterministic.
+// ---------------------------------------------------------------------------
+#define VOTER_ELIGIBILITY_DEPTH							(MASTERNODE_MIN_CONFIRMATIONS + REORG_DEPTH_BUFFER)
 
 bool GetBlockHash(uint256& hash, int nBlockHeight);
 

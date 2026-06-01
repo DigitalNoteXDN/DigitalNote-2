@@ -14,6 +14,7 @@
 #include "cmnenginesigner.h"
 #include "mnengine.h"
 #include "mnengine_extern.h"
+#include "chainparams.h"
 
 #include "csporkmanager.h"
 
@@ -31,14 +32,17 @@ CSporkManager::CSporkManager()
 
 	// v2.0.0.7 operative spork pubkey -- newly generated for this
 	// release cycle.  Corresponds to XDN mainnet address
-	// dFf3hK2WyJ3bkPM7zn52PPyp7sAyvjhAN4.  Private key is held by
+	// dFf3hK2WyJ3bkPM7zn52PPyp7sAyvdczeA.  Private key is held by
 	// the current project owner.  This is the key used to sign
-	// sporks broadcast from v2.0.0.7 onward.  Testnet shares this
-	// pubkey because XDN has historically had no operational testnet;
-	// if/when an operational testnet is brought up, split this into
-	// a separate testnet key.
+	// sporks broadcast from v2.0.0.7 onward on MAINNET.
 	strMainPubKeyNew = "0442731a54d74177a4b1220e06743fd8d1ac9c72206cf6a8653e78de33f2c654cbcba4531b58b5670cfb3810486d63d6fdab05eba5c92e35f72918efb82efb8846";
-	strTestPubKeyNew = "0442731a54d74177a4b1220e06743fd8d1ac9c72206cf6a8653e78de33f2c654cbcba4531b58b5670cfb3810486d63d6fdab05eba5c92e35f72918efb82efb8846";
+
+	// v2.0.0.8 operative TESTNET spork pubkey -- generated specifically
+	// for testnet bring-up.  Separate from mainnet to isolate key risk:
+	// a testnet spork-key compromise cannot activate sporks on mainnet,
+	// and vice versa.  Compressed format (33 bytes).  Private key held
+	// by the v2.0.0.8 testnet operator.
+	strTestPubKeyNew = "03be26b9471b9aab52b6fca3833ca8831c7bfc774a15cf746f7654c3db017c9e17";
 }
 
 std::string CSporkManager::GetSporkNameByID(int id)
@@ -56,6 +60,7 @@ std::string CSporkManager::GetSporkNameByID(int id)
 	if(id == SPORK_12_RECONSIDER_BLOCKS)				return "SPORK_12_RECONSIDER_BLOCKS";
 	if(id == SPORK_13_ENABLE_SUPERBLOCKS)				return "SPORK_13_ENABLE_SUPERBLOCKS";
 	if(id == SPORK_14_TEST_SIGNATURES)					return "SPORK_14_TEST_SIGNATURES";
+	if(id == SPORK_15_VOTED_CONSENSUS_ACTIVATION)		return "SPORK_15_VOTED_CONSENSUS_ACTIVATION";
 
 	return "Unknown";
 }
@@ -75,6 +80,7 @@ int CSporkManager::GetSporkIDByName(std::string strName)
 	if(strName == "SPORK_12_RECONSIDER_BLOCKS")					return SPORK_12_RECONSIDER_BLOCKS;
 	if(strName == "SPORK_13_ENABLE_SUPERBLOCKS")				return SPORK_13_ENABLE_SUPERBLOCKS;
 	if(strName == "SPORK_14_TEST_SIGNATURES")					return SPORK_14_TEST_SIGNATURES;
+	if(strName == "SPORK_15_VOTED_CONSENSUS_ACTIVATION")		return SPORK_15_VOTED_CONSENSUS_ACTIVATION;
 
 	return -1;
 }
@@ -128,10 +134,14 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
 							boost::lexical_cast<std::string>(spork.nValue) +
 							boost::lexical_cast<std::string>(spork.nTimeSigned);
 
-	// Try v2.0.0.7 operative key first.  This is the key used by
-	// project members to sign sporks going forward.
+	// Pick the network-appropriate operative key.  Mainnet and testnet
+	// have DIFFERENT spork master keys from v2.0.0.8 onward, so a spork
+	// signed for one network cannot activate on the other -- isolating
+	// testnet-key compromise from mainnet operations and vice versa.
+	const std::string &strOperativePubKey = TestNet() ? strTestPubKeyNew : strMainPubKeyNew;
+
 	std::string errorMessage = "";
-	CPubKey pubkeyNew(ParseHex(strMainPubKeyNew));
+	CPubKey pubkeyNew(ParseHex(strOperativePubKey));
 
 	if(mnEngineSigner.VerifyMessage(pubkeyNew, spork.vchSig, strMessage, errorMessage))
 	{
@@ -140,6 +150,8 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
 
 	// Fall back to legacy key for backward compatibility.  Any spork
 	// signed with the original (pre-v2.0.0.7) key still verifies here.
+	// The legacy key is shared between networks because it predates the
+	// network-split (and the project doesn't hold its privkey anyway).
 	std::string errorMessageLegacy = "";
 	CPubKey pubkeyLegacy(ParseHex(strMainPubKey));
 

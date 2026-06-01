@@ -87,7 +87,7 @@ unsigned int GetSizeOfCompactSize(uint64_t nSize)
 //
 class CFlatData;
 class CSporkMessage;
-class CMasternodeVote;
+class CMasternodeVoteQueue;
 
 //
 // Generate template 
@@ -107,7 +107,7 @@ template CVarInt<unsigned int>& REF<CVarInt<unsigned int>>(CVarInt<unsigned int>
 
 // NCONST_PTR
 template CSporkMessage* NCONST_PTR<CSporkMessage>(CSporkMessage const*);
-template CMasternodeVote* NCONST_PTR<CMasternodeVote>(CMasternodeVote const*);
+template CMasternodeVoteQueue* NCONST_PTR<CMasternodeVoteQueue>(CMasternodeVoteQueue const*);
 
 // begin_ptr
 template unsigned char* begin_ptr<unsigned char, std::allocator<unsigned char>>(std::vector<unsigned char, std::allocator<unsigned char>>&);

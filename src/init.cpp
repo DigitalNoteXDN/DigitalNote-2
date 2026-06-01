@@ -308,7 +308,8 @@ std::string HelpMessage()
 	strUsage +=                               ui_translate("If <category> is not supplied, output all debugging information.") + "\n";
 	strUsage +=                               ui_translate("<category> can be:");
 	strUsage +=                                 " addrman, alert, db, lock, rand, rpc, selectcoins, mempool, net,"; // Don't translate these and qt below
-	strUsage +=                                 " coinage, coinstake, creation, stakemodifier";
+	strUsage +=                                 " coinage, coinstake, creation, stakemodifier,";
+	strUsage +=                                 " masternode, mnengine, instantx, smsg, webwallet, retarget, init, checkblock";
 
 	if (fHaveGUI)
 	{
@@ -382,7 +383,6 @@ std::string HelpMessage()
 		"  -smsgscanchain                           " + ui_translate("Scan the block chain for public key addresses on startup.") + "\n";
 	strUsage += "  -stakethreshold=<n> " + ui_translate("This will set the output size of your stakes to never be below this number (default: 100)") + "\n";
 	strUsage += "  -liveforktoggle=<n> " + ui_translate("Toggle experimental features via block height testing fork, (example: -command=<fork_height>)") + "\n";
-	strUsage += "  -mnadvrelay=<n> " + ui_translate("Toggle MasterNode Advanced Relay System via 1/0, (example: -command=<true/false>)") + "\n";
 	strUsage += "  -webwallet=<n> " + ui_translate("Toggle web-wallet node flag via 1/0, (example: -command=<true/false>)") + "\n";
 
 	return strUsage;
@@ -1511,24 +1511,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 		LogPrintf("No experimental testing feature fork toggle detected... skipping...\n");
 	}
 
-	// Check toggle switch for masternode advanced relay
-	// (no InitMessage -- this is a microsecond config-flag read, splash noise)
-
-	fMnAdvRelay = GetBoolArg("-mnadvrelay", false);
-
-	LogPrintf("Checking for masternode advanced relay toggle...\n");
-
-	if(fMnAdvRelay)
-	{
-		LogPrintf("Continuing with toggle enabled | Happy relaying!\n");
-	}
-	else
-	{
-		fMnAdvRelay = false;
-		
-		LogPrintf("No masternode advanced relay toggle detected... skipping...\n");
-	}
-
 	uiInterface.InitMessage(ui_translate("Loading masternode cache..."));
 
 	CMasternodeDB mndb;
@@ -1560,7 +1542,12 @@ bool AppInit2(boost::thread_group& threadGroup)
 	// NOT serialized -- always rebuilt from chain at startup so cache and
 	// chain can never diverge.  At ~30 MNs and observed block rates this
 	// completes in seconds.
-	uiInterface.InitMessage(ui_translate("Populating masternode last-paid cache..."));
+	//
+	// v2.0.0.8 UAT-4: the function emits its own throttled splash progress
+	// messages ("MN cache: N/M") during the walk to prevent the splash's
+	// transparent region from going black during longer scans.  No
+	// InitMessage needed here -- if we set one, it would just be overwritten
+	// by the function's first progress emit anyway.
 	mnodeman.PopulateLastPaidHeightCache();
 
 

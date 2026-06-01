@@ -7,6 +7,7 @@
 
 #include "types/ccriticalsection.h"
 #include "types/ctxdestination.h"
+#include "cmnqueuesnapshot.h"
 
 class CNode;
 class CMasternode;
@@ -51,6 +52,15 @@ private:
 	// own nLastPaid field is preserved for display purposes only.
 	// ----------------------------------------------------------------------
 	std::map<COutPoint, int> mapLastPaidHeight;
+
+	// v2.0.0.8 PB-6: VESTIGIAL.  Formerly bounded RecomputeLastPaidHeight's
+	// backward walk, but that bound was the PB-6 bug -- it is set to where
+	// the startup scan terminated (a shallow recent height), which made
+	// RecomputeLastPaidHeight miss payments deeper than that window.
+	// RecomputeLastPaidHeight now walks by MAX_LASTPAID_SCAN_DEPTH instead.
+	// This field is still written (constructor, PopulateLastPaidHeightCache)
+	// but no longer read.  Left in place to avoid churn; do NOT reintroduce
+	// it as a walk bound.
 	int nLastPaidHeightScannedTo;
 
 public:
@@ -76,6 +86,11 @@ public:
 	void Clear();
 
 	int CountEnabled(int protocolVersion = -1);
+
+	// v2.0.0.8 voted-consensus: deterministic, chain-derived eligible-voter
+	// count for a given block height.  Consensus-denominator counterpart of
+	// CountEnabled().  See implementation for the full rationale.
+	int CountVotingEligible(int nBlockHeight, int protocolVersion = -1);
 
 	int CountMasternodesAboveProtocol(int protocolVersion);
 
@@ -148,6 +163,14 @@ public:
 	// longest-ago-paid by FindOldestNotInVecChainDerived).
 	int GetLastPaidHeight(const COutPoint& vinPrevout) const;
 
+	// v2.0.0.8 M1Q: snapshot every MN's chain-derived payment state under a
+	// single cs acquisition (spec S18.1), for the queue forward-simulation
+	// in CActiveMasternode::BroadcastQueue.  Returns one entry per MN in
+	// vMasternodes.  Keeping cs private and exposing this purpose-built
+	// accessor preserves the manager's lock encapsulation -- external code
+	// never holds mnodeman.cs directly.
+	std::vector<CMnPaymentSnapshotEntry> GetQueuePaymentSnapshot() const;
+
 	// Same selection semantics as FindOldestNotInVec, but uses chain-derived
 	// lastPaidHeight instead of local nLastPaid.  Deterministic across nodes
 	// with the same chain state.
@@ -160,9 +183,19 @@ public:
 	// the one with the lowest vin.prevout (grind-resistant per PhaseB B3.3).
 	//
 	// NOT YET CALLED FROM SELECTION PATH -- that wiring lands in M5.
+	//
+	// v2.0.0.8 Fix C: fChainDerivedEligibility selects the candidate-pool
+	// eligibility predicate.  When true (the vote path -- BroadcastVote),
+	// candidates are filtered by the deterministic, chain-derived
+	// CMasternode::IsVotingEligible(nReferenceHeight) so two nodes
+	// computing a vote for the same height pick the same candidate set
+	// regardless of differing wall-clock liveness views.  When false
+	// (default -- legacy / non-consensus callers), the original
+	// IsEnabled() liveness filter is used.
 	CMasternode* FindOldestNotInVecChainDerived(const std::vector<CTxIn>& vVins,
 												int nMinimumAge,
-												int nReferenceHeight);
+												int nReferenceHeight,
+												bool fChainDerivedEligibility = false);
 
 	//
 	// Relay Masternode Messages

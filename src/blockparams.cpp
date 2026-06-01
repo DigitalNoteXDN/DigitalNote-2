@@ -16,6 +16,7 @@
 #include "main.h"
 #include "main_extern.h"
 #include "fork.h"
+#include "util.h"
 
 #include "blockparams.h"
 
@@ -188,7 +189,7 @@ void GNTdebug()
 	// Retarget using Terminal-Velocity
 	// debug info for testing
 	LogPrintf("Terminal-Velocity retarget selected \n");
-	LogPrintf("Espers retargetted using: Terminal-Velocity difficulty curve \n");
+	LogPrintf("DigitalNote retargetted using: Terminal-Velocity difficulty curve \n");
 
 	return;
 }
@@ -369,7 +370,7 @@ void VRX_Simulate_Retarget()
 	return;
 }
 
-void VRX_ThreadCurve(const CBlockIndex* pindexLast, bool fProofOfStake)
+void VRX_ThreadCurve(const CBlockIndex* pindexLast, bool fProofOfStake, int64_t nNewBlockTime)
 {
 	// Run VRX engine
 	VRX_BaseEngine(pindexLast, fProofOfStake);
@@ -411,8 +412,51 @@ void VRX_ThreadCurve(const CBlockIndex* pindexLast, bool fProofOfStake)
 	{
 		// Define time values
 		blkTime = pindexLast->GetBlockTime();
-		cntTime = BlockVelocityType->GetBlockTime();
-		prvTime = BlockVelocityType->pprev->GetBlockTime();
+
+		// v2.0.0.8 PB-1: genesis-boundary guard.
+		//
+		// BlockVelocityType comes from GetLastBlockIndex(pindexLast,
+		// fProofOfStake), which walks back to the most recent block of
+		// the requested type.  Its loop terminates either on a type
+		// match OR on pprev == NULL -- so on a chain that contains NO
+		// block of the requested type, it returns the genesis block.
+		//
+		// This happens in practice on a PoW-only chain (a fresh
+		// testnet): the staker calls GetNextTargetRequired(pindexPrev,
+		// fProofOfStake=true) -> VRX_Retarget(.., true) ->
+		// GetLastBlockIndex(.., true), which finds no PoS block and
+		// returns genesis.  genesis->pprev is NULL, so the original
+		// line `BlockVelocityType->pprev->GetBlockTime()` dereferenced
+		// NULL and crashed with an access violation reading address
+		// 0xF4 (the offset of CBlockIndex::nTime, which GetBlockTime
+		// reads).  This is the PB-1 "PoS staking crash" -- latent on
+		// mainnet (which always has PoS blocks, so the walk never
+		// reaches genesis) and only triggered on PoW-only testnet.
+		//
+		// When BlockVelocityType has no predecessor of context, there
+		// is no prior same-type interval to measure.  We set cntTime
+		// and prvTime equal so difTime == 0: the curve-recovery loop
+		// below simply does not engage, which is the correct behaviour
+		// when there is no history to recover difficulty against.
+		if (BlockVelocityType != NULL && BlockVelocityType->pprev != NULL)
+		{
+			cntTime = BlockVelocityType->GetBlockTime();
+			prvTime = BlockVelocityType->pprev->GetBlockTime();
+		}
+		else if (BlockVelocityType != NULL)
+		{
+			// genesis (or any block with no pprev): no prior interval.
+			cntTime = BlockVelocityType->GetBlockTime();
+			prvTime = cntTime;
+		}
+		else
+		{
+			// defensive: GetLastBlockIndex returned NULL.  Should not
+			// happen while pindexLast is non-NULL, but never deref blind.
+			cntTime = blkTime;
+			prvTime = blkTime;
+		}
+
 		difTime = cntTime - prvTime;
 		hourRounds = 1;
 		difCurve = 2;
@@ -436,8 +480,58 @@ void VRX_ThreadCurve(const CBlockIndex* pindexLast, bool fProofOfStake)
 		// Version 1.2 Extended Curve Run Upgrade
 		if(pindexLast->GetBlockTime() > VERION_1_0_1_5_MANDATORY_UPDATE_START)
 		{// ON Tuesday, Jul 02, 2019 12:00:00 PM PDT
-			// Set unbiased comparison
-			difTime = blkTime - cntTime;
+			// v2.0.0.8 difficulty-recovery: use WALL CLOCK time since the
+			// last block, not the block-timestamp delta.  The original
+			// logic compared two block timestamps that are identical on
+			// PoW retarget (both come from the same `pindexLast` PoW block),
+			// so difTime was always 0 and the recovery loop never engaged.
+			// This bit when rapid mining drove difficulty up faster than
+			// network hashrate could sustain, leaving the chain stalled
+			// with no automatic recovery.
+			//
+			// Now: difTime = max(blkTime - cntTime, wallClock - blkTime).
+			// The first term preserves the original behaviour for normal
+			// retarget paths.  The second term engages the recovery loop
+			// when no blocks have been produced for 1+ hours, dropping
+			// difficulty progressively until mining catches up.
+			// v2.0.0.8 RESYNC FIX -- the retarget MUST be deterministic.
+			//
+			// The original line was:
+			//     wallClockDelta = GetAdjustedTime() - blkTime;
+			// GetAdjustedTime() is the node's WALL CLOCK.  That makes the
+			// computed difficulty depend on *when the calculation runs*:
+			//   - at mint time, GetAdjustedTime() ~= the new block's
+			//     timestamp, so a small delta -- recovery loop usually
+			//     does not engage;
+			//   - at re-validation during a resync, GetAdjustedTime() is
+			//     "now" (possibly weeks later), so the delta is enormous,
+			//     the recovery loop engages hard, and VRX computes a
+			//     COMPLETELY DIFFERENT nBits than the block carries ->
+			//     AcceptBlock() : incorrect proof-of-work -> the node
+			//     cannot resync past the first non-dry-run block (130).
+			//
+			// The fix: measure stall time from the TARGETED block's own
+			// timestamp (nNewBlockTime -- the block at pindexLast->nHeight
+			// + 1).  That value is fixed chain data: every node, at mint
+			// time and forever after, computes the identical delta and
+			// therefore the identical nBits.
+			//
+			// Behaviour is preserved for live operation: at mint time the
+			// miner passes GetAdjustedTime() (the block's timestamp is not
+			// finalised yet, and is ~now anyway), which is exactly what the
+			// old code used -- so the stall-recovery curve still engages
+			// for a genuinely stalled chain.  Only the non-determinism is
+			// removed.
+			//
+			// nNewBlockTime == 0 means "not supplied" (defensive / any
+			// caller not updated) -> fall back to the old wall-clock
+			// behaviour rather than compute a nonsense negative delta.
+			int64_t blockDelta = blkTime - cntTime;
+			int64_t nEffectiveNewTime = (nNewBlockTime > 0)
+											? nNewBlockTime
+											: GetAdjustedTime();
+			int64_t wallClockDelta = nEffectiveNewTime - blkTime;
+			difTime = std::max(blockDelta, wallClockDelta);
 			// Run Curve
 			while(difTime > (hourRounds * 60 * 60))
 			{
@@ -532,7 +626,7 @@ void VRX_Dry_Run(const CBlockIndex* pindexLast)
 	return;
 }
 
-unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake)
+unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake, int64_t nNewBlockTime)
 {
 	// Set base values
 	bnVelocity = fProofOfStake ? Params().ProofOfStakeLimit() : Params().ProofOfWorkLimit();
@@ -545,14 +639,28 @@ unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake)
 
 	if(fDryRun)
 	{
+		// v2.0.0.8 DIAGNOSTIC
+		LogPrint("retarget", "VRX_Retarget DIAG: height=%d path=DRYRUN nNewBlockTime=%d -> nBits=%08x\n",
+				  (pindexLast ? pindexLast->nHeight + 1 : -1), (int64_t)nNewBlockTime,
+				  bnVelocity.GetCompact());
+
 		return bnVelocity.GetCompact();
 	}
 
 	// Run VRX threadcurve
-	VRX_ThreadCurve(pindexLast, fProofOfStake);
+	VRX_ThreadCurve(pindexLast, fProofOfStake, nNewBlockTime);
 
 	if (fCRVreset)
 	{
+		// v2.0.0.8 DIAGNOSTIC -- the recovery loop tripped hourRounds>5
+		// (or otherwise set fCRVreset) and we are about to return the
+		// difficulty FLOOR.  difTime/hourRounds/difCurve show how the
+		// recovery loop behaved for this block.
+		LogPrint("retarget", "VRX_Retarget DIAG: height=%d path=CRVRESET nNewBlockTime=%d blkTime=%d difTime=%d hourRounds=%d difCurve=%d -> nBits=%08x (FLOOR)\n",
+				  (pindexLast ? pindexLast->nHeight + 1 : -1), (int64_t)nNewBlockTime,
+				  (int64_t)blkTime, (int64_t)difTime, (int64_t)hourRounds, (int64_t)difCurve,
+				  bnVelocity.GetCompact());
+
 		return bnVelocity.GetCompact();
 	}
 
@@ -575,6 +683,12 @@ unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake)
 		VRXdebug();
 	}
 
+	// v2.0.0.8 DIAGNOSTIC -- normal computed path (no dry run, no reset).
+	LogPrint("retarget", "VRX_Retarget DIAG: height=%d path=NORMAL nNewBlockTime=%d blkTime=%d difTime=%d hourRounds=%d difCurve=%d oldBN=%08x -> nBits=%08x\n",
+			  (pindexLast ? pindexLast->nHeight + 1 : -1), (int64_t)nNewBlockTime,
+			  (int64_t)blkTime, (int64_t)difTime, (int64_t)hourRounds, (int64_t)difCurve,
+			  oldBN, bnNew.GetCompact());
+
 	// Return difficulty
 	return bnNew.GetCompact();
 }
@@ -584,7 +698,7 @@ unsigned int VRX_Retarget(const CBlockIndex* pindexLast, bool fProofOfStake)
 // Difficulty retarget (function)
 //
 
-unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake)
+unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake, int64_t nNewBlockTime)
 {
 	// Retarget using Terminal-Velocity
 	// debug info for testing
@@ -593,7 +707,7 @@ unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfS
 		GNTdebug();
 	}
 
-	return VRX_Retarget(pindexLast, fProofOfStake);
+	return VRX_Retarget(pindexLast, fProofOfStake, nNewBlockTime);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -688,6 +802,15 @@ int64_t GetProofOfWorkReward(int nHeight, int64_t nFees)
 		nSubsidy += 1000000000 * COIN;
 	}
 
+	// Testnet: reserve phase ends at TESTNET_RESERVE_PHASE_END_HEIGHT.
+	// Blocks beyond that pay standard reward regardless of money supply.
+	if(TestNet() && nHeight > TESTNET_RESERVE_PHASE_END_HEIGHT)
+	{
+		LogPrint("creation", "GetProofOfWorkReward() : create=%s nSubsidy=%d\n", FormatMoney(nSubsidy), nSubsidy);
+
+		return nSubsidy + nFees;
+	}
+
 	if(nHeight > nReservePhaseStart)
 	{
 		if(pindexBest->nMoneySupply < (nBlockRewardReserve * 100))
@@ -718,6 +841,15 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
 	if(pindexPrev->nHeight+1 == VERION_1_0_4_2_MANDATORY_UPDATE_BLOCK)
 	{
 		nSubsidy += 1000000000 * COIN;
+	}
+
+	// Testnet: reserve phase ends at TESTNET_RESERVE_PHASE_END_HEIGHT.
+	// Blocks beyond that pay standard reward regardless of money supply.
+	if(TestNet() && pindexPrev->nHeight+1 > TESTNET_RESERVE_PHASE_END_HEIGHT)
+	{
+		LogPrint("creation", "GetProofOfStakeReward(): create=%s nCoinAge=%d\n", FormatMoney(nSubsidy), nCoinAge);
+
+		return nSubsidy + nFees;
 	}
 
 	if(pindexPrev->nHeight+1 > nReservePhaseStart)
