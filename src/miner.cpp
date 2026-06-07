@@ -19,6 +19,7 @@
 #include "cmasternodevotetracker.h"
 #include "creservekey.h"
 #include "cwallet.h"
+#include "cwallettx.h"
 #include "script.h"
 #include "net.h"
 #include "main_const.h"
@@ -239,15 +240,8 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 		ParseMoney(mapArgs["-mintxfee"], nMinTxFee);
 	}
 
-	// v2.0.0.8 RESYNC FIX: the block's final timestamp is not set yet at
-	// this point (the miner is still building it), so pass GetAdjustedTime()
-	// explicitly as nNewBlockTime.  This is ~the timestamp the block will
-	// carry, so it matches what AcceptBlock will later recompute with the
-	// block's committed GetBlockTime(); and it reproduces the pre-fix
-	// behaviour for live mining exactly (the old code used GetAdjustedTime()
-	// internally).  Determinism is provided on the VALIDATION side, which
-	// passes the block's fixed timestamp.
-	pblock->nBits = GetNextTargetRequired(pindexPrev, fProofOfStake, GetAdjustedTime());
+	// v2.0.0.8 CW7: nBits is computed AFTER pblock->nTime is finalized
+	// below.  See the assignment site near pblock->nTime for the rationale.
 
 	// Collect memory pool transactions into the block
 	int64_t nFees = 0;
@@ -531,14 +525,24 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 					// TODO: Clean this up, it's a mess (could be done much more cleanly)
 					//       Not an issue otherwise, merely a pet peev. Done in a rush...
 					//
+					// v2.0.0.8 CW9: route both mainnet and testnet through the
+					// height-based ladder.  Testnet handling is now inside the
+					// ladder (so the v2.0.1.0 testnet rotation at block 100
+					// fires correctly here).  Producer asks the ladder about
+					// the height of the block being mined (pindexBest->nHeight
+					// + 1), not the tip -- this is the off-by-one fix that
+					// closes the longstanding producer/validator disagreement
+					// at rotation boundaries.
 					CBitcoinAddress devopaddress;
-					if (Params().NetworkID() == CChainParams_Network::MAIN)
+					if (Params().NetworkID() == CChainParams_Network::MAIN ||
+					    Params().NetworkID() == CChainParams_Network::TESTNET)
 					{
-						devopaddress = CBitcoinAddress(getDevelopersAdress(pindexBest));
-					}
-					else if (Params().NetworkID() == CChainParams_Network::TESTNET)
-					{
-						devopaddress = CBitcoinAddress(TESTNET_DEVELOPER_ADDRESS);
+						devopaddress = CBitcoinAddress(
+							getDevelopersAdressForHeight(
+								pindexBest->nHeight + 1,
+								GetAdjustedTime()
+							)
+						);
 					}
 					else if (Params().NetworkID() == CChainParams_Network::REGTEST)
 					{
@@ -620,7 +624,12 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 							CTxDestination addrDest;
 							ExtractDestination(mn_payee, addrDest);
 							CBitcoinAddress addrOut(addrDest);
-							std::string strDevopsAddress = getDevelopersAdress(pindexPrev);
+							// v2.0.0.8 CW9: ask the ladder about the block being
+							// mined (pindexPrev->nHeight + 1), not the tip.
+							std::string strDevopsAddress = getDevelopersAdressForHeight(
+								pindexPrev->nHeight + 1,
+								GetAdjustedTime()
+							);
 
 							if (!mnodeman.IsPayeeAValidMasternode(mn_payee) &&
 								addrOut.ToString() != strDevopsAddress)
@@ -703,6 +712,35 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 		{
 			pblock->UpdateTime(pindexPrev);
 		}
+		
+		// v2.0.0.8 CW7: compute nBits AFTER pblock->nTime is finalized so
+		// the miner uses the exact same time input the validator will use.
+		//
+		// AcceptBlock recomputes the expected nBits by calling
+		// GetNextTargetRequired(pindexPrev, IsProofOfStake(), GetBlockTime())
+		// where GetBlockTime() returns the committed pblock->nTime.  By
+		// computing nBits here using pblock->nTime, miner and validator
+		// pass byte-identical input to VRX_ThreadCurve's recovery loop and
+		// therefore arrive at byte-identical nBits.
+		//
+		// Pre-CW7 the miner computed nBits early in CreateNewBlock using
+		// GetAdjustedTime() ~milliseconds-to-seconds before pblock->nTime
+		// was finalized.  For most blocks the two timestamps round to the
+		// same answer through the recovery loop's hourly boundaries (3600,
+		// 7200, 10800, 14400, 18000 seconds).  For stall-recovery blocks
+		// whose wall-clock delta from the previous block straddles one of
+		// those boundaries, the few-second gap could push the validator's
+		// computed delta across, producing a different nBits and a
+		// self-validation reject on submission.  CW7 eliminates that
+		// edge case entirely.
+		//
+		// Safe to move: pblock->nBits is not read between its prior
+		// (now-removed) assignment site and this line.  Block reward
+		// calculation (GetProofOfWorkReward / GetProofOfStakeReward) takes
+		// height/coin-age/fees, not nBits.  Coinstake reward is computed
+		// later in CWallet::CreateCoinStake, called after CreateNewBlock
+		// returns.
+		pblock->nBits = GetNextTargetRequired(pindexPrev, fProofOfStake, pblock->nTime);
 		
 		pblock->nNonce = 0;
 	}
@@ -877,17 +915,66 @@ bool CheckStake(CBlock* pblock, CWallet& wallet)
 		{
 			return error("CheckStake() : ProcessBlock, block not accepted");
 		}
-		else
+		
+		// v2.0.0.8 CW4 Fix B: targeted vfSpent maintenance for the just-
+		// accepted PoS coinstake's inputs.  Pre-Fix-B this site called
+		// `wallet.FixSpentCoins(...)`, an O(mapWallet) scan with one
+		// LevelDB seek per wtx, firing on every PoS block (always Branch 2:
+		// coinstake-input lifecycle update).  Empirical confirmation: a
+		// parallel `repairwallet` test on a PoW miner returned "nothing
+		// to do", so Branch 1 (lost-coin recovery) never accumulates --
+		// FixSpentCoins was doing exactly one job, the per-PoS-block
+		// coinstake-input MarkSpent.
+		//
+		// The targeted loop below walks only the coinstake's actual
+		// inputs (O(vin.size()), typically 1-2 vs O(mapWallet)).  Pattern
+		// mirrors SyncTransaction's fFixSpentCoins branch at
+		// cwallet.cpp:2829-2844 and CommitTransaction at
+		// cwallet.cpp:3712-3724.  Lock pattern matches SyncTransaction:
+		// nested cs_wallet inside the already-held cs_main (LOCK2
+		// equivalent for this scope) -- canonical lock order, no
+		// deadlock risk.
+		//
+		// FixSpentCoins remains in the codebase as a manual-recovery
+		// utility (repairwallet RPC + GUI "Repair Wallet" menu).
 		{
-			//ProcessBlock successful for PoS. now FixSpentCoins.
-			int nMismatchSpent;
-			CAmount nBalanceInQuestion;
-			wallet.FixSpentCoins(nMismatchSpent, nBalanceInQuestion);
+			LOCK(wallet.cs_wallet);
 			
-			if (nMismatchSpent != 0)
+			// pblock->vtx[1] is the PoS coinstake; vtx[0] is the empty
+			// PoS coinbase per the PoS block-structure convention.
+			const CTransaction& coinstake = pblock->vtx[1];
+			int nMarked = 0;
+			
+			for (const CTxIn& txin : coinstake.vin)
 			{
-				LogPrintf("PoS mismatched spent coins = %d and balance affects = %d \n", nMismatchSpent, nBalanceInQuestion);
+				mapWallet_t::iterator it =
+					wallet.mapWallet.find(txin.prevout.hash);
+				
+				if (it == wallet.mapWallet.end())
+				{
+					// Input is not from this wallet (legal in
+					// multi-wallet setups, or for stakes assembled
+					// from inputs not all of which are ours).
+					// No-op -- nothing to mark.
+					continue;
+				}
+				
+				CWalletTx& coin = it->second;
+				
+				coin.BindWallet(&wallet);
+				coin.MarkSpent(txin.prevout.n);
+				coin.WriteToDisk();
+				
+				nMarked++;
 			}
+			
+			LogPrint("coinstake",
+				"CheckStake Fix B: marked %d input(s) spent for "
+				"coinstake %s in block %s\n",
+				nMarked,
+				coinstake.GetHash().ToString(),
+				hashBlock.ToString()
+			);
 		}
 	}
 

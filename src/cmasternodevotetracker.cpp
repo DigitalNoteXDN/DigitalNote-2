@@ -285,19 +285,57 @@ bool CMasternodeVoteTracker::ProcessQueue(const CMasternodeVoteQueue &q, CNode *
 				return false;
 			}
 
-			// Distinct queue for the same (voter, nQueueHeight) -- equivocation.
-			LogPrintf("CMasternodeVoteTracker::ProcessQueue -- EQUIVOCATION detected: "
-					  "voter %s at nQueueHeight %d sent two distinct queues\n",
-					  voterOutpoint.ToString(), q.nQueueHeight);
+			// v2.0.0.8 hotfix Issue 3: replace equivocation detection with
+ 			// newer-wins replacement.  The previous code at this site marked
+ 			// any second queue from the same (voter, nQueueHeight) with a
+ 			// different hash as equivocation.  Spec S10.1 explicitly allows
+ 			// legitimate re-broadcast for the same nQueueHeight after an
+ 			// MN-local chain reorg (mapLastPaidHeight shift), and the disconnect
+ 			// path erases mapQueues[height] specifically to make room for that
+ 			// re-broadcast.  But peer nodes that did not observe the same
+ 			// local disconnect still hold the prior queue, and the old code
+ 			// treated the legitimate re-broadcast as equivocation -- locking
+ 			// out the casting MN across the receiving observer's tracker.
+ 			//
+ 			// The 2026-06-02 06:07:48 testnet incident demonstrated this:
+ 			// all 7 MNs marked as equivocators at one observer node within a
+ 			// 1-second window during a 4-second 4305->4306 chain advance.
+ 			// Consensus stalled for 125  blocks until operator intervention.
+ 			//
+ 			// Newer-wins: incoming queue replaces the cached one if its
+ 			// nTimeSigned is later; same/older arrivals are dropped silently
+ 			// as stale gossip.  Equivocation marking is removed from the
+ 			// queue path entirely.  Per-node marking was always weak defense
+ 			// (Issue 2: marking is local, not chain-wide), and M1Q consensus
+ 			// safety relies on the 5/7 supermajority, not per-tracker state.
+ 			// See v208-Issue3-equivocation-falsepositive-SPEC.md.
+ 			if (q.nTimeSigned > existing->second.nTimeSigned)
+ 			{
+ 				if (fDebug)
+ 				{
+ 					LogPrintf("CMasternodeVoteTracker::ProcessQueue -- replacing queue "
+ 							  "from %s at nQueueHeight %d (newer nTimeSigned %lld > %lld)\n",
+ 							  voterOutpoint.ToString(), q.nQueueHeight,
+ 							  (long long)q.nTimeSigned,
+ 							  (long long)existing->second.nTimeSigned);
+ 				}
 
-			// Remove the prior queue (and its by-hash entry) and record the
-			// equivocator.  The new queue is rejected.
-			mapQueuesByHash.erase(existing->second.GetHash());
-			qhIt->second.erase(existing);
+ 				mapQueuesByHash.erase(existing->second.GetHash());
+ 				existing->second = q;
+ 				mapQueuesByHash[q.GetHash()] = q;
 
-			EquivocationRecord &rec = mapEquivocators[voterOutpoint];
-			rec.count++;
-			rec.lastEquivocationTime = now;
+				return true;
+ 			}
+ 
+ 			// Same or older nTimeSigned -- drop as stale/replay.
+ 			if (fDebug)
+ 			{
+ 				LogPrintf("CMasternodeVoteTracker::ProcessQueue -- dropping stale queue "
+ 						  "from %s at nQueueHeight %d (nTimeSigned %lld <= cached %lld)\n",
+ 						  voterOutpoint.ToString(), q.nQueueHeight,
+ 						  (long long)q.nTimeSigned,
+ 						  (long long)existing->second.nTimeSigned);
+ 			}
 
 			return false;
 		}

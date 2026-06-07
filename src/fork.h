@@ -59,22 +59,69 @@ static const int64_t VELOCITY_TDIFF = 0; // Use Velocity's retargetting method.
 #define VERION_1_0_4_2_MANDATORY_UPDATE_BLOCK	403117
 #define VERION_1_0_4_2_DEVELOPER_ADDRESS		"dafC1LknpDu7eALTf5DPcnPq2dwq7f9YPE"
 
+/*
+	Update 2.0.1.0 (planned via v2.0.0.8):
+	- Rotate developer address to a fresh wallet (no transaction history).
+	  Targets the operational issue where the long-lived v1.0.4.2 wallet
+	  accumulated hundreds of thousands of transactions and required
+	  Compact Wallet runs that still leave wallet.dat at ~720MB.
+	- Re-enables the strict devops-address check in CheckBlock, gated to
+	  fire from this rotation block onwards.  Pre-rotation blocks remain
+	  validated leniently (log-only on address mismatch) so the canonical
+	  chain history -- including the v1.0.1.5 transition irregularities
+	  and the v1.0.4.2 chain-correction -- continues to validate cleanly
+	  on resync.  Closes the misdirected-payment vulnerability for all
+	  post-rotation chain.
+	- Fixes the longstanding producer/validator off-by-one in the
+	  devops-ladder lookup (see fork.cpp:getDevelopersAdressForHeight).
+*/
+#define VERION_2_0_1_0_MANDATORY_UPDATE_BLOCK	1400000
+#define VERION_2_0_1_0_DEVELOPER_ADDRESS		"dGoFPie9QZmQ1Ty1beqSHytxNruehpGtGa"
+
 /* Testnet developer address (v2.0.0.8 testnet bootstrap).
  * Block construction and validation on testnet always uses this regardless
  * of mainnet fork-date logic.  Mainnet logic still chooses between the
  * three mainnet developer addresses above based on block height/time. */
 #define TESTNET_DEVELOPER_ADDRESS				"tRutwwW5LVYyYw72s3uTiWVGemNXh6FT5d"
 
+/* Testnet v2.0.1.0 rotation.  Activates at block 100 to exercise the
+ * rotation mechanism early in the v2.0.0.8 testnet genesis-restart soak.
+ * Mirrors the mainnet rotation structure: pre-rotation lax (preserves
+ * any pre-rotation testnet history), post-rotation strict.  Same address
+ * format as mainnet but with the 't' prefix for testnet P2PKH. */
+#define VERION_2_0_1_0_TESTNET_UPDATE_BLOCK		100
+#define VERION_2_0_1_0_TESTNET_DEVELOPER_ADDRESS "tSRDftd9ghEZq3pbwRmwp2FT7VuLcvmtnX"
+
 /* Testnet reserve-phase cutoff.
  * On mainnet the reserve phase (80M XDN/block) ran from block 2 onwards
  * until money supply hit 8 billion -- a bootstrap mechanism for the legacy
- * cryptonote?standard codebase swap.  Testnet has no such legacy, so we
+ * cryptonote-standard codebase swap.  Testnet has no such legacy, so we
  * cap reserve phase to a small number of blocks early in chain history
  * (preserving the "first few blocks paid huge" pattern that mirrors
  * mainnet conceptually) and force all subsequent blocks to standard
  * 300 XDN regardless of supply. */
-#define TESTNET_RESERVE_PHASE_END_HEIGHT			20
+#define TESTNET_RESERVE_PHASE_END_HEIGHT			25
 
+/* v2.0.0.8 CW9: pure-height variant of the devops ladder lookup.
+ *
+ * Caller passes the height of the block whose devops payee is being
+ * determined (NOT the chain tip).  This eliminates the longstanding
+ * off-by-one between producer code (which used to ask the ladder about
+ * pindexBest = the tip = N-1 when building block N) and validator code
+ * (which asks about pindex = N).  After CW9, both ask about N directly.
+ *
+ * The nBlockTime parameter feeds the legacy pre-v1.0.1.5 time-based
+ * boundary check only.  Any block timestamp post-2019 produces the same
+ * answer through that branch, so callers mining recent blocks can pass
+ * GetAdjustedTime() or the block's committed nTime interchangeably.
+ */
+std::string getDevelopersAdressForHeight(int nHeight, int64_t nBlockTime);
+
+/* Backward-compatible wrapper around getDevelopersAdressForHeight().
+ * Equivalent to getDevelopersAdressForHeight(pindex->nHeight,
+ * pindex->GetBlockTime()).  Validator callers can continue using this
+ * unchanged; producer callers should migrate to the height-based
+ * variant. */
 std::string getDevelopersAdress(const CBlockIndex* pindex);
 
 #endif // FORK_H

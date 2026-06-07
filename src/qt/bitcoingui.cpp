@@ -1931,6 +1931,39 @@ DigitalNoteGUI::ComputeStakingIconStatePhaseA(
     }
     if (nWeight == 0)
     {
+        // v2.0.0.8 CW6: distinguish "actively staking, coins in maturity
+        // window" from "no stakeable balance at all".
+        //
+        // A healthy frequent staker whose stake-frequency exceeds
+        // nStakeMinConfirmations x target spacing will have all its
+        // coinstake outputs mid-maturity at any given moment, producing
+        // nWeight=0 even though the wallet is actively staking.  The
+        // "Stake" balance (immature coinstake outputs from recent
+        // stakes) is the distinguishing signal: positive iff the
+        // wallet has staked recently.
+        //
+        // CW6 v1.1: Guard the GetStake() call with fWalletLoadComplete
+        // and pwalletMain non-null.  Pre-load (during GUI construction,
+        // before init.cpp sets fWalletLoadComplete=true at line 1713),
+        // pwalletMain may be null and mapWallet may be partially
+        // populated.  Walking it would either dereference null or
+        // corrupt cache state (same trap that motivated the guard in
+        // updateWeight() above and in walletmodel.cpp:283).  When
+        // pre-load, fall through to the original "no mature coins"
+        // message -- correct enough for the transient pre-load window.
+        CAmount nStake = 0;
+        if (fWalletLoadComplete && pwalletMain)
+            nStake = pwalletMain->GetStake();
+        
+        if (nStake > 0)
+        {
+            tooltipOut = tr(
+                "Recently staked.  All stakeable coins are in the "
+                "stake-maturity window and will become stakeable "
+                "again as they mature."
+            );
+            return StakingIconState::Clock;
+        }
         tooltipOut = tr("Not staking because you don't have mature coins");
         return StakingIconState::None;
     }
@@ -1982,6 +2015,21 @@ DigitalNoteGUI::ComputeStakingIconStatePhaseB(
     }
     if (nWeight == 0)
     {
+        // v2.0.0.8 CW6: see ComputeStakingIconStatePhaseA for rationale.
+        // CW6 v1.1: fWalletLoadComplete + pwalletMain guard same as Phase A.
+        CAmount nStake = 0;
+        if (fWalletLoadComplete && pwalletMain)
+            nStake = pwalletMain->GetStake();
+        
+        if (nStake > 0)
+        {
+            tooltipOut = tr(
+                "Recently staked.  All stakeable coins are in the "
+                "stake-maturity window and will become stakeable "
+                "again as they mature."
+            );
+            return StakingIconState::Clock;
+        }
         tooltipOut = tr("Not staking because you don't have mature coins");
         return StakingIconState::None;
     }

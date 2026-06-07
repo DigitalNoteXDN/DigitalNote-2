@@ -288,7 +288,7 @@ int CWallet::CountInputsWithAmount(int64_t nInputAmount)
 						continue;
 					}
 					
-					if(pcoin->IsSpent(i) || !IsMine(pcoin->vout[i]))
+					if(this->IsSpent(pcoin->GetHash(), i) || !IsMine(pcoin->vout[i]))   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader
 					{
 						continue;
 					}
@@ -459,7 +459,7 @@ void CWallet::AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned in
 				isminetype mine = IsMine(pcoin->vout[i]);
 				
 				if (
-					!(pcoin->IsSpent(i)) &&
+					!(this->IsSpent(pcoin->GetHash(), i)) &&   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader
 					mine != ISMINE_NO &&
 					pcoin->vout[i].nValue >= nMinimumInputValue
 				)
@@ -549,7 +549,7 @@ void CWallet::AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, 
 				isminetype mine = IsMine(pcoin->vout[i]);
 				
 				if (
-					!(pcoin->IsSpent(i)) &&
+					!(this->IsSpent(pcoin->GetHash(), i)) &&   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader
 					mine != ISMINE_NO &&
 					!IsLockedCoin((*it).first, i) &&
 					pcoin->vout[i].nValue > 0 &&
@@ -644,7 +644,7 @@ void CWallet::AvailableCoinsMN(std::vector<COutput>& vCoins, bool fOnlyConfirmed
 				isminetype mine = IsMine(pcoin->vout[i]);
 				
 				if (
-					!(pcoin->IsSpent(i)) &&
+					!(this->IsSpent(pcoin->GetHash(), i)) &&   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader
 					mine != ISMINE_NO &&
 					(fIncludeLockedMN || !IsLockedCoin((*it).first, i)) &&
 					pcoin->vout[i].nValue > 0 &&
@@ -3024,7 +3024,9 @@ void CWallet::ReacceptWalletTransactions()
 				wtx.AcceptToMemoryPool(false);
 			}
 			
-			if ((wtx.IsCoinBase() && wtx.IsSpent(0)) || (wtx.IsCoinStake() && wtx.IsSpent(1)))
+			// v2.0.0.8 CW4 Fix C: mmTxSpends-based reader (extract hash once for reuse below)
+			const uint256 wtxHash = wtx.GetHash();
+			if ((wtx.IsCoinBase() && this->IsSpent(wtxHash, 0)) || (wtx.IsCoinStake() && this->IsSpent(wtxHash, 1)))
 			{
 				continue;
 			}
@@ -3047,7 +3049,7 @@ void CWallet::ReacceptWalletTransactions()
 				
 				for (unsigned int i = 0; i < txindex.vSpent.size(); i++)
 				{
-					if (wtx.IsSpent(i))
+					if (this->IsSpent(wtxHash, i))   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader (wtxHash from above)
 					{
 						continue;
 					}
@@ -4037,15 +4039,19 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 	CTxIn vin;
 	nPoSageReward = nReward;
 
-	// define address
+	// v2.0.0.8 CW9: route both mainnet and testnet through the height-based
+	// ladder.  Producer asks the ladder about the height of the block being
+	// mined (pindexBest->nHeight + 1), not the tip -- off-by-one fix.
 	CBitcoinAddress devopaddress;
-	if (Params().NetworkID() == CChainParams_Network::MAIN)
+	if (Params().NetworkID() == CChainParams_Network::MAIN ||
+	    Params().NetworkID() == CChainParams_Network::TESTNET)
 	{
-		devopaddress = CBitcoinAddress(getDevelopersAdress(pindexBest));
-	}
-	else if (Params().NetworkID() == CChainParams_Network::TESTNET)
-	{
-		devopaddress = CBitcoinAddress(TESTNET_DEVELOPER_ADDRESS);
+		devopaddress = CBitcoinAddress(
+			getDevelopersAdressForHeight(
+				pindexBest->nHeight + 1,
+				GetAdjustedTime()
+			)
+		);
 	}
 	else if (Params().NetworkID() == CChainParams_Network::REGTEST)
 	{
@@ -4121,7 +4127,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 			CTxDestination addrDest;
 			ExtractDestination(payee, addrDest);
 			CBitcoinAddress addrOut(addrDest);
-			std::string strDevopsAddress = getDevelopersAdress(pindexPrev);
+			// v2.0.0.8 CW9: ask the ladder about the block being mined,
+			// not the tip.
+			std::string strDevopsAddress = getDevelopersAdressForHeight(
+				pindexPrev->nHeight + 1,
+				GetAdjustedTime()
+			);
 
 			if (!mnodeman.IsPayeeAValidMasternode(payee) &&
 				addrOut.ToString() != strDevopsAddress)
@@ -5763,7 +5774,7 @@ std::map<CTxDestination, int64_t> CWallet::GetAddressBalances()
 					continue;
 				}
 				
-				int64_t n = pcoin->IsSpent(i) ? 0 : pcoin->vout[i].nValue;
+				int64_t n = this->IsSpent(pcoin->GetHash(), i) ? 0 : pcoin->vout[i].nValue;   // v2.0.0.8 CW4 Fix C: mmTxSpends-based reader
 
 				if (!balances.count(addr))
 				{

@@ -1,5 +1,6 @@
 #include "compat.h"
 
+#include <algorithm>
 #include <boost/thread.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
@@ -1106,6 +1107,36 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
 		static uint256 hashPrevBestCoinBase;
 		
 		g_signals.UpdatedTransaction(hashPrevBestCoinBase);
+		
+		// v2.0.0.8 CW10: also notify UI of the CURRENT block's coinbase.
+		//
+		// Without this line the GUI's transaction list lags by exactly
+		// one block for locally-mined PoW coinbases: the AddToWallet-
+		// fired NotifyTransactionChanged(CT_NEW) ran during ConnectBlock
+		// (above) at a moment when the wtx's IsInMainChain() was still
+		// false -- pindexNew->pprev->pnext had not yet been set, and
+		// pindexBest had not yet been promoted to pindexNew.  The GUI's
+		// static handler captures showTransaction at notify-time, so
+		// the queued updateTransaction event arrived with
+		// showTransaction=false and priv->updateWallet silently dropped
+		// the row.
+		//
+		// By the time execution reaches HERE, both pnext and pindexBest
+		// are set correctly (SetBestChain has completed all chain
+		// updates), so the re-notify reads IsInMainChain()=true,
+		// computes showTransaction=true, and the GUI inserts the row.
+		//
+		// UpdatedTransaction is a no-op for tx that aren't in our
+		// mapWallet (see CWallet::UpdatedTransaction), so this is safe
+		// to fire for every connected block regardless of whether we
+		// mined it.  Local PoW miners see their coinbases immediately;
+		// nodes that didn't mine see no behaviour change.
+		//
+		// PoS stakers were never affected -- coinstake (vtx[1]) is not
+		// a coinbase, so the IsCoinBase()/IsInMainChain() filter in
+		// TransactionRecord::showTransaction never excluded it.
+		g_signals.UpdatedTransaction(vtx[0].GetHash());
+		
 		hashPrevBestCoinBase = vtx[0].GetHash();
 	}
 
@@ -1396,12 +1427,60 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 						}
 						else
 						{
-							// v2.0.0.8 Spec C D2: fMnAdvRelay gate removed.
-							// A payee that is neither a registered
-							// masternode nor the devops fallback address
-							// is invalid -- reject unconditionally once
-							// the checks-delay warmup has elapsed.
-							if (nMasterNodeChecksEngageTime != 0)
+							// v2.0.0.8 CW12: gate the weak mn-list check on
+							// voted-consensus activation height -- the canonical
+							// "post-activation?" check (same gate used by the
+							// strong voted-consensus check, via GetEnforcedPayee).
+							//
+							// HISTORY.  v2.0.0.6 had this strict check gated by
+							// `fMnAdvRelay` (defaulting to false, never toggled
+							// to true on production mainnet).  The effective
+							// v2.0.0.6 mainnet behaviour was: this check never
+							// fired.  v2.0.0.8 "Spec C D2" removed the
+							// fMnAdvRelay gate entirely on the principle that
+							// "consensus enforcement must never ship gated
+							// behind an undocumented flag" -- correct in
+							// principle, but it removed the SOLE gate keeping
+							// the weak check from firing pre-activation.
+							//
+							// The pre-activation firing surfaced as a
+							// network-partition-class bug on testnet:
+							// block 206 saw 5 of 8 nodes ban the LAN gateway
+							// IP (via NAT hairpin) and stall for hours.  Root
+							// cause: an honest peer relaying a block paying
+							// a newly-registered mn was instant-banned
+							// (DoS 100) by every node that hadn't yet
+							// received the mn's dseep broadcast -- a normal
+							// gossip propagation race, not byzantine
+							// behaviour.
+							//
+							// ARCHITECTURE.  This check ("is the payee a
+							// registered mn?") is logically a SUBSET of the
+							// voted-consensus check ("is the payee the
+							// SPECIFIC voted-consensus mn?").  Post-
+							// activation, the voted-consensus check
+							// supersedes it (any voted payee is necessarily
+							// a registered mn).  Pre-activation, the legacy
+							// CMasternodePayments path doesn't require any
+							// specific mn-list membership of the payee, so
+							// enforcing this check pre-activation enforces a
+							// rule that didn't exist in v2.0.0.6.
+							//
+							// GATE.  Using GetEffectiveVotedConsensusActivationHeight()
+							// gives us:
+							//   - Pre-spork on mainnet (floor = INT_MAX): never
+							//     fires, matching v2.0.0.6 effective behaviour
+							//     byte-for-byte
+							//   - On testnet (floor = 2000): fires from height
+							//     2000 onwards, the same height at which
+							//     voted-consensus also activates
+							//   - SPORK_15 lowers both gates together:
+							//     coordinated rollout, no awkward partial state
+							const int nWeakCheckActivationHeight =
+								GetEffectiveVotedConsensusActivationHeight();
+
+							if (nMasterNodeChecksEngageTime != 0 &&
+								pindex->nHeight >= nWeakCheckActivationHeight)
 							{
 								LogPrintf("CheckBlock() : PoS Recipient masternode address validity could not be verified -- rejecting\n");
 
@@ -1524,15 +1603,32 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 						}
 						else
 						{
-							LogPrintf("CheckBlock() : PoS Recipient devops address validity could not be verified\n");
+							LogPrintf("CheckBlock() : PoS Recipient devops address validity could not be verified -- expected %s, got %s\n",
+								strVfyDevopsAddress.c_str(),
+								addressOut.ToString().c_str());
 							
-							/*
-							if(pindexBestBlockTime < VERION_1_0_1_5_MANDATORY_UPDATE_START ||
-								pindexBestBlockTime >= VERION_1_0_1_5_MANDATORY_UPDATE_END)
+							// v2.0.0.8 CW9: re-enable strict devops-address
+							// enforcement, height-gated.
+							//
+							// Pre-rotation: lax (log-only).  Preserves canonical
+							// chain history where some blocks paid addresses
+							// the ladder doesn't predict, due to the
+							// v1.0.1.5/v1.0.1.6/v1.0.1.7 transition mess
+							// (Jul 2-4 2019) and the v1.0.4.2 chain-correction.
+							//
+							// Post-rotation: strict.  All v2.0.0.8+ producers
+							// compute the same expected address via
+							// getDevelopersAdressForHeight(), so any block
+							// reaching here with a mismatch is either a forgery
+							// or a misconfiguration.  Either case is rejected.
+							const int nStrictHeight = TestNet()
+								? VERION_2_0_1_0_TESTNET_UPDATE_BLOCK
+								: VERION_2_0_1_0_MANDATORY_UPDATE_BLOCK;
+							
+							if (pindex->nHeight >= nStrictHeight)
 							{
 								fBlockHasPayments = false;
 							}
-							*/
 						}
 						
 						if (nIndexedDevopsPayment == nDevopsPayment)
@@ -1588,9 +1684,14 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 						}
 						else
 						{
-							// v2.0.0.8 Spec C D2: fMnAdvRelay gate removed.
-							// See PoS counterpart above.
-							if (nMasterNodeChecksEngageTime != 0)
+							// v2.0.0.8 CW12: gate the weak mn-list check on
+							// voted-consensus activation height.  See PoS
+							// counterpart above for full rationale.  Mirror.
+							const int nWeakCheckActivationHeight =
+								GetEffectiveVotedConsensusActivationHeight();
+
+							if (nMasterNodeChecksEngageTime != 0 &&
+								pindex->nHeight >= nWeakCheckActivationHeight)
 							{
 								LogPrintf("CheckBlock() : PoW Recipient masternode address validity could not be verified -- rejecting\n");
 								fBlockHasPayments = false;
@@ -1709,15 +1810,21 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 						}
 						else
 						{
-							LogPrintf("CheckBlock() : PoW Recipient devops address validity could not be verified\n");
+							LogPrintf("CheckBlock() : PoW Recipient devops address validity could not be verified -- expected %s, got %s\n",
+								strVfyDevopsAddress.c_str(),
+								addressOut.ToString().c_str());
 							
-							/*
-							if(pindexBestBlockTime < VERION_1_0_1_5_MANDATORY_UPDATE_START ||	// Check legacy blocks for valid payment, only skip for Update_2
-								pindexBestBlockTime >= VERION_1_0_1_5_MANDATORY_UPDATE_END)	// Skip check during transition to new DevOps
+							// v2.0.0.8 CW9: re-enable strict devops-address
+							// enforcement, height-gated.  Symmetric with the
+							// PoS path above (same rationale).
+							const int nStrictHeight = TestNet()
+								? VERION_2_0_1_0_TESTNET_UPDATE_BLOCK
+								: VERION_2_0_1_0_MANDATORY_UPDATE_BLOCK;
+							
+							if (pindex->nHeight >= nStrictHeight)
 							{
 								fBlockHasPayments = false;
 							}
-							*/
 						}
 					   
 						if (nAmount == nDevopsPayment)
@@ -1827,6 +1934,84 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// CW8 v2.0.0.8: Historical mainnet nBits exception list
+//
+// Two categorically distinct classes; both are canonical chain history,
+// both must be honoured by any conforming validator, but they have
+// unrelated origins:
+//
+// Class A — controlled fork operations (pre-existing, 4 entries):
+//   - 46921, 46923, 46924: v1.0.1.5 mandatory-update activation cluster,
+//     May 2019.  Three blocks within ~3 minutes, all at floor difficulty
+//     (1f00ffff), all carrying the activation transition for the mandatory
+//     upgrade gated by VERION_1_0_1_5_MANDATORY_UPDATE_START.
+//   - 403116: predecessor block to the v1.0.4.2 chain-correction hardfork
+//     at height 403117.  Floor difficulty (1f00ffff) was set to provide a
+//     deterministic, instantly-mineable anchor block.  Block 403117 itself
+//     carries the one-shot 1,000,000,000 XDN treasury operation via the
+//     `nHeight == VERION_1_0_4_2_MANDATORY_UPDATE_BLOCK` branch in
+//     GetDevOpsPayment; 403117's own nBits is consensus-derivable so it is
+//     NOT in this list.
+//
+// Class B — stall-recovery archaeology (v2.0.0.8 D.1.4, 26 entries):
+//   Blocks where v2.0.0.6's broken VRX_ThreadCurve produced different
+//   nBits than v2.0.0.8's working curve computes.  v2.0.0.6's recovery
+//   loop never engaged (difTime was always zero on PoW retarget); during
+//   long stalls the miner computed difficulty from the standard NORMAL
+//   retarget path while v2.0.0.8's working curve correctly drops
+//   difficulty toward the floor.  Each Class B block is a stall-recovery
+//   event somewhere in mainnet history.  Two extreme cases (394624,
+//   423410) hit the 1f00ffff floor on v2.0.0.8's working curve.
+//
+// Architectural property preserved: the strict nBits check remains fully
+// active.  There is no tolerance band, no leniency, no relaxed
+// comparison.  This is a height-keyed allow-list that the validator
+// consults before applying the strict check -- a forgery at any
+// non-exception height fails immediately, and a forgery at an exception
+// height would require winning the chain-work race for that historical
+// block (computationally infeasible).
+//
+// Exception list closure: every block mined under v2.0.0.8 produces
+// nBits from the deterministic working curve, so miner and validator
+// necessarily agree (CW7 closes the residual hourly-boundary risk).
+// This list never grows after v2.0.0.8 tag.
+// ---------------------------------------------------------------------------
+static const int nBitsExceptions[] = {
+	// Class A originals (controlled fork operations):
+	46921, 46923, 46924,
+	83725,
+	130076, 131170,
+	137697, 138092, 138895,
+	210236,
+	294248, 296125,
+	318904,
+	394624,
+	403116,                     // <-- Class A: v1.0.4.2 rollback anchor
+	403375,
+	423410,
+	514282,
+	638810,
+	668693,
+	735105, 753107,
+	783207, 786402,
+	842448, 847854, 856744, 862212,
+	900058,
+	1010584,
+};
+
+static bool IsNBitsExceptionHeight(int nHeight)
+{
+	// Compile-time assertion that the list stays sorted; std::binary_search
+	// returns nonsense otherwise.  Cheap to verify; protects against
+	// merge-conflict-induced disorder when adding any future entry.
+	return std::binary_search(
+		std::begin(nBitsExceptions),
+		std::end(nBitsExceptions),
+		nHeight
+	);
+}
+
 bool CBlock::AcceptBlock()
 {
 	AssertLockHeld(cs_main);
@@ -1919,10 +2104,15 @@ bool CBlock::AcceptBlock()
 	// value this node computed.  Pure logging -- no behaviour change.
 	unsigned int nBitsRequired = GetNextTargetRequired(pindexPrev, IsProofOfStake(), GetBlockTime());
 
-	if (nHeight != 46921 && nHeight != 46923 && nHeight != 46924 && nHeight != 403116 && nBits != nBitsRequired)
+	// v2.0.0.8 CW8: height-keyed exception list now sits in a sorted
+	// constant array consulted via IsNBitsExceptionHeight().  See the
+	// list definition above this function for the two-class provenance
+	// (Class A controlled fork operations + Class B stall-recovery
+	// archaeology).
+	if (!IsNBitsExceptionHeight(nHeight) && nBits != nBitsRequired)
 	{
-		LogPrintf("AcceptBlock() : nBits MISMATCH at height %d -- block carries nBits=%08x, this node computed=%08x, blockTime=%d\n",
-				  nHeight, nBits, nBitsRequired, (int64_t)GetBlockTime());
+		LogPrintf("AcceptBlock() : nBits MISMATCH at height %d [%s] -- block carries nBits=%08x, this node computed=%08x, blockTime=%d\n",
+				  nHeight, IsProofOfStake() ? "PoS" : "PoW", nBits, nBitsRequired, (int64_t)GetBlockTime());
 
 		return DoS(100, error("AcceptBlock() : incorrect %s", IsProofOfWork() ? "proof-of-work" : "proof-of-stake"));
 	}

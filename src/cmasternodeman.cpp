@@ -879,6 +879,14 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, std::string& strCommand, CData
 			{
 				pmn->UpdateLastSeen();
 
+				// v2.0.0.8 hotfix Issue 1: wire Path A auto-clear into the
+				// dsee known-MN-update path.  Without this call the documented
+				// "Cleared by OnFreshDsee (Path A)" contract is dead code in
+				// steady state -- the existing call site at line ~1036 only
+				// fires in the new-MN-add path.  See
+				// v208-Issue1-OnFreshDsee-wiring-SPEC.md.
+				voteTracker.OnFreshDsee(vin.prevout);
+
 				if (!CheckNode((CAddress)addr))
 				{
 					pmn->isPortOpen = false;
@@ -1128,6 +1136,15 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, std::string& strCommand, CData
 					else
 					{
 						pmn->UpdateLastSeen();
+
+						// v2.0.0.8 hotfix Issue 1: wire Path A auto-clear into
+						// the dseep heartbeat handler.  dseep is the frequent
+						// (~MASTERNODE_MIN_DSEEP_SECONDS) heartbeat; without
+						// this call equivocator state can only auto-clear via
+						// dsee broadcasts, which are rare in steady state.
+						// See v208-Issue1-OnFreshDsee-wiring-SPEC.md.
+						voteTracker.OnFreshDsee(vin.prevout);
+
 						pmn->Check();
 						
 						if(!pmn->IsEnabled())

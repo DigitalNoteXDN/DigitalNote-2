@@ -827,7 +827,13 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 	// Check for payment upgrade fork
 	if (pindexBest->GetBlockTime() > 0 and pindexBest->GetBlockTime() > VERION_1_0_0_0_MANDATORY_UPDATE_START) // Monday, May 20, 2019 12:00:00 AM
 	{
-		std::string devpayee2 = getDevelopersAdress(pindexBest);
+		// v2.0.0.8 CW9: ask the ladder about the block being mined
+		// (pindexBest->nHeight + 1), not the tip itself.  Mirrors the
+		// same fix applied at miner.cpp and cwallet.cpp producer sites.
+		std::string devpayee2 = getDevelopersAdressForHeight(
+			pindexBest->nHeight + 1,
+			GetAdjustedTime()
+		);
 		
 		// Set Masternode / DevOps payments
 		int64_t masternodePayment = GetMasternodePayment(pindexPrev->nHeight+1, networkPayment);
