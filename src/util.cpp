@@ -394,7 +394,29 @@ bool LogAcceptCategory(const char* category)
 		const std::set<std::string>& setCategories = *ptrCategory.get();
 
 		// if not debugging everything and not debugging specific category, LogPrint does nothing.
+		//
+		// v2.0.0.8 CW14: accept "all" and "1" as wildcard aliases.
+		//
+		// The wildcard form has always been -debug (no value), which puts an
+		// empty string "" into mapMultiArgs["-debug"] -- and the check below
+		// historically only recognised "" as the wildcard.  Operators
+		// reasonably tried -debug=all (intuitive name) and -debug=1 (numeric
+		// "on"), got fDebug=true via init.cpp:597, then found NO category
+		// logs in their debug.log -- because neither "all" nor "1" matched
+		// any actual LogPrint("category", ...) call site.
+		//
+		// Treating both as wildcard aliases removes the trap.  Effect:
+		//   -debug         -> mapMultiArgs has [""]  -> wildcard (legacy)
+		//   -debug=all     -> mapMultiArgs has ["all"] -> wildcard (new)
+		//   -debug=1       -> mapMultiArgs has ["1"]  -> wildcard (new)
+		//   -debug=net     -> mapMultiArgs has ["net"] -> only net (legacy)
+		//   -debug=0       -> fDebug=false via init.cpp special case (legacy)
+		//
+		// No consensus impact.  Pure logging behaviour change.  Help text
+		// in init.cpp documents the alias forms for operators.
 		if (setCategories.count(std::string("")) == 0 &&
+			setCategories.count(std::string("all")) == 0 &&
+			setCategories.count(std::string("1")) == 0 &&
 			setCategories.count(std::string(category)) == 0)
 		{
 			return false;

@@ -306,6 +306,8 @@ std::string HelpMessage()
 	strUsage += "  -testnet               " + ui_translate("Use the test network") + "\n";
 	strUsage += "  -debug=<category>      " + ui_translate("Output debugging information (default: 0, supplying <category> is optional)") + "\n";
 	strUsage +=                               ui_translate("If <category> is not supplied, output all debugging information.") + "\n";
+	strUsage +=                               ui_translate("Equivalent ways to enable all categories: -debug, -debug=all, -debug=1") + "\n";
+	strUsage +=                               ui_translate("Disable: -debug=0 or -nodebug") + "\n";
 	strUsage +=                               ui_translate("<category> can be:");
 	strUsage +=                                 " addrman, alert, db, lock, rand, rpc, selectcoins, mempool, net,"; // Don't translate these and qt below
 	strUsage +=                                 " coinage, coinstake, creation, stakemodifier,";
