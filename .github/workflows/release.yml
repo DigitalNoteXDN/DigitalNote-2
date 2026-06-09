@@ -18,7 +18,7 @@ on:
           - ""
           - master
           - 2.0.0.7-testing
-          - 2.0.0.8-testing
+          - v2.0.0.8-voted-consensus
         default: ""
       draft:
         description: "Publish as draft (RECOMMENDED — uncheck only when ready to make the release public)"
