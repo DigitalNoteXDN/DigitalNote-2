@@ -37,8 +37,7 @@ class uint256;
 //     For M0/M1/M2/M3/M4 development builds: set to INT_MAX so enforcement
 //     never triggers and the wallet runs identically to v2.0.0.7.
 //     For M6 pre-release testing: still INT_MAX.
-//     For M7 release: set to release_height + ~80,000 blocks (~6 months at
-//     observed 3.23 min/block rate).
+//     For M7 release: set to release_height 1480000 (7 months)
 //
 //   VOTE_LOOKAHEAD
 //     Number of blocks ahead each masternode votes for.  An MN observing
@@ -80,12 +79,12 @@ class uint256;
 //
 //     TEMPORARY: set to 62057 for the debug-build wedge-reproduction soak
 //     so the test staker can form quorum with the rest of the fleet (which
-//     is at 62057).  See ledger §24 / §25.  RETURN TO 62058 before release
+//     is at 62057).  See ledger S24 / S25.  RETURN TO 62058 before release
 //     -- the production rationale (queue denominator counts ONLY M1Q
 //     queue-capable MNs in lockstep with PROTOCOL_VERSION) is unchanged.
 // ---------------------------------------------------------------------------
 
-#define VOTED_CONSENSUS_ACTIVATION_HEIGHT				INT_MAX
+#define VOTED_CONSENSUS_ACTIVATION_HEIGHT				1480000
 #define VOTE_LOOKAHEAD									10
 #define VOTE_PAST_HORIZON								10
 #define VOTE_TIME_WINDOW_SECONDS						(30 * 60)

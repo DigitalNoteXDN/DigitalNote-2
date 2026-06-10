@@ -75,7 +75,7 @@ static const int64_t VELOCITY_TDIFF = 0; // Use Velocity's retargetting method.
 	- Fixes the longstanding producer/validator off-by-one in the
 	  devops-ladder lookup (see fork.cpp:getDevelopersAdressForHeight).
 */
-#define VERION_2_0_1_0_MANDATORY_UPDATE_BLOCK	1400000
+#define VERION_2_0_1_0_MANDATORY_UPDATE_BLOCK	1280000
 #define VERION_2_0_1_0_DEVELOPER_ADDRESS		"dGoFPie9QZmQ1Ty1beqSHytxNruehpGtGa"
 
 /* Testnet developer address (v2.0.0.8 testnet bootstrap).
