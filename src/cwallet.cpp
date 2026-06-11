@@ -4134,7 +4134,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 				GetAdjustedTime()
 			);
 
-			if (!mnodeman.IsPayeeAValidMasternode(payee) &&
+			if (!mnodeman.IsPayeeAValidMasternode(payee, pindexPrev->nHeight + 1) &&
 				addrOut.ToString() != strDevopsAddress)
 			{
 				LogPrintf("NOTICE - voted consensus winner for height %d "

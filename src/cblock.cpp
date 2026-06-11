@@ -959,6 +959,50 @@ bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
 	nTimeBestReceived = GetTime();
 	mempool.AddTransactionsUpdated(1);
 
+	// v2.0.0.8 PB-PAYEEDET Tier 2: feed the chain-derived historical payee
+	// attestation map.  This runs once per accepted block, regardless of IBD
+	// state, so the map stays populated during initial sync from genesis as
+	// well as ongoing live operation.  Slot indexing mirrors CheckBlock's
+	// logic so we record EXACTLY the MN slot's payee (not the devops slot
+	// or other outputs).
+	{
+		bool fIsPoS = !IsProofOfWork();
+		const CTransaction* paymentTx = NULL;
+
+		if (fIsPoS && vtx.size() >= 2)
+		{
+			paymentTx = &vtx[1];
+		}
+		else if (vtx.size() >= 1)
+		{
+			paymentTx = &vtx[0];
+		}
+
+		if (paymentTx != NULL)
+		{
+			int nMnSlotIdx = -1;
+
+			if (fIsPoS)
+			{
+				if (paymentTx->vout.size() == 4)
+					nMnSlotIdx = 2;
+				else if (paymentTx->vout.size() == 5)
+					nMnSlotIdx = 3;
+			}
+			else
+			{
+				if (paymentTx->vout.size() >= 2)
+					nMnSlotIdx = 1;
+			}
+
+			if (nMnSlotIdx > 0 && nMnSlotIdx < (int)paymentTx->vout.size())
+			{
+				mnodeman.OnBlockAccepted(pindexBest->nHeight,
+										 paymentTx->vout[nMnSlotIdx].scriptPubKey);
+			}
+		}
+	}
+
 	uint256 nBestBlockTrust = pindexBest->nHeight != 0 ? (pindexBest->nChainTrust - pindexBest->pprev->nChainTrust) : pindexBest->nChainTrust;
 
 	LogPrintf(
@@ -1143,7 +1187,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
 	return true;
 }
 
-bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) const
+bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig, CNode* pfrom) const
 {	
 	// These are checks that are independent of context
 	// that can be verified before saving an orphan block.
@@ -1297,6 +1341,14 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 			const CBlockIndex* pindexPrev = pindex->pprev;
 			bool isProofOfStake = !IsProofOfWork();
 			bool fBlockHasPayments = true;
+			// v2.0.0.8 CW11: tiered DoS scoring for payment failures.
+			// Default DoS(100) for hard structural failures.  Soft failures
+			// (mn-list miss, voted-consensus miss) lower this to DoS(10) via
+			// std::min() so that propagation races -- where an honest peer
+			// relays a block referencing an mn we haven't gossiped yet -- do
+			// not instant-ban the relayer.  Hard failures (amount mismatch,
+			// wrong devops address, structural) keep the default 100.
+			int nPaymentsDoSScore = 100;
 			std::string strVfyDevopsAddress;
 			// Define primitives depending if PoW/PoS
 
@@ -1420,7 +1472,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 					if (i == nProofOfIndexMasternode && !fIsInitialDownload &&
 						hashPrevBlock == hashBestChain)
 					{
-						if (mnodeman.IsPayeeAValidMasternode(rawPayee) ||
+						if (mnodeman.IsPayeeAValidMasternode(rawPayee, pindex->nHeight) ||
 							addressOut.ToString() == strVfyDevopsAddress)
 						{
 							LogPrint("checkblock", "CheckBlock() : PoS Recipient masternode address validity succesfully verified\n");
@@ -1485,6 +1537,19 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 								LogPrintf("CheckBlock() : PoS Recipient masternode address validity could not be verified -- rejecting\n");
 
 								fBlockHasPayments = false;
+
+								// v2.0.0.8 CW11: soft failure -- propagation race, not byzantine.
+								nPaymentsDoSScore = std::min(nPaymentsDoSScore, 10);
+
+								// v2.0.0.8 PB-MN-FETCH Lite: fire-and-forget targeted
+								// dseg back to the relaying peer so our next look at
+								// this (or any same-payee) block validates against a
+								// populated list.  No-op when pfrom is NULL (local /
+								// startup-verify / internal sources).
+								if (pfrom != NULL)
+								{
+									mnodeman.RequestMissingPayeeFromPeer(pfrom, rawPayee);
+								}
 							}
 						}
 
@@ -1569,6 +1634,11 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 											  pindex->nHeight);
 
 									fBlockHasPayments = false;
+
+									// v2.0.0.8 CW11: voted-consensus mismatch is also a soft
+									// failure -- peer's vote view may differ during propagation
+									// rather than malice.
+									nPaymentsDoSScore = std::min(nPaymentsDoSScore, 10);
 								}
 							}
 							else
@@ -1677,7 +1747,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 					if (i == nProofOfIndexMasternode && !fIsInitialDownload &&
 						hashPrevBlock == hashBestChain)
 					{
-						if (mnodeman.IsPayeeAValidMasternode(rawPayee) ||
+						if (mnodeman.IsPayeeAValidMasternode(rawPayee, pindex->nHeight) ||
 							addressOut.ToString() == strVfyDevopsAddress)
 						{
 						  LogPrint("checkblock", "CheckBlock() : PoW Recipient masternode address validity succesfully verified\n");
@@ -1695,6 +1765,16 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 							{
 								LogPrintf("CheckBlock() : PoW Recipient masternode address validity could not be verified -- rejecting\n");
 								fBlockHasPayments = false;
+
+								// v2.0.0.8 CW11: soft failure -- propagation race, not byzantine.
+								nPaymentsDoSScore = std::min(nPaymentsDoSScore, 10);
+
+								// v2.0.0.8 PB-MN-FETCH Lite: fire-and-forget targeted
+								// dseg.  See PoS counterpart above.
+								if (pfrom != NULL)
+								{
+									mnodeman.RequestMissingPayeeFromPeer(pfrom, rawPayee);
+								}
 							}
 						}
 
@@ -1777,6 +1857,11 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 											  pindex->nHeight);
 
 									fBlockHasPayments = false;
+
+									// v2.0.0.8 CW11: voted-consensus mismatch is also a soft
+									// failure -- propagation race rather than byzantine.  Mirror
+									// of the PoS counterpart above.
+									nPaymentsDoSScore = std::min(nPaymentsDoSScore, 10);
 								}
 							}
 							else
@@ -1875,7 +1960,13 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 				// the address-validity branches only set fBlockHasPayments =
 				// false once nMasterNodeChecksEngageTime != 0, so a node still
 				// in warmup never reaches this DoS for an address reason.
-				return DoS(100, error("CheckBlock() : PoW/PoS invalid payments in current block\n"));
+				//
+				// v2.0.0.8 CW11: tiered scoring.  nPaymentsDoSScore defaults to
+				// 100 (hard failure) and is lowered to 10 by the soft-failure
+				// sites (mn-list miss, voted-consensus mismatch).  std::min()
+				// at each site ensures a peer hitting BOTH a soft AND a hard
+				// failure stays at the harder score.
+				return DoS(nPaymentsDoSScore, error("CheckBlock() : PoW/PoS invalid payments in current block\n"));
 			}
 		}
 
@@ -2322,6 +2413,22 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
 				// make sure coinstake would meet timestamp protocol
 				// as it would be the same as the block timestamp
 				vtx[0].nTime = nTime = txCoinStake.nTime;
+
+				// v2.0.0.8 CW7-bis (PoS counterpart): recompute nBits to
+				// match the kernel-found nTime.  CreateNewBlock set
+				// (nTime, nBits) consistently via the CW7 fix, but
+				// CreateCoinStake's kernel search may settle on a later
+				// nTime; without this recomputation the block carries
+				// nBits computed against the original nTime while the
+				// validator recomputes against the new nTime, producing
+				// "nBits MISMATCH" rejection.
+				//
+				// In practice the gap is short (kernel search interval
+				// is ~1s) so VRX hourRound crossings are rare, but the
+				// fix maintains the same invariant the CW7 / CW7-bis-PoW
+				// work established: nBits is always GetNextTargetRequired
+				// of whatever nTime the block carries.
+				nBits = GetNextTargetRequired(pindexBest, true, nTime);
 
 				// we have to make sure that we have no future timestamps in
 				// our transactions set

@@ -631,7 +631,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 								GetAdjustedTime()
 							);
 
-							if (!mnodeman.IsPayeeAValidMasternode(mn_payee) &&
+							if (!mnodeman.IsPayeeAValidMasternode(mn_payee, pindexPrev->nHeight + 1) &&
 								addrOut.ToString() != strDevopsAddress)
 							{
 								LogPrintf("NOTICE - voted consensus winner for height %d "

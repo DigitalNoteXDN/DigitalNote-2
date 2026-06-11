@@ -2093,7 +2093,12 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
 	}
 
 	// Preliminary checks
-	if (!pblock->CheckBlock())
+	// v2.0.0.8 PB-MN-FETCH Lite: pass the relaying peer through to CheckBlock
+	// so that, on encountering an unknown MN payee, CheckBlock can fire a
+	// fire-and-forget dseg back to that peer.  pfrom is NULL for blocks not
+	// received from the network (local miner, startup verify), and CheckBlock
+	// handles NULL safely.
+	if (!pblock->CheckBlock(true, true, true, pfrom))
 	{
 		return error("ProcessBlock() : CheckBlock FAILED");
 	}

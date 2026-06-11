@@ -34,6 +34,7 @@
 #include "cscriptid.h"
 #include "cstealthaddress.h"
 #include "thread.h"
+#include "cbitcoinaddress.h"  // v2.0.0.8 PB-MN-FETCH Lite: CBitcoinAddress for the rate-limit map keying in RequestMissingPayeeFromPeer
 
 #include "cmasternodeman.h"
 
@@ -498,37 +499,96 @@ CMasternode* CMasternodeMan::GetCurrentMasterNode(int mod, int64_t nBlockHeight,
 	return winner;
 }
 
-bool CMasternodeMan::IsPayeeAValidMasternode(CScript payee)
+// v2.0.0.8 PB-PAYEEDET: deterministic legacy weak-check.
+//
+// HISTORY.  The original implementation iterated vMasternodes and filtered
+// by IsEnabled() -- which depends on wall-clock ping freshness
+// (MASTERNODE_EXPIRATION_SECONDS, evaluated at Check() time).  Two nodes
+// calling this function for the same payee could get different answers
+// depending on which dseep pings had been received recently on each.
+// Post-restart, with stale lastTimeSeen on the loaded mncache.dat entries,
+// a node would mark MNs EXPIRED that other nodes still saw as ENABLED,
+// then the CheckAndRemove sweep would not pick them up until much later.
+//
+// When the CW12 strict path (CountVotingEligible / IsVotingEligible -- both
+// deterministic from chain state) failed to engage because fewer than
+// MIN_ENABLED_FOR_CONSENSUS voters were present (the canonical post-reboot
+// condition: empty mapVoteQueues), validation fell through this function
+// and a node-local IsEnabled() divergence flipped to an InvalidChainFound
+// chain split.  Observed on testnet 2026-06-10 23:39:06 UTC: staker
+// rebooted ~85 min earlier, vMasternodes loaded from mncache.dat with
+// stale timestamps, MNs marked EXPIRED, block 2082's payee no longer
+// IsEnabled() on this node while still ENABLED on the rest of the fleet.
+//
+// FIX.  Use the same IsVotingEligible(nBlockHeight) the CW12 strict path
+// uses -- a pure function of committed chain state (collateral
+// confirmation depth + VOTER_ELIGIBILITY_DEPTH reorg buffer).  Two nodes
+// calling it for the same nBlockHeight get the same answer, by
+// construction.  This is the same architectural principle the original
+// CW12 work established for the strict path, applied to the weak fallback
+// path that was missed in that refactor.  See the CountVotingEligible
+// comment above (lines 219-245) for the full rationale -- it applies here
+// verbatim.
+//
+// Also dropped: the mn.Check() call.  Check() mutates activeState on stale
+// ping or spent collateral and has the same time-sensitivity that
+// CountVotingEligible deliberately avoids; it has no place in a consensus
+// validation read.  Spent-collateral MNs are still removed from
+// vMasternodes by the normal CheckAndRemove lifecycle, so skipping Check()
+// here does not admit spent collateral into the valid-payee set.
+//
+// Compatibility: no protocol change, no new state, no new RPC.  Behaviour
+// pre-activation is unchanged (mnEnginePool.IsBlockchainSynced() == false
+// path returns true, as before).  Post-activation, behaviour at the
+// validator/builder call sites is identical when MNs are fresh-pinged
+// (IsEnabled and IsVotingEligible agree) -- the divergence only appears
+// after restart or sustained isolation, which is exactly where this fix
+// matters.
+bool CMasternodeMan::IsPayeeAValidMasternode(CScript payee, int nBlockHeight)
 {
 	if(!mnEnginePool.IsBlockchainSynced())
 	{
 		return true;
 	}
 
-	int mnCount = 0;
-	bool fValid = false;
-
+	// Tier 1: live MN list view, chain-derived eligibility.
+	// Authoritative when our local view reflects network reality.
 	for(CMasternode& mn : vMasternodes)
 	{
-		mn.Check();
-		mnCount++;
-		
-		if(!mn.IsEnabled())
+		if(!mn.IsVotingEligible(nBlockHeight))
 		{
 			continue;
 		}
-		
+
 		CScript currentMasternode = GetScriptForDestination(mn.pubkey.GetID());
-		
-		// LogPrintf("* Masternode %d - testing %s\n", mnCount, currentMasternode.ToString().c_str());
-		
+
 		if(payee == currentMasternode)
 		{
-		   fValid = true;
+			return true;
 		}
 	}
 
-	return fValid;
+	// Tier 2: chain-derived historical attestation.
+	//
+	// The local vMasternodes view is eventually-consistent and may not
+	// reflect MNs that the chain has already accepted as payees -- either
+	// during a resync where dseg gossip has not yet populated our list, or
+	// for an MN that has since decommissioned but was paid earlier in our
+	// chain-walk window.  In those cases the chain ITSELF is the
+	// authoritative attestation: if this exact payee script has appeared
+	// as an MN-payment-block payee in any block within MAX_LASTPAID_SCAN_DEPTH
+	// of the tip, the network consensus has already vouched for it.
+	//
+	// This relaxes the weak check, but only to the level of "chain has
+	// previously accepted this payee" -- a far higher bar than "local list
+	// has this payee right now".  The stricter checks (CW12 voted-consensus,
+	// payment amount, devops slot) are unaffected.
+	if(IsPayeeHistoricallyAttested(payee))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 std::vector<CMasternode> CMasternodeMan::GetFullMasternodeVector()
@@ -1401,6 +1461,185 @@ int CMasternodeMan::GetLastPaidHeight(const COutPoint& vinPrevout) const
 	return it->second;
 }
 
+// v2.0.0.8 PB-PAYEEDET Tier 2: query historical attestation map.
+//
+// Returns true if this payee script has appeared as an MN-payment-slot
+// payee in any block within our chain-walk window (the most recent
+// MAX_LASTPAID_SCAN_DEPTH blocks).  The chain is the canonical record
+// of payees the network has consensus-accepted; this read tells the weak
+// check "yes the chain has previously vouched for this address".
+//
+// Distinct from Tier 1 (live vMasternodes membership): Tier 2 admits
+// MNs that have decommissioned but were active in the recent past, and
+// admits MNs whose dseg broadcast hasn't reached us yet but whose
+// payments are already in chain history.  Both classes legitimately
+// pass the "is this a real MN" sniff test.
+bool CMasternodeMan::IsPayeeHistoricallyAttested(const CScript& payee) const
+{
+	LOCK(cs);
+
+	std::map<CScript, int>::const_iterator it = mapHistoricalPayees.find(payee);
+
+	if (it == mapHistoricalPayees.end())
+	{
+		return false;
+	}
+
+	// Log every hit -- this is the empirical signal that Tier 2 caught what
+	// Tier 1 missed.  At ~30 MNs on testnet this fires only during initial
+	// sync convergence (live mn list incomplete), after which Tier 1 handles
+	// everything.
+	LogPrintf("CMasternodeMan::IsPayeeHistoricallyAttested -- payee attested by chain history "
+			  "at height %d (live mn list incomplete)\n",
+			  it->second);
+
+	return true;
+}
+
+// v2.0.0.8 PB-PAYEEDET Tier 2: record a chain-tip payee in the
+// historical attestation map.  Called by CBlock::SetBestChain when a
+// new block becomes the canonical tip.  Idempotent (later calls for the
+// same payee update the height to the more recent value).
+//
+// PRUNING.  Bounded by MAX_LASTPAID_SCAN_DEPTH entries.  When the map
+// grows past that bound, the lowest-height entries are evicted until
+// the size is back within bound.  This keeps the window covering the
+// most recent ~50000 blocks of payees, matching the startup walk depth.
+void CMasternodeMan::OnBlockAccepted(int nHeight, const CScript& mnPayee)
+{
+	if (mnPayee.empty())
+	{
+		return;
+	}
+
+	LOCK(cs);
+
+	bool fNewEntry = false;
+
+	// Insert or update; std::max guards against out-of-order calls
+	// (e.g. a brief reorg followed by re-advance).
+	std::map<CScript, int>::iterator it = mapHistoricalPayees.find(mnPayee);
+
+	if (it == mapHistoricalPayees.end())
+	{
+		mapHistoricalPayees[mnPayee] = nHeight;
+		fNewEntry = true;
+	}
+	else if (nHeight > it->second)
+	{
+		it->second = nHeight;
+	}
+
+	// Throttled growth log: every 100 heights, log when a new unique payee
+	// lands in the map.  Verbose enough to confirm the incremental update
+	// path is operating, sparse enough not to spam during fast catchup.
+	if (fNewEntry && (nHeight % 100) == 0)
+	{
+		LogPrintf("CMasternodeMan::OnBlockAccepted -- mapHistoricalPayees now %u entries "
+				  "(new payee added at height %d)\n",
+				  (unsigned)mapHistoricalPayees.size(), nHeight);
+	}
+
+	// Prune oldest entries when over bound.  In practice the bound is
+	// rarely reached (active MN set is ~30, so the map contains ~30
+	// entries in steady state).  This guard exists for pathological
+	// chain histories.
+	if (mapHistoricalPayees.size() > (size_t)MAX_LASTPAID_SCAN_DEPTH)
+	{
+		// Find the height threshold below which entries are evicted:
+		// the lowest height that keeps us under the bound.
+		std::vector<int> heights;
+		heights.reserve(mapHistoricalPayees.size());
+
+		for (std::map<CScript, int>::const_iterator hi = mapHistoricalPayees.begin();
+			 hi != mapHistoricalPayees.end(); ++hi)
+		{
+			heights.push_back(hi->second);
+		}
+
+		std::nth_element(heights.begin(),
+						 heights.begin() + (heights.size() - MAX_LASTPAID_SCAN_DEPTH),
+						 heights.end());
+		int evictBelow = heights[heights.size() - MAX_LASTPAID_SCAN_DEPTH];
+
+		for (std::map<CScript, int>::iterator hi = mapHistoricalPayees.begin();
+			 hi != mapHistoricalPayees.end(); )
+		{
+			if (hi->second < evictBelow)
+			{
+				mapHistoricalPayees.erase(hi++);
+			}
+			else
+			{
+				++hi;
+			}
+		}
+	}
+}
+
+// v2.0.0.8 PB-MN-FETCH Lite: fire-and-forget dseg request when CheckBlock
+// encounters a payee that's not in our local view.  The current block is
+// still rejected; this request populates our list so the NEXT relay of
+// the same block (or any subsequent block paying the same MN) validates
+// cleanly.
+//
+// Fire-and-forget by necessity: cs_main is held during CheckBlock; a
+// synchronous wait would deadlock against inbound mnb processing.
+//
+// Rate limit: 30s per (peer, payee) prevents amplification under MN
+// churn or hostile peer spam.
+bool CMasternodeMan::RequestMissingPayeeFromPeer(CNode* pnode, const CScript& payee)
+{
+	static const int64_t MN_PAYEE_FETCH_COOLDOWN_SECONDS = 30;
+
+	if (!pnode)
+	{
+		return false;
+	}
+
+	CTxDestination dest;
+
+	if (!ExtractDestination(payee, dest))
+	{
+		return false;
+	}
+
+	CKeyID keyId;
+
+	if (!CBitcoinAddress(dest).GetKeyID(keyId))
+	{
+		return false;
+	}
+
+	// Rate limit map: (peer NodeId, payee key-hash) -> earliest-next-ask
+	// time.  Static lifetime is fine -- this is purely a network-pacing
+	// decision, not consensus state.  Map grows bounded by (#peers *
+	// #unique unknown payees seen); in practice tiny.
+	static std::map<std::pair<NodeId, uint160>, int64_t> mWeAskedForPayee;
+
+	std::pair<NodeId, uint160> key(pnode->GetId(), uint160(keyId));
+	int64_t now = GetTime();
+
+	std::map<std::pair<NodeId, uint160>, int64_t>::iterator it = mWeAskedForPayee.find(key);
+
+	if (it != mWeAskedForPayee.end() && now < it->second)
+	{
+		// Already asked this peer for this payee recently
+		return false;
+	}
+
+	mWeAskedForPayee[key] = now + MN_PAYEE_FETCH_COOLDOWN_SECONDS;
+
+	LogPrintf("CMasternodeMan::RequestMissingPayeeFromPeer - peer=%s payee=%s\n",
+			  pnode->addr.ToString(),
+			  CBitcoinAddress(dest).ToString());
+
+	// dseg with empty CTxIn requests the peer's full mn list
+	pnode->PushMessage("dseg", CTxIn());
+
+	return true;
+}
+
 std::vector<CMnPaymentSnapshotEntry> CMasternodeMan::GetQueuePaymentSnapshot() const
 {
 	// v2.0.0.8 M1Q spec S18.1: capture every MN's chain-derived payment
@@ -1723,6 +1962,17 @@ void CMasternodeMan::PopulateLastPaidHeightCache()
 	{
 		LogPrintf("CMasternodeMan::PopulateLastPaidHeightCache -- no enabled MNs to scan for\n");
 
+		// On a fresh resync vMasternodes is empty at startup (mncache.dat not
+		// yet loaded, dseg gossip not yet received), so no MNs are "needed"
+		// from the walkback's perspective and it returns immediately.  This
+		// is the EXPECTED path on a fresh resync -- mapHistoricalPayees gets
+		// populated incrementally by OnBlockAccepted as each block is
+		// applied during catchup.  Emit a clear log line so this expected
+		// state is distinguishable from "the walkback failed" in diagnostics.
+		LogPrintf("CMasternodeMan::PopulateLastPaidHeightCache -- walkback skipped, "
+				  "mapHistoricalPayees will be populated incrementally by OnBlockAccepted "
+				  "(normal on fresh resync with empty vMasternodes)\n");
+
 		LOCK(cs);
 		nLastPaidHeightScannedTo = nStartHeight;
 		return;
@@ -1746,7 +1996,7 @@ void CMasternodeMan::PopulateLastPaidHeightCache()
 
 	CBlockIndex* pindex = pindexBest;
 
-	while (pindex != NULL && nWalked < MAX_LASTPAID_SCAN_DEPTH && !stillNeeded.empty())
+	while (pindex != NULL && nWalked < MAX_LASTPAID_SCAN_DEPTH)
 	{
 		// v2.0.0.8 UAT-4: throttled progress emit.  Every 100 blocks is
 		// frequent enough to keep the splash alive (Qt collapses redundant
@@ -1779,47 +2029,93 @@ void CMasternodeMan::PopulateLastPaidHeightCache()
 
 		if (paymentTx != NULL)
 		{
-			// Build script set for this block's outputs once, then check each
-			// still-needed MN against it.
-			for (const CTxOut& out : paymentTx->vout)
+			// v2.0.0.8 PB-PAYEEDET Tier 2: identify the MN payment slot's
+			// payee and record it in the chain-derived historical attestation
+			// map.  Slot index mirrors CheckBlock's logic:
+			//   PoW coinbase (3 outs):  vout[1]
+			//   PoS coinstake (4 outs): vout[2]
+			//   PoS coinstake (5 outs, stealth): vout[3]
+			int nMnSlotIdx = -1;
+
+			if (block.IsProofOfStake())
 			{
-				if (out.nValue == 0)
+				if (paymentTx->vout.size() == 4)
+					nMnSlotIdx = 2;
+				else if (paymentTx->vout.size() == 5)
+					nMnSlotIdx = 3;
+			}
+			else
+			{
+				if (paymentTx->vout.size() >= 2)
+					nMnSlotIdx = 1;
+			}
+
+			if (nMnSlotIdx > 0 && nMnSlotIdx < (int)paymentTx->vout.size())
+			{
+				CScript mnPayeeScript = paymentTx->vout[nMnSlotIdx].scriptPubKey;
+
+				if (!mnPayeeScript.empty())
 				{
-					continue;
-				}
+					LOCK(cs);
+					std::map<CScript, int>::iterator hpIt = mapHistoricalPayees.find(mnPayeeScript);
 
-				CTxDestination dest;
-
-				if (!ExtractDestination(out.scriptPubKey, dest))
-				{
-					continue;
-				}
-
-				CScript outScript = GetScriptForDestination(dest);
-
-				// Linear scan of stillNeeded -- with ~30 MNs this is trivial.
-				std::map<COutPoint, CScript>::iterator matchIt = stillNeeded.end();
-
-				for (std::map<COutPoint, CScript>::iterator it = stillNeeded.begin();
-					 it != stillNeeded.end(); ++it)
-				{
-					if (it->second == outScript)
+					if (hpIt == mapHistoricalPayees.end())
 					{
-						matchIt = it;
-						break;
+						mapHistoricalPayees[mnPayeeScript] = pindex->nHeight;
+					}
+					else if (pindex->nHeight > hpIt->second)
+					{
+						hpIt->second = pindex->nHeight;
 					}
 				}
+			}
 
-				if (matchIt != stillNeeded.end())
+			// Existing Tier 1 logic: match outputs against known MNs to
+			// populate mapLastPaidHeight.  Only meaningful while stillNeeded
+			// is non-empty (skip the expensive scan once all enabled MNs
+			// have been located).
+			if (!stillNeeded.empty())
+			{
+				for (const CTxOut& out : paymentTx->vout)
 				{
+					if (out.nValue == 0)
 					{
-						LOCK(cs);
-						mapLastPaidHeight[matchIt->first] = pindex->nHeight;
+						continue;
 					}
 
-					stillNeeded.erase(matchIt);
-					nFound++;
-					break;  // each block has at most one MN payment
+					CTxDestination dest;
+
+					if (!ExtractDestination(out.scriptPubKey, dest))
+					{
+						continue;
+					}
+
+					CScript outScript = GetScriptForDestination(dest);
+
+					// Linear scan of stillNeeded -- with ~30 MNs this is trivial.
+					std::map<COutPoint, CScript>::iterator matchIt = stillNeeded.end();
+
+					for (std::map<COutPoint, CScript>::iterator it = stillNeeded.begin();
+						 it != stillNeeded.end(); ++it)
+					{
+						if (it->second == outScript)
+						{
+							matchIt = it;
+							break;
+						}
+					}
+
+					if (matchIt != stillNeeded.end())
+					{
+						{
+							LOCK(cs);
+							mapLastPaidHeight[matchIt->first] = pindex->nHeight;
+						}
+
+						stillNeeded.erase(matchIt);
+						nFound++;
+						break;  // each block has at most one MN payment
+					}
 				}
 			}
 		}
@@ -1840,6 +2136,17 @@ void CMasternodeMan::PopulateLastPaidHeightCache()
 			  nWalked, nFound,
 			  (unsigned)stillNeeded.size(),
 			  (int)nElapsedMs);
+
+	// Summary line for the chain-derived historical attestation map.
+	// Distinct from the Tier 1 ("found N MNs") summary above -- this counts
+	// UNIQUE PAYEE SCRIPTS the walk recorded, a superset of the MN
+	// identities Tier 1 was looking for (covers decommissioned MNs etc.).
+	{
+		LOCK(cs);
+		LogPrintf("CMasternodeMan::PopulateLastPaidHeightCache -- populated "
+				  "mapHistoricalPayees with %u unique payee scripts from %d walked blocks\n",
+				  (unsigned)mapHistoricalPayees.size(), nWalked);
+	}
 
 	if (!stillNeeded.empty())
 	{

@@ -299,6 +299,12 @@ json_spirit::Value checkkernel(const json_spirit::Array& params, bool fHelp)
 
 	pblock->nTime = pblock->vtx[0].nTime = nTime;
 
+	// v2.0.0.8 CW7-bis: nBits MUST be recomputed when nTime is updated.
+	// CreateNewBlock built the template using a possibly-different nTime;
+	// this line overwrites with the kernel-derived nTime, so nBits must
+	// follow to stay consistent.  fProofOfStake=true (PoS template).
+	pblock->nBits = GetNextTargetRequired(pindexPrev, true, pblock->nTime);
+
 	CDataStream ss(SER_DISK, PROTOCOL_VERSION);
 	ss << *pblock;
 
@@ -391,6 +397,16 @@ json_spirit::Value getworkex(const json_spirit::Array& params, bool fHelp)
 		pblock->nTime = std::max(pindexPrev->GetPastTimeLimit()+1, GetAdjustedTime());
 		pblock->nNonce = 0;
 
+		// v2.0.0.8 CW7-bis: nBits MUST be recomputed when nTime is updated,
+		// otherwise the cached pblock carries stale nBits as time advances
+		// across VRX hourRound boundaries (3600s, 7200s, ...) during chain
+		// stalls.  External miners polling getwork(ex) would receive a
+		// template whose nBits no longer matches what AcceptBlock will
+		// recompute, causing self-rejection at submission with
+		// "nBits MISMATCH" / "incorrect proof-of-work".  See miner.cpp:716
+		// for the CreateNewBlock counterpart this mirrors.
+		pblock->nBits = GetNextTargetRequired(pindexPrev, false, pblock->nTime);
+
 		// Update nExtraNonce
 		static unsigned int nExtraNonce = 0;
 		IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
@@ -465,6 +481,20 @@ json_spirit::Value getworkex(const json_spirit::Array& params, bool fHelp)
 
 		pblock->nTime = pdata->nTime;
 		pblock->nNonce = pdata->nNonce;
+
+		// v2.0.0.8 CW7-bis: recompute nBits to match the submitted nTime.
+		// The validator (AcceptBlock) will recompute expected nBits from
+		// pblock->nTime; without this line the cached nBits set at the
+		// last poll may not match, causing "nBits MISMATCH" rejection of
+		// a submission whose work was valid against the polled target.
+		// See the get-side counterpart above.
+		//
+		// Uses pindexBest here because pindexPrev is local to the poll
+		// branch above and not in scope.  If pindexBest has moved since
+		// the cached pblock was built, CheckWork's stale-block check
+		// (miner.cpp:849) will reject the submission before the nBits
+		// computed here matters.
+		pblock->nBits = GetNextTargetRequired(pindexBest, false, pblock->nTime);
 
 		if(coinbase.size() == 0)
 		{
@@ -571,6 +601,12 @@ json_spirit::Value getwork(const json_spirit::Array& params, bool fHelp)
 		pblock->UpdateTime(pindexPrev);
 		pblock->nNonce = 0;
 
+		// v2.0.0.8 CW7-bis: nBits MUST be recomputed when nTime is updated.
+		// See the getworkex counterpart above for full rationale.  Same bug,
+		// same fix: stale cached nBits across VRX hourRound boundaries during
+		// stalls cause every external-miner submission to self-reject.
+		pblock->nBits = GetNextTargetRequired(pindexPrev, false, pblock->nTime);
+
 		// Update nExtraNonce
 		static unsigned int nExtraNonce = 0;
 		IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
@@ -624,6 +660,12 @@ json_spirit::Value getwork(const json_spirit::Array& params, bool fHelp)
 		pblock->nNonce = pdata->nNonce;
 		pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
 		pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+
+		// v2.0.0.8 CW7-bis: recompute nBits to match the submitted nTime.
+		// See the get-side counterpart above for full rationale.  Uses
+		// pindexBest because pindexPrev is local to the poll branch
+		// above; stale-tip case is handled by CheckWork.
+		pblock->nBits = GetNextTargetRequired(pindexBest, false, pblock->nTime);
 
 		assert(pwalletMain != NULL);
 		
@@ -748,6 +790,12 @@ json_spirit::Value getblocktemplate(const json_spirit::Array& params, bool fHelp
 	// Update nTime
 	pblock->UpdateTime(pindexPrev);
 	pblock->nNonce = 0;
+
+	// v2.0.0.8 CW7-bis: nBits MUST be recomputed when nTime is updated.
+	// getblocktemplate (BIP22) returns curtime and bits to external miners;
+	// without this recomputation, the bits field becomes stale across VRX
+	// hourRound boundaries during stalls.  See the getwork(ex) counterparts.
+	pblock->nBits = GetNextTargetRequired(pindexPrev, false, pblock->nTime);
 
 	json_spirit::Array transactions;
 	std::map<uint256, int64_t> setTxIndex;

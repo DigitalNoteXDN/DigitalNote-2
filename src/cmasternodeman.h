@@ -53,6 +53,40 @@ private:
 	// ----------------------------------------------------------------------
 	std::map<COutPoint, int> mapLastPaidHeight;
 
+	// ----------------------------------------------------------------------
+	// v2.0.0.8 PB-PAYEEDET Tier 2: chain-derived historical payee attestation.
+	//
+	// mapHistoricalPayees[payee_script] = the most recent chain height at which
+	// this script appeared as an MN-payment-block payee.  Populated by:
+	//   1. The PopulateLastPaidHeightCache walkback at startup (piggyback on
+	//      the same chain walk -- no extra scan needed).
+	//   2. The OnBlockAccepted hook in CBlock::SetBestChain (incremental
+	//      update as new blocks become tip).
+	//
+	// PURPOSE.  The chain itself is the canonical record of which payees the
+	// network consensus has previously vouched for.  Tier 1 of
+	// IsPayeeAValidMasternode checks the LIVE vMasternodes view; Tier 2 falls
+	// back to this CHAIN-DERIVED view for the cases where Tier 1 misses --
+	// most notably during a resync that has caught up but whose dseg gossip
+	// hasn't fully populated vMasternodes yet, or a historical block paying
+	// an MN that has since decommissioned.
+	//
+	// SAFETY.  Tier 2 only relaxes the weak check; it does NOT replace the
+	// stricter checks (CW12 voted-consensus, amount validation, devops
+	// address match).  A script appearing in mapHistoricalPayees has chain-
+	// committed precedent for being paid in this context -- a much higher
+	// bar than "is currently in our local list".
+	//
+	// SIZE / PRUNING.  Bounded by MAX_LASTPAID_SCAN_DEPTH (50000) entries.
+	// When new entries push past that bound, the oldest are pruned.  At
+	// observed ~3min/block and ~30 active MNs, the window holds ~112 days
+	// of attestations -- ample coverage for resync and live operation.
+	//
+	// NOT serialized -- always rebuilt from chain on startup, same lifecycle
+	// as mapLastPaidHeight.
+	// ----------------------------------------------------------------------
+	std::map<CScript, int> mapHistoricalPayees;
+
 	// v2.0.0.8 PB-6: VESTIGIAL.  Formerly bounded RecomputeLastPaidHeight's
 	// backward walk, but that bound was the PB-6 bug -- it is set to where
 	// the startup scan terminated (a shallow recent height), which made
@@ -78,6 +112,28 @@ public:
 
 	/// Ask (source) node for mnb
 	void AskForMN(CNode* pnode, CTxIn &vin);
+
+	// v2.0.0.8 PB-MN-FETCH Lite: fire-and-forget targeted request for the
+	// peer's full mn list, triggered when CheckBlock encounters a payee not
+	// in our local vMasternodes.  Rate-limited at 30s per (peer, payee) to
+	// prevent amplification.  Returns true if a request was sent (caller
+	// does not block waiting for the response).  See implementation.
+	bool RequestMissingPayeeFromPeer(CNode* pnode, const CScript& payee);
+
+	// v2.0.0.8 PB-PAYEEDET Tier 2: chain-derived historical attestation hook.
+	// Called by CBlock::SetBestChain when a new block becomes the chain tip,
+	// to record the block's MN payee in mapHistoricalPayees.  Idempotent
+	// (later calls for the same payee update the height to the more recent
+	// value).  Caller passes the resolved MN payee script -- this function
+	// does not parse the block.
+	void OnBlockAccepted(int nHeight, const CScript& mnPayee);
+
+	// v2.0.0.8 PB-PAYEEDET Tier 2: query the chain-derived historical
+	// attestation map.  Returns true if the payee has appeared as an
+	// MN-payment-slot payee in any block within our chain-walk window
+	// (MAX_LASTPAID_SCAN_DEPTH blocks).  Used as a Tier-2 fallback from
+	// IsPayeeAValidMasternode when the live vMasternodes check misses.
+	bool IsPayeeHistoricallyAttested(const CScript& payee) const;
 
 	// Check all masternodes and remove inactive
 	void CheckAndRemove();
@@ -112,7 +168,16 @@ public:
 	// Get the current winner for this block
 	CMasternode* GetCurrentMasterNode(int mod=1, int64_t nBlockHeight=0, int minProtocol=0);
 
-	bool IsPayeeAValidMasternode(CScript payee);
+	// v2.0.0.8 PB-PAYEEDET: nBlockHeight is required to use the deterministic
+	// IsVotingEligible(nBlockHeight) test (chain-derived collateral
+	// confirmation depth + reorg buffer) instead of the non-deterministic
+	// wall-clock IsEnabled() that was the root cause of post-restart
+	// legacy-fallback chain splits.  Same architectural principle the CW12
+	// strict path already uses; this applies it to the weak fallback path
+	// that was missed in the original refactor.  All callers in this codebase
+	// have the relevant height in scope (pindex->nHeight in validators,
+	// pindexPrev->nHeight + 1 in builders).
+	bool IsPayeeAValidMasternode(CScript payee, int nBlockHeight);
 	std::vector<CMasternode> GetFullMasternodeVector();
 
 	std::vector<std::pair<int, CMasternode>> GetMasternodeRanks(int64_t nBlockHeight, int minProtocol=0);
