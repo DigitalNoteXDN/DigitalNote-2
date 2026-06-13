@@ -80,6 +80,21 @@ int ClientModel::getNumBlocks() const
     return nBestHeight;
 }
 
+
+int ClientModel::getNumBlocksOfPeers() const
+{
+    // Return the highest block height reported by any connected peer.
+    // Peers advertise their chain height via nStartingHeight on connect.
+    LOCK(cs_vNodes);
+    int nBestPeer = 0;
+    for (CNode* pnode : vNodes)
+    {
+        if (pnode->nStartingHeight > nBestPeer)
+            nBestPeer = pnode->nStartingHeight;
+    }
+    // Fall back to local height if no peers are connected
+    return nBestPeer > 0 ? nBestPeer : getNumBlocks();
+}
 int ClientModel::getNumBlocksAtStartup()
 {
     if (numBlocksAtStartup == -1) numBlocksAtStartup = getNumBlocks();

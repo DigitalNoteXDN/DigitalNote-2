@@ -1,3 +1,4 @@
+#include <QString>
 #ifndef WALLETMODEL_H
 #define WALLETMODEL_H
 
@@ -5,12 +6,17 @@
 
 #include <map>
 #include <vector>
+#include <functional>
+#include <string>
 
 #include <QObject>
 
 #include "allocators.h" /* for SecureString */
 #include "instantx.h"
 #include "cwallet.h"
+#include "cscript.h"
+#include "coutpoint.h"
+#include <bip39/bip39_wallet.h>
 #include "serialize.h"
 #include "walletmodeltransaction.h"
 
@@ -88,6 +94,42 @@ public:
     }
 };
 
+/** Per-row detail for the Locked Outputs dialog (Tools menu).
+ *  Built by WalletModel::listLockedOutputsWithDetails which enriches
+ *  each entry from setLockedCoins with address, amount, address-book
+ *  label, and a classification of what the output is.
+ *
+ *  Tier classification (see spec):
+ *    - LOT_MASTERNODE: txid:vout appears in masternode.conf.  label
+ *      is the MN alias from the conf file.
+ *    - LOT_MN_COLLATERAL_AMOUNT: amount equals the MN collateral
+ *      amount but NOT in masternode.conf.  Likely an abandoned MN
+ *      collateral or popup-locked-but-unconfigured.  Warn before
+ *      unlock but don't claim it's a configured MN.
+ *    - LOT_OTHER: regular user lock (e.g. cold storage, custom
+ *      reservations).  Standard unlock confirmation only.
+ *
+ *  Watch-only outputs are filtered at population time.  This struct
+ *  represents only outputs the wallet can actually spend.
+ */
+struct LockedOutputDetail
+{
+    enum Tier
+    {
+        LOT_MASTERNODE,
+        LOT_MN_COLLATERAL_AMOUNT,
+        LOT_OTHER
+    };
+
+    COutPoint outpoint;       // txid:vout
+    QString address;          // base58 receiving address (may be empty
+                              // if the tx is reorged out / not in mapWallet)
+    QString addressLabel;     // address-book label, may be empty
+    qint64 amount;            // value in satoshis (XDN_COIN units)
+    Tier tier;
+    QString masternodeAlias;  // populated only when tier == LOT_MASTERNODE
+};
+
 /** Interface to DigitalNote wallet from Qt view code. */
 class WalletModel : public QObject
 {
@@ -133,6 +175,50 @@ public:
     CAmount getWatchStake() const;
     CAmount getWatchUnconfirmedBalance() const;
     CAmount getWatchImmatureBalance() const;
+
+    /** Single watch-only entry, populated by getWatchOnlyEntries().
+     *  - displayAddress: extracted destination as XDN address (or empty
+     *    if the script doesn't decode to a single address, e.g. a
+     *    multisig redeem script imported via importaddress hex)
+     *  - label: from the wallet address book (empty if no label set)
+     *  - script: the underlying CScript record key, needed to call
+     *    RemoveWatchOnly */
+    struct WatchOnlyEntry
+    {
+        QString  displayAddress;
+        QString  label;
+        CScript  script;
+    };
+
+    /** Enumerate all currently-watched scripts.  Returns each as a
+     *  WatchOnlyEntry with display-friendly fields.  Safe to call
+     *  while wallet is locked; takes cs_wallet internally. */
+    std::vector<WatchOnlyEntry> getWatchOnlyEntries() const;
+
+    /** Remove a single watch-only entry.  Returns true on success.
+     *  Used by WatchOnlyWorker for off-thread bulk removal. */
+    bool removeWatchOnly(const CScript &script);
+
+    /** Per-script progress callback signature for the overload below.
+     *  percent is 0-100 within the single script's removal.
+     *  label is a human-readable phase hint. */
+    typedef std::function<void(int percent, const std::string& label)> RemoveWatchOnlyProgressFn;
+
+    /** Same as removeWatchOnly but reports per-script progress via the
+     *  callback.  Used by WatchOnlyWorker so the GUI progress bar can
+     *  move smoothly while a single big address is being removed. */
+    bool removeWatchOnly(const CScript &script, const RemoveWatchOnlyProgressFn& progressCb);
+
+    /** Force a fresh read of watch-only state from the wallet,
+     *  bypassing the cached fHaveWatchOnly flag and the queued
+     *  NotifyWatchonlyChanged signal path.  Sets fForceCheckBalanceChanged
+     *  so the next poll tick recomputes balances, and emits
+     *  notifyWatchonlyChanged synchronously to update GUI visibility.
+     *  Use after batch operations (e.g. RemoveWatchOnlyDialog) to
+     *  guarantee the GUI reflects current wallet state without waiting
+     *  for the event loop to drain. */
+    void refreshWatchOnlyState();
+
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
@@ -159,6 +245,50 @@ public:
     bool changePassphrase(const SecureString &oldPass, const SecureString &newPass);
     // Wallet backup
     bool backupWallet(const QString &filename);
+
+    // BIP39 recovery phrase — derives a 24-word mnemonic from the wallet passphrase.
+    // Call after encryption to show the user their recovery phrase.
+    // passphrase is the raw encryption passphrase just typed by the user.
+    bool generateMnemonic(BIP39Wallet::WordCount wordCount, SecureString &mnemonic) const;
+    bool hasRecoveryPhraseSupport() const;
+    bool hasMnemonicMasterKey() const;
+
+    /** True iff the wallet should be offered the recovery-phrase upgrade
+     *  prompt.  Combines: encrypted, no CMasterKey[2], not previously
+     *  declined for this wallet.  The "declined" half is a UI preference
+     *  per-wallet in QSettings (see src/qt/guistate.h). */
+    bool needsRecoveryPhraseUpgrade() const;
+
+    /** Persistently record that the user has declined the upgrade for
+     *  THIS wallet.  Per-wallet: a different wallet file gets prompted
+     *  afresh.  Stored in QSettings via GuiState. */
+    void setRecoveryPhraseUpgradeDeclined();
+
+    /** Generate the mnemonic master key from the unlocked wallet's
+     *  vMasterKey.  Wallet must be unlocked.  Returns false if locked. */
+    bool addMnemonicMasterKey();
+
+    /** Remove the mnemonic master key entry (rarely needed in D2). */
+    bool removeMnemonicMasterKey();
+
+    /** Used by the unlock-with-mnemonic path to confirm a typed
+     *  passphrase matches the wallet's master key. */
+    bool verifyPassphrase(const SecureString &passphrase) const;
+
+    /** Re-derive the current mnemonic from vMasterKey.  Wallet must be
+     *  unlocked.  Output is a SecureString of space-separated words.
+     *  Returns false on failure (locked, not encrypted, internal error). */
+    bool getCurrentMnemonic(SecureString &mnemonicOut) const;
+
+    /** Rotate the wallet's master key.  Wallet must be unlocked.
+     *  Returns true on success and populates newMnemonicOut with the new
+     *  recovery phrase.  See CWallet::RotateMnemonicMasterKey() for the
+     *  full contract. */
+    bool rotateRecoveryPhrase(const SecureString &currentPassword,
+                              SecureString &newMnemonicOut);
+
+
+    // Re-enable unlock via mnemonic: derives passphrase from mnemonic and unlocks.
 	// Wallet Repair
 	void checkWallet(int& nMismatchSpent, int64_t& nBalanceInQuestion);
 	void repairWallet(int& nMismatchSpent, int64_t& nBalanceInQuestio);
@@ -184,6 +314,7 @@ public:
     };
 
     UnlockContext requestUnlock();
+    UnlockContext requestUnlockWithMnemonic(const QString &mnemonic);
 
     bool getPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const;
     void getOutputs(const std::vector<COutPoint>& vOutpoints, std::vector<COutput>& vOutputs);
@@ -193,6 +324,16 @@ public:
     void lockCoin(COutPoint& output);
     void unlockCoin(COutPoint& output);
     void listLockedCoins(std::vector<COutPoint>& vOutpts);
+
+    /** Locked Outputs dialog support: walk setLockedCoins, filter
+     *  watch-only outputs out, classify the rest into the three
+     *  LockedOutputDetail tiers, and return the enriched list. */
+    void listLockedOutputsWithDetails(std::vector<LockedOutputDetail>& vDetails);
+
+    /** Helper to emit collateralCandidateReceived from non-QObject
+     *  callers (TransactionTablePriv).  Direct emit isn't possible from
+     *  outside a QObject subclass; this method is the trampoline. */
+    void emitCollateralCandidate(const QString &txidHex, int vout);
     bool processingQueuedTransactions() { return fProcessingQueuedTransactions; }
 
 private:
@@ -236,6 +377,10 @@ signals:
 
     // Encryption status of wallet changed
     void encryptionStatusChanged(int status);
+     /** Emitted when the wallet transitions from Locked to Unlocked AND
+     *  the wallet still needs the recovery-phrase upgrade.  Connected
+     *  in BitcoinGUI to display the upgrade dialog. */
+    void recoveryPhraseUpgradeAvailable();
 
     // Signal emitted when wallet needs to be unlocked
     // It is valid behaviour for listeners to keep the wallet locked after this signal;
@@ -253,6 +398,14 @@ signals:
 
     // Watch-only address added
     void notifyWatchonlyChanged(bool fHaveWatchonly);
+
+    /** Emitted when an incoming transaction creates a UTXO that looks
+     *  like fresh masternode collateral: exactly 2,000,000 XDN, owned
+     *  by us, spendable, not already locked, and the user has not
+     *  globally suppressed the prompt for this wallet (see GuiState
+     *  is2MCollateralPromptSuppressed).  BitcoinGUI handles the prompt
+     *  dialog.  Fired from CT_NEW handling in TransactionTablePriv. */
+    void collateralCandidateReceived(const QString &txidHex, int vout);
 
 public slots:
     /* Wallet status might have changed */

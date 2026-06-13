@@ -37,10 +37,11 @@ namespace Checkpoints
 		(67500,		uint256("0x4df36f82141ce789aa64d80908aafca145d09f5257ebb3b7550f94e2624a2d98"))
 		(68200,		uint256("0x000000000005ab4fb2fec8705c51aee6b04ebf51f98bca11e61d7f41bcc51e92"))
 		(190900,	uint256("0x00000000000324d80ae543f7b4882de88a6711c644dfdc596fbaab3225db859e"))
-		(394624,	uint256("b426f7eeaaf3450ef78c6a8716665d3ed0ba5669ad40fb9d9497a29a088c9faf"))
-		(461976,	uint256("000000000004ef0d42a98d0ee3c5bd4b1ec787c91c4f57cfe3b5d179eaea0d13"));
+		(394624,	uint256("0xb426f7eeaaf3450ef78c6a8716665d3ed0ba5669ad40fb9d9497a29a088c9faf"))
+		(461976,	uint256("0x000000000004ef0d42a98d0ee3c5bd4b1ec787c91c4f57cfe3b5d179eaea0d13"))
+		(1000000,   uint256("0x00000000003d2a2ea495f46fdacd489c5167711d38f863d19162e8cfe47d6466"));
 
-	// TestNet has no checkpoints
+		// TestNet has no checkpoints
 	static MapCheckpoints mapCheckpointsTestnet;
 
 	bool CheckHardened(int nHeight, const uint256& hash)

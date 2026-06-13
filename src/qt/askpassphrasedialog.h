@@ -2,6 +2,7 @@
 #define ASKPASSPHRASEDIALOG_H
 
 #include <QDialog>
+#include <QString>
 
 namespace Ui {
     class AskPassphraseDialog;
@@ -16,11 +17,12 @@ class AskPassphraseDialog : public QDialog
 
 public:
     enum Mode {
-        Encrypt,       /**< Ask passphrase twice and encrypt */
-        UnlockStaking, /**< Ask passphrase and unlock */
-        Unlock,        /**< Ask passphrase and unlock */
-        ChangePass,    /**< Ask old passphrase + new passphrase twice */
-        Decrypt        /**< Ask passphrase and decrypt wallet */
+        Encrypt,            /**< Ask passphrase twice and encrypt */
+        UnlockStaking,      /**< Ask passphrase and unlock for staking */
+        Unlock,             /**< Ask passphrase and unlock */
+        UnlockWithSeed,     /**< Ask recovery phrase and unlock */
+        ChangePass,         /**< Ask old passphrase + new passphrase twice */
+        Decrypt             /**< Ask passphrase and decrypt wallet */
     };
 
     explicit AskPassphraseDialog(Mode mode, QWidget *parent = 0);
@@ -36,8 +38,14 @@ private:
     WalletModel *model;
     bool fCapsLock;
 
+    void setupEncryptMode();
+
 private slots:
     void textChanged();
+    void onGeneratePassword();
+    void onSwitchToPassword();
+    void onSwitchToSeed();
+    void tryUnlockWithSeed(const QString& seedPhrase);
 
 protected:
     bool event(QEvent *event);

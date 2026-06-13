@@ -31,6 +31,7 @@
 #include "cstealthaddress.h"
 #include "thread.h"
 #include "cdatastream.h"
+#include "ui_interface.h"
 
 #include "walletdb.h"
 
@@ -155,6 +156,73 @@ bool CWalletDB::WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey)
 	return Write(std::make_pair(std::string("mkey"), nID), kMasterKey, true);
 }
 
+// The following are used by DecryptWallet (NOT CALLED - retained for future use)
+bool CWalletDB::WriteKeyOverwrite(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
+{
+	nWalletDBUpdated++;
+
+	if (!Write(std::make_pair(std::string("keymeta"), vchPubKey), keyMeta, true))
+		return false;
+
+	std::vector<unsigned char> vchKey;
+	vchKey.reserve(vchPubKey.size() + vchPrivKey.size());
+	vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
+	vchKey.insert(vchKey.end(), vchPrivKey.begin(), vchPrivKey.end());
+
+	return Write(std::make_pair(std::string("key"), vchPubKey), std::make_pair(vchPrivKey, Hash(vchKey.begin(), vchKey.end())), true);
+}
+
+bool CWalletDB::EraseMasterKey(unsigned int nID)
+{
+	nWalletDBUpdated++;
+	return Erase(std::make_pair(std::string("mkey"), nID));
+}
+
+bool CWalletDB::EraseCryptedKey(const CPubKey& vchPubKey)
+{
+	nWalletDBUpdated++;
+	return Erase(std::make_pair(std::string("ckey"), vchPubKey));
+}
+
+bool CWalletDB::WriteRecoveryPhraseFlag()
+{
+	nWalletDBUpdated++;
+	// Custom key ignored by older wallet versions
+	return Write(std::string("recovery_phrase_v1"), (int)1, true);
+}
+
+bool CWalletDB::EraseRecoveryPhraseFlag()
+{
+	nWalletDBUpdated++;
+	return Erase(std::string("recovery_phrase_v1"));
+}
+
+bool CWalletDB::HasRecoveryPhraseUpgradeDeclined()
+{
+	int val = 0;
+	Read(std::string("recovery_phrase_upgrade_declined"), val);
+	return val == 1;
+}
+
+bool CWalletDB::SetRecoveryPhraseUpgradeDeclined()
+{
+	nWalletDBUpdated++;
+	return Write(std::string("recovery_phrase_upgrade_declined"), 1);
+}
+
+bool CWalletDB::EraseRecoveryPhraseUpgradeDeclined()
+{
+	nWalletDBUpdated++;
+	return Erase(std::string("recovery_phrase_upgrade_declined"));
+}
+
+bool CWalletDB::HasRecoveryPhraseFlag()
+{
+	int val = 0;
+	Read(std::string("recovery_phrase_v1"), val);
+	return val == 1;
+}
+
 bool CWalletDB::WriteCScript(const uint160& hash, const CScript& redeemScript)
 {
 	nWalletDBUpdated++;
@@ -174,6 +242,23 @@ bool CWalletDB::EraseWatchOnly(const CScript &dest)
 	nWalletDBUpdated++;
 
 	return Erase(std::make_pair(std::string("watchs"), dest));
+}
+
+bool CWalletDB::WriteLockedOutput(const COutPoint& output)
+{
+	nWalletDBUpdated++;
+
+	// Value is a single byte '1' (presence is the signal).  Following
+	// the same shape as the "watchs" record so older binaries that
+	// don't recognize "lockedoutput" simply ignore it on load.
+	return Write(std::make_pair(std::string("lockedoutput"), output), '1');
+}
+
+bool CWalletDB::EraseLockedOutput(const COutPoint& output)
+{
+	nWalletDBUpdated++;
+
+	return Erase(std::make_pair(std::string("lockedoutput"), output));
 }
 
 bool CWalletDB::WriteBestBlock(const CBlockLocator& locator)
@@ -550,6 +635,24 @@ bool ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue, CW
 			// so set the wallet birthday to the beginning of time.
 			pwallet->nTimeFirstKey = 1;
 		}
+		else if (strType == "lockedoutput")
+		{
+			// Persistent UTXO lock.  Re-populates setLockedCoins so locks
+			// the user previously set survive across wallet restarts.  The
+			// caller (CWalletDB::LoadWallet) holds pwallet->cs_wallet for
+			// the duration of this loop, so direct access to the public
+			// setLockedCoins set is safe here.
+			COutPoint outpt;
+			char fYes;
+			
+			ssKey >> outpt;
+			ssValue >> fYes;
+			
+			if (fYes == '1')
+			{
+				pwallet->setLockedCoins.insert(outpt);
+			}
+		}
 		else if (strType == "key" || strType == "wkey")
 		{
 			CPubKey vchPubKey;
@@ -806,6 +909,16 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 			return DB_CORRUPT;
 		}
 
+		// Counter for periodic splash refresh.  Without it, heavy
+		// wallets (e.g. those holding imported watch-only addresses
+		// with extensive transaction history) freeze the splash for
+		// many seconds during load -- on Windows the DWM marks the
+		// window non-responsive and switches it to opaque black,
+		// which looks like a crash to the user.  Firing InitMessage
+		// every 100 records keeps the splash repainting via the Qt
+		// handler's processEvents() call.
+		unsigned int nLoaded = 0;
+
 		while (true)
 		{
 			// Read next record
@@ -851,6 +964,13 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 			if (!strErr.empty())
 			{
 				LogPrintf("%s\n", strErr);
+			}
+
+			// Periodically refresh the splash so it doesn't freeze on
+			// heavy wallets.
+			if ((++nLoaded % 100) == 0)
+			{
+				uiInterface.InitMessage(strprintf("Loading wallet... %u records", nLoaded));
 			}
 		}
 		
@@ -1052,6 +1172,29 @@ bool BackupWallet(const CWallet& wallet, const std::string& strDest)
 //
 // Try to (very carefully!) recover wallet.dat if there is a problem.
 //
+// KNOWN BUG (do not "fix" without understanding):
+//   This function is the underlying implementation of -salvagewallet.
+//   BDB Salvage(aggressive=true) returns the entire raw page set including
+//   ghost pages and torn writes. Iterating that and calling pdbCopy->put()
+//   with DB_NOOVERWRITE means the FIRST occurrence of any key wins; later
+//   occurrences (which may be the actual current value) are silently
+//   dropped. If a stale dummy record on an earlier page collides with a
+//   real key on a later page, the real key is lost without warning.
+//   This is why -salvagewallet was deprecated: it can "succeed" while
+//   silently destroying the user's wallet. The replacement is
+//   -rebuildwallet, which uses cursor-level iteration over live records
+//   only, never touching the salvage path.
+//
+//   Switching DB_NOOVERWRITE to allow overwrites would NOT fix this: the
+//   stale record might be the later one, and you'd then lose the real
+//   record. The salvage approach is fundamentally lossy on a corrupted
+//   page-set; the only correct fix is to not use it.
+//
+//   This function is reachable only via the -salvagewallet escape hatch
+//   (-iknowsalvagewalletisdangerous), kept for support cases where
+//   -rebuildwallet itself fails on a wallet too corrupt for cursor
+//   iteration to traverse.
+//
 bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
 {
 	// Recovery procedure:
@@ -1153,4 +1296,3 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename)
 {
 	return CWalletDB::Recover(dbenv, filename, false);
 }
-

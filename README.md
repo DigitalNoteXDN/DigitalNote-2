@@ -6,7 +6,7 @@ DigitalNote provides a lightweight blockchain with several avenues for passive i
 DigitalNote (SatoshiCore) is the core of the DigitalNote ecosystem and was been developed from a bitcore base and
 since morphing into its own unique blockchain system.
 
-![http://www.digitalnote.org](doc/digitalnote_logo.png)
+![http://www.digitalnote.org](docs/digitalnote_logo.png)
 
 Official website: [► Digitalnote.org](http://www.digitalnote.org)
 White paper: [► WHITEPAPER](https://digitalnote.org/wp-content/uploads/2020/02/DigitalNote_Whitepaper.pdf).
@@ -75,7 +75,7 @@ Testing
 
 Developers work in their own trees, then submit pull requests when they think their feature or bug fix is ready.
 
-The patch will be accepted if there is broad consensus that it is a good thing. Developers should expect to rework and resubmit patches if they don't match the project's coding conventions (see doc/coding.txt) or are controversial.
+The patch will be accepted if there is broad consensus that it is a good thing. Developers should expect to rework and resubmit patches if they don't match the project's coding conventions (see docs/coding.txt) or are controversial.
 
 Testing and code review is the bottleneck for development; we get more pull
 requests than we can review and test on short notice. Please be patient and help out by testing

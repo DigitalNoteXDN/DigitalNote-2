@@ -1,0 +1,369 @@
+name: Release
+
+on:
+  # ── Manual trigger from Actions tab ──────────────────────────────────────────
+  # Use this to fire a release without creating a tag yourself —
+  # the workflow will create the tag and the GitHub Release in one atomic step.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (must match v*.*.*, e.g. v2.0.0.7 or v2.0.0.7-rc1)"
+        required: true
+        type: string
+      ref:
+        description: "Branch to build from (leave empty / blank choice to use the branch from 'Use workflow from' above)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - master
+          - 2.0.0.7-testing
+          - v2.0.0.8-voted-consensus
+        default: ""
+      draft:
+        description: "Publish as draft (RECOMMENDED — uncheck only when ready to make the release public)"
+        required: false
+        type: boolean
+        default: true
+
+  # ── Automatic trigger on tag push ────────────────────────────────────────────
+  # Triggered when somebody runs:  git tag v2.0.0.7 && git push origin v2.0.0.7
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # required to create GitHub Releases and push tags
+
+# ── Build all platforms in parallel ──────────────────────────────────────────
+jobs:
+
+  build-windows:
+    name: Build Windows
+    uses: ./.github/workflows/ci-windows.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-linux-x64:
+    name: Build Linux x64
+    uses: ./.github/workflows/ci-linux-x64.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-linux-x64-compat:
+    name: Build Linux x64 (compat — glibc 2.31+)
+    # Parallel "compat" build: same source, built inside ubuntu:20.04
+    # container with -static-libstdc++ -static-libgcc so the resulting
+    # binary runs on Ubuntu 20.04+, Debian 11+, RHEL 9+ — older systems
+    # than the default ci-linux-x64 build supports. Both binaries ship
+    # in the release; users on older systems pick the -compat variant.
+    # If this build's status proves consistent across releases, we can
+    # consolidate by replacing ci-linux-x64.yml with the compat version.
+    uses: ./.github/workflows/ci-linux-x64-compat.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-linux-aarch64:
+    name: Build Linux aarch64
+    # aarch64 cross-compile is being stabilized in v2.0.0.7. The publish
+    # step's per-binary place() helper handles missing artifacts gracefully,
+    # so a failure here doesn't block other platforms — they ship and the
+    # arm64 row simply doesn't appear in the release. NOTE: GitHub Actions
+    # does NOT allow continue-on-error on reusable-workflow callers (jobs
+    # with `uses:`). Failure tolerance lives in publish's place() helper.
+    uses: ./.github/workflows/ci-linux-aarch64.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-macos-x64:
+    name: Build macOS x64 (Intel)
+    uses: ./.github/workflows/ci-macos-x64.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+  build-macos-arm64:
+    name: Build macOS arm64 (Apple Silicon)
+    # See aarch64 note re: failure tolerance via publish's place() helper.
+    # continue-on-error is not allowed on reusable-workflow callers.
+    uses: ./.github/workflows/ci-macos-arm64.yml
+    secrets: inherit
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+# ── Package and publish the release ──────────────────────────────────────────
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-22.04
+    needs:
+      - build-windows
+      - build-linux-x64
+      - build-linux-x64-compat
+      - build-linux-aarch64
+      - build-macos-x64
+      - build-macos-arm64
+    # Run even if some builds fail — publish whatever succeeded.
+    # The "Verify at least one artifact" step below will still fail the job
+    # if every platform failed.
+    if: always()
+
+    steps:
+      # When triggered manually we check out the ref the user supplied.
+      # When triggered by tag-push we check out the tag itself.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      # Resolve the effective tag name once and re-use it everywhere below.
+      # - For tag-push events: github.ref_name is already "v2.0.0.7"
+      # - For manual dispatch: we use the tag the user typed
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          # Validate the format so we don't end up with garbage tags
+          if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$'; then
+            echo "ERROR: tag '$TAG' does not match v*.*.* format"
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Resolved tag: $TAG"
+
+      - name: Download Windows x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-windows-x64
+          path: dist/windows-x64
+        continue-on-error: true
+
+      - name: Download Linux x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-linux-x64
+          path: dist/linux-x64
+        continue-on-error: true
+
+      - name: Download Linux x64 (compat) artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-linux-x64-compat
+          path: dist/linux-x64-compat
+        continue-on-error: true
+
+      - name: Download Linux aarch64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-linux-aarch64
+          path: dist/linux-aarch64
+        continue-on-error: true
+
+      - name: Download macOS x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-macos-x64
+          path: dist/macos-x64
+        continue-on-error: true
+
+      # macOS arm64 (Apple Silicon) is included in the release if it built.
+      # The macos-arm64 build job is continue-on-error so a failure there does
+      # not block the publish; if no artifact was uploaded this download is a
+      # no-op and the rename step below skips macos-arm64 cleanly.
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: digitalnote-macos-arm64
+          path: dist/macos-arm64
+        continue-on-error: true
+
+      - name: Package artifacts
+        run: |
+          # Strip the leading 'v' so files are named e.g. DigitalNote-qt-2.0.0.7-...
+          # rather than ...-v2.0.0.7-...
+          TAG="${{ steps.tag.outputs.tag }}"
+          VER="${TAG#v}"
+          mkdir -p release
+
+          # ── Helper: copy a file matching a glob inside a platform dir to a
+          #    final release filename. Quietly no-ops if the source is missing
+          #    so a partial build (e.g. aarch64 failed) doesn't abort the run.
+          place() {
+            local src_glob="$1"
+            local dst_name="$2"
+            local found
+            found=$(find dist -path "$src_glob" -type f 2>/dev/null | head -1)
+            if [ -n "$found" ]; then
+              cp "$found" "release/$dst_name"
+              echo "  + $dst_name  <-  $found"
+            else
+              echo "  - $dst_name  (skipped: source not found)"
+            fi
+          }
+
+          echo "=== Renaming binaries into release/ ==="
+
+          # ── Windows x64 ────────────────────────────────────────────────────
+          place "dist/windows-x64/*DigitalNote-qt.exe" "DigitalNote-qt-${VER}-win-x64.exe"
+          place "dist/windows-x64/*DigitalNoted.exe"   "DigitalNoted-${VER}-win-x64.exe"
+
+          # ── Linux x64 ──────────────────────────────────────────────────────
+          # Linux uploads use a glob root; binaries land somewhere under dist/linux-x64/
+          place "dist/linux-x64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64"
+          place "dist/linux-x64/*DigitalNoted"   "DigitalNoted-${VER}-linux-x64"
+
+          # ── Linux x64 compat (glibc 2.31+, static libstdc++) ───────────────
+          # Built inside ubuntu:20.04 container so it runs on older systems
+          # than the standard linux-x64 build. Filename suffix '-compat' makes
+          # the choice obvious to users on the release page.
+          place "dist/linux-x64-compat/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-x64-compat"
+          place "dist/linux-x64-compat/*DigitalNoted"   "DigitalNoted-${VER}-linux-x64-compat"
+
+          # ── Linux aarch64 → published as 'linux-arm64' ────────────────────
+          # Internal artifact name kept as 'aarch64' to avoid disturbing the
+          # cache key in ci-linux-aarch64.yml; release filename uses 'arm64'
+          # to match the OS/arch token convention used everywhere else.
+          place "dist/linux-aarch64/*DigitalNote-qt" "DigitalNote-qt-${VER}-linux-arm64"
+          place "dist/linux-aarch64/*DigitalNoted"   "DigitalNoted-${VER}-linux-arm64"
+
+          # ── macOS x64 (Intel) ──────────────────────────────────────────────
+          # Qt wallet is shipped as a .dmg produced by Builder/macos/x64/deploy.sh
+          # (which calls macdeployqtplus). The daemon ships as a bare binary.
+          place "dist/macos-x64/*DigitalNote-Qt-x64.dmg" "DigitalNote-qt-${VER}-macos-x64.dmg"
+          place "dist/macos-x64/*DigitalNoted"           "DigitalNoted-${VER}-macos-x64"
+
+          # ── macOS arm64 (Apple Silicon) ────────────────────────────────────
+          # continue-on-error in the build job + here means a missing arm64
+          # artifact just skips these two lines without failing the release.
+          place "dist/macos-arm64/*DigitalNote-Qt-arm64.dmg" "DigitalNote-qt-${VER}-macos-arm64.dmg"
+          place "dist/macos-arm64/*DigitalNoted"             "DigitalNoted-${VER}-macos-arm64"
+
+          echo
+          echo "=== Final release/ contents ==="
+          ls -lh release/
+
+          # ── Checksums over every file we ended up shipping ─────────────────
+          if [ -n "$(ls -A release/ 2>/dev/null)" ]; then
+            (cd release && sha256sum * > SHA256SUMS.txt)
+            echo "=== Checksums ==="
+            cat release/SHA256SUMS.txt
+          fi
+
+      # Refuse to publish a release with no binaries attached.
+      # If every single platform failed, abort the job here so we don't end up
+      # with an empty/misleading release on GitHub.
+      - name: Verify at least one artifact exists
+        run: |
+          # Count anything in release/ except the checksums file itself.
+          COUNT=$(find release -type f ! -name SHA256SUMS.txt 2>/dev/null | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: no platform produced a build artifact — aborting release"
+            exit 1
+          fi
+          echo "OK: $COUNT binary file(s) ready for upload"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges > /tmp/changelog.txt
+          else
+            git log --pretty=format:"- %s (%h)" --no-merges -30 > /tmp/changelog.txt
+          fi
+          echo "Wrote $(wc -l < /tmp/changelog.txt) changelog entries to /tmp/changelog.txt"
+
+      - name: Build release body
+        id: body
+        run: |
+          # Strip leading 'v' to match the file naming convention.
+          # docs/release-notes/v2.0.0.7.md exists for v2.0.0.7 and v2.0.0.7-rc1
+          # (rc/beta/alpha tags reuse the parent version's notes file).
+          TAG="${{ steps.tag.outputs.tag }}"
+          BASE="${TAG%-rc*}"
+          BASE="${BASE%-beta*}"
+          BASE="${BASE%-alpha*}"
+          NOTES_FILE="docs/release-notes/${BASE}.md"
+
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "ERROR: $NOTES_FILE not found"
+            echo "Expected docs/release-notes/<version>.md to exist for tag $TAG"
+            ls docs/release-notes/ 2>/dev/null || echo "(directory does not exist)"
+            exit 1
+          fi
+
+          {
+            echo "## DigitalNote XDN ${TAG}"
+            echo
+            cat "$NOTES_FILE"
+            echo
+            echo "### Platform Downloads"
+            echo
+            echo "Filenames have the leading \`v\` stripped — so \`${TAG}\` produces files named \`…-${TAG#v}-…\`."
+            echo
+            echo "| Platform | GUI Wallet | Daemon |"
+            echo "|---|---|---|"
+            echo "| Windows x64 | \`DigitalNote-qt-<ver>-win-x64.exe\` | \`DigitalNoted-<ver>-win-x64.exe\` |"
+            echo "| Linux x64 | \`DigitalNote-qt-<ver>-linux-x64\` | \`DigitalNoted-<ver>-linux-x64\` |"
+            echo "| Linux x64 (compat) | \`DigitalNote-qt-<ver>-linux-x64-compat\` | \`DigitalNoted-<ver>-linux-x64-compat\` |"
+            echo "| Linux ARM64 | \`DigitalNote-qt-<ver>-linux-arm64\` | \`DigitalNoted-<ver>-linux-arm64\` |"
+            echo "| macOS Intel | \`DigitalNote-qt-<ver>-macos-x64.dmg\` | \`DigitalNoted-<ver>-macos-x64\` |"
+            echo "| macOS Apple Silicon | \`DigitalNote-qt-<ver>-macos-arm64.dmg\` | \`DigitalNoted-<ver>-macos-arm64\` |"
+            echo
+            echo "**Which Linux x64 build do I want?** The standard \`linux-x64\` requires glibc 2.39+ (Ubuntu 24.04, Debian 13). The \`linux-x64-compat\` variant requires glibc 2.31+ (Ubuntu 20.04+, Debian 11+, RHEL 9+) and statically links libstdc++. Pick compat if the standard one fails with \`GLIBC_2.x not found\` errors."
+            echo
+            echo "### SHA256 Checksums"
+            echo "See \`SHA256SUMS.txt\` attached below."
+            echo
+            echo "### Changes since last release"
+            # Use cat instead of inlining the changelog via expression
+            # substitution — commit messages contain unescaped parens,
+            # angle brackets, backticks, etc. which would break the shell
+            # parser if substituted as a literal string into the script.
+            cat /tmp/changelog.txt
+          } > /tmp/release-body.md
+
+          echo "BODY_FILE=/tmp/release-body.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # When manually dispatched, create-and-tag in one step.
+          # When tag-pushed, the tag already exists; this just attaches files to it.
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          name: "DigitalNote XDN ${{ steps.tag.outputs.tag }}"
+          # Draft default is TRUE — releases never go public without explicit approval.
+          # - manual dispatch: user checkbox controls (default checked = draft)
+          # - tag-push: always draft (forces a review step in the UI)
+          # If the user unchecks the box on a manual dispatch, we honour that
+          # and publish straight to public.
+          # NB: GitHub Actions has no ternary, so we use the fact that
+          #     `workflow_dispatch` => inputs.draft is defined (bool),
+          #     anything else      => default to true.
+          draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'rc') || contains(steps.tag.outputs.tag, 'beta') || contains(steps.tag.outputs.tag, 'alpha') }}
+          # Body is built dynamically by the "Build release body" step which:
+          # - reads docs/release-notes/<version>.md (per-version content)
+          # - appends Platform Downloads table + SHA256 + commit changelog
+          # To customise per-release content, edit docs/release-notes/<ver>.md
+          # — no changes to release.yml needed for routine version bumps.
+          body_path: ${{ steps.body.outputs.BODY_FILE }}
+
+          files: |
+            release/*
+          # Use the workflow's automatic GITHUB_TOKEN, NOT the PAT_TOKEN.
+          # GITHUB_TOKEN is auto-scoped to this repo and has contents:write
+          # when workflow permissions are set to "Read and write" in repo
+          # settings. PAT_TOKEN is for cloning the Builder repo (different
+          # scope, would need releases:write added separately).
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: false

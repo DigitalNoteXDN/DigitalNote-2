@@ -20,6 +20,7 @@ class MasternodeManager;
 class MessagePage;
 class MessageModel;
 class BlockBrowser;
+class SeedPhraseDialog;
 
 QT_BEGIN_NAMESPACE
 class QLabel;
@@ -109,10 +110,13 @@ private:
     QAction *backupWalletAction;
     QAction *importPrivateKeyAction;
     QAction *changePassphraseAction;
+    QAction *unlockForStakingAction;
     QAction *unlockWalletAction;
     QAction *lockWalletAction;
 	QAction *checkWalletAction;
 	QAction *repairWalletAction;
+    QAction *compactWalletAction;
+    QAction *seedPhraseAction;
     QAction *aboutQtAction;
     QAction *openRPCConsoleAction;
     QAction *masternodeManagerAction;
@@ -122,17 +126,53 @@ private:
     QAction *editConfigAction;
     QAction *editConfigExtAction;
     QAction *openDataDirAction;
+    QAction *lockedOutputsAction;
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;
     TransactionView *transactionView;
     RPCConsole *rpcConsole;
+    SeedPhraseDialog *seedPhraseDialog;
 
     QMovie *syncIconMovie;
     /** Keep track of previous number of blocks, to detect progress */
     int prevBlocks;
 
     uint64_t nWeight;
+
+    // v2.0.0.8 CW2: staking-icon state machine.
+    //
+    // m_bHammerLatched: once updateStakingIcon() resolves the icon to
+    // Hammer via the full Phase-A prerequisite walk, latch this flag.
+    // While latched, only the invalidating-events set + a 5-minute
+    // staleness floor can drop us off Hammer; transient §29 defers do
+    // not flutter the icon.  Single-threaded (only the GUI main thread
+    // touches it), so no atomic.
+    mutable bool m_bHammerLatched;
+
+    enum class StakingIconState { None, Hammer, Clock };
+
+    // Phase-A walk: full prerequisite check including loop-productivity.
+    StakingIconState ComputeStakingIconStatePhaseA(
+        bool fIBD, bool fWalletLocked, QString &tooltipOut) const;
+
+    // Phase-B walk: invalidating-events only, plus the 5-minute floor.
+    StakingIconState ComputeStakingIconStatePhaseB(
+        bool fIBD, bool fWalletLocked, QString &tooltipOut) const;
+
+    // Tooltip-detail computation for the Hammer state -- expected
+    // time-between-blocks from nWeight + chain difficulty.
+    QString ComputeHammerTooltip() const;
+
+    // A9: count of incoming-tx notifications suppressed during the
+    // current batch period (IBD/catchup or explicit rescan import).
+    // When the batch ends, we fire ONE summary toast naming the count
+    // and the kind, instead of the individual per-tx toasts that were
+    // suppressed.
+    int nBatchTxCount;
+    bool fInBatchMode;
+    enum BatchKind { BATCH_NONE, BATCH_SYNC, BATCH_IMPORT };
+    BatchKind eBatchKind;
 
     /** Create the main UI actions. */
     void createActions();
@@ -155,6 +195,7 @@ public slots:
        @see WalletModel::EncryptionStatus
     */
     void setEncryptionStatus(int status);
+    void onRecoveryPhraseUpgradeAvailable();
 
     /** Notify the user of an error in the network or transaction handling code. */
     void error(const QString &title, const QString &message, bool modal);
@@ -202,6 +243,7 @@ private slots:
     void optionsClicked();
     /** Show about dialog */
     void aboutClicked();
+    
 #ifndef Q_OS_MAC
     /** Handle tray icon clicked */
     void trayIconActivated(QSystemTrayIcon::ActivationReason reason);
@@ -210,6 +252,16 @@ private slots:
         The new items are those between start and end inclusive, under the given parent item.
     */
     void incomingTransaction(const QModelIndex & parent, int start, int end);
+    /** B1: prompt the user when an incoming transaction creates a fresh
+        masternode-collateral-shaped UTXO (2,000,000 XDN, spendable,
+        not already locked, not globally suppressed for this wallet).
+        Emitted from TransactionTablePriv via WalletModel after CT_NEW. */
+    void onCollateralCandidateReceived(const QString &txidHex, int vout);
+    /** A9: emit a single summary toast naming nBatchTxCount and the
+        recently-finished batch kind, then reset batch state. Called
+        from setNumBlocks() (for IBD-end) and showProgress(100) (for
+        explicit-batch-end). */
+    void maybeEmitBatchSummary();
     /** Show incoming D-Note receipt notification for new secure messages.
         The new items are those between start and end inclusive, under the given parent item.
     */
@@ -220,12 +272,35 @@ private slots:
     void checkWallet();
     /** Repair the wallet */
     void repairWallet();
+    /** Compact (rebuild) the wallet via the maintenance-mode rebuildwallet
+     *  pipeline.  Shows a confirmation dialog explaining that the wallet
+     *  will restart and the original is preserved as wallet.dat.bak; on
+     *  confirm, writes the .rebuildwallet-pending flag file and requests
+     *  app shutdown.  Next launch picks up the flag and runs RebuildWallet
+     *  before LoadWallet. */
+    void compactWallet();
+    /** Tools -> Locked Outputs...
+     *  Opens the modal Locked Outputs dialog which lists every output
+     *  currently held in setLockedCoins (filtered to spendable-by-this-
+     *  wallet) with three-tier classification (configured masternode /
+     *  2M XDN-not-configured / other) and per-row toggle with tier-
+     *  appropriate confirmations. */
+    void showLockedOutputs();
+    /** On first paint after launch, check for a .rebuildwallet-result
+     *  marker (written by the AppInit2 rebuild handler) and surface the
+     *  outcome to the user via a single one-shot dialog.  The marker is
+     *  deleted after consumption so the dialog never re-fires.  Wired
+     *  via QTimer::singleShot(0,...) from setClientModel so it runs once
+     *  the event loop is alive but before any user interaction. */
+    void showRebuildResultIfPresent();
 	/** Backup the wallet */
     void backupWallet();
     /** Import a private key */
     void importPrivateKey();
     /** Change encrypted wallet passphrase */
     void changePassphrase();
+    /** Ask for passphrase to unlock wallet just for staking */
+    void unlockForStaking();
     /** Ask for passphrase to unlock wallet temporarily */
     void unlockWallet();
 
@@ -250,6 +325,7 @@ private slots:
     void editConfigExt();
     /** Open the data directory */
     void openDataDir();
+    void showSeedPhrase();
 };
 
 #endif // BITCOINGUI_H

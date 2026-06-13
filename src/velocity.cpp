@@ -84,7 +84,25 @@ bool Velocity(CBlockIndex* prevBlock, CBlock* block)
 	CURstamp = block->GetBlockTime();
 	OLDstamp = prevBlock->GetBlockTime();
 	CURvalstamp = prevBlock->GetBlockTime() + VELOCITY_MIN_RATE[i];
-	OLDvalstamp = prevBlock->pprev->GetBlockTime() + VELOCITY_MIN_RATE[i];
+	// v2.0.0.8 PB-1 (companion fix): genesis-boundary guard.
+	//
+	// prevBlock->pprev is NULL when prevBlock is the genesis block.
+	// The original `prevBlock->pprev->GetBlockTime()` dereferenced NULL
+	// in that case -- the same null-CBlockIndex / GetBlockTime() crash
+	// class as blockparams.cpp VRX_ThreadCurve.  Velocity() is called
+	// near the top of CBlock::AcceptBlock; a block whose parent is
+	// genesis would trip this.  When there is no grandparent, fall back
+	// to prevBlock's own time so OLDvalstamp stays well-defined (the
+	// pprev-derived value is only a looser lower-bound check than the
+	// prevBlock-derived CURvalstamp above).
+	if (prevBlock->pprev != NULL)
+	{
+		OLDvalstamp = prevBlock->pprev->GetBlockTime() + VELOCITY_MIN_RATE[i];
+	}
+	else
+	{
+		OLDvalstamp = prevBlock->GetBlockTime() + VELOCITY_MIN_RATE[i];
+	}
 	SYScrntstamp = GetAdjustedTime() + VELOCITY_MIN_RATE[i];
 	SYSbaseStamp = GetTime() + VELOCITY_MIN_RATE[i];
 
@@ -109,7 +127,7 @@ bool Velocity(CBlockIndex* prevBlock, CBlock* block)
 			HaveCoins = true;
 		}
 		
-		// Check for and enforce minimum TXs per block (Minimum TXs are disabled for Espers)
+		// Check for and enforce minimum TXs per block (Minimum TXs are disabled for DigitalNote)
 		if(VELOCITY_MIN_TX[i] > 0 && TXcount < VELOCITY_MIN_TX[i])
 		{
 			LogPrintf("DENIED: Not enough TXs in block\n");

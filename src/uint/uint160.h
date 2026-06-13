@@ -1,6 +1,7 @@
 #ifndef UINT160_H
 #define UINT160_H
 
+#include <cstdint>
 #include <vector>
 
 #include "uint/uint_base.h"

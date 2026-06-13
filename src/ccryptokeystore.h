@@ -27,6 +27,7 @@ protected:
 	CKeyingMaterial vMasterKey;
 
 	bool SetCrypted();
+	bool SetUnencrypted(); // NOT CALLED - used by DecryptWallet (retained for future use)
 
 	// will encrypt previously unencrypted keys
 	bool EncryptKeys(CKeyingMaterial& vMasterKeyIn);

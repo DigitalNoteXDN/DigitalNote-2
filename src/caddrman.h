@@ -1,6 +1,7 @@
 #ifndef CADDRMAN_H
 #define CADDRMAN_H
 
+#include <cstdint>
 #include <vector>
 #include <map>
 #include <set>

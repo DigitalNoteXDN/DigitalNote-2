@@ -1,6 +1,7 @@
 #ifndef CSTEALTHADDRESS_H
 #define CSTEALTHADDRESS_H
 
+#include <cstdint>
 #include <string>
 
 #include "types/ec_point.h"

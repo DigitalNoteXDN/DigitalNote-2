@@ -16,8 +16,10 @@
 #include "addresstablemodel.h"
 #include "bitcoinunits.h"
 #include "cwallettx.h"
+#include "ctxout.h"
 #include "main_extern.h"
 #include "thread.h"
+#include "mining.h"
 
 #include "transactiontablemodel.h"
 
@@ -124,27 +126,64 @@ public:
             }
             if(showTransaction)
             {
-                LOCK2(cs_main, wallet->cs_wallet);
-                // Find transaction in wallet
-                mapWallet_t::iterator mi = wallet->mapWallet.find(hash);
-                if(mi == wallet->mapWallet.end())
+                // Collected for emission AFTER the locks are released.
+                // Emitting under cs_wallet would risk re-entering the
+                // wallet from a directly-connected slot.
+                std::vector<std::pair<QString, int> > collateralCandidates;
                 {
-                    qWarning() << "TransactionTablePriv::updateWallet : Warning: Got CT_NEW, but transaction is not in wallet";
-                    break;
-                }
-                // Added -- insert at the right position
-                QList<TransactionRecord> toInsert =
-                        TransactionRecord::decomposeTransaction(wallet, mi->second);
-                if(!toInsert.isEmpty()) /* only if something to insert */
-                {
-                    parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex+toInsert.size()-1);
-                    int insert_idx = lowerIndex;
-                    foreach(const TransactionRecord &rec, toInsert)
+                    LOCK2(cs_main, wallet->cs_wallet);
+                    // Find transaction in wallet
+                    mapWallet_t::iterator mi = wallet->mapWallet.find(hash);
+                    if(mi == wallet->mapWallet.end())
                     {
-                        cachedWallet.insert(insert_idx, rec);
-                        insert_idx += 1;
+                        qWarning() << "TransactionTablePriv::updateWallet : Warning: Got CT_NEW, but transaction is not in wallet";
+                        break;
                     }
-                    parent->endInsertRows();
+                    // Added -- insert at the right position
+                    QList<TransactionRecord> toInsert =
+                            TransactionRecord::decomposeTransaction(wallet, mi->second);
+                    if(!toInsert.isEmpty()) /* only if something to insert */
+                    {
+                        parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex+toInsert.size()-1);
+                        int insert_idx = lowerIndex;
+                        foreach(const TransactionRecord &rec, toInsert)
+                        {
+                            cachedWallet.insert(insert_idx, rec);
+                            insert_idx += 1;
+                        }
+                        parent->endInsertRows();
+                    }
+
+                    // B1: detect masternode-collateral-shaped outputs.
+                    // Criteria: exactly 2,000,000 XDN, spendable by us,
+                    // not already locked.  We do the scan here while we
+                    // still hold the locks and have mi->second handy.
+                    const CWalletTx &wtx = mi->second;
+                    const int64_t collateralSatoshis =
+                        MasternodeCollateral(nBestHeight) * COIN;
+                    for (unsigned int i = 0; i < wtx.vout.size(); ++i)
+                    {
+                        const CTxOut &out = wtx.vout[i];
+                        if (out.nValue != collateralSatoshis) continue;
+                        if (!(wallet->IsMine(out) & ISMINE_SPENDABLE)) continue;
+                        if (wallet->IsLockedCoin(hash, i)) continue;
+                        collateralCandidates.push_back(
+                            std::make_pair(QString::fromStdString(hash.ToString()),
+                                           static_cast<int>(i)));
+                    }
+                }
+                // cs_main and cs_wallet released here.  Now safe to
+                // drive Qt signals -- BitcoinGUI will pop the dialog,
+                // call back into walletModel->lockCoin(...) which takes
+                // its own locks.
+                if (parent->walletModel != nullptr && !collateralCandidates.empty())
+                {
+                    typedef std::pair<QString, int> CandidatePair;
+                    foreach (const CandidatePair &c, collateralCandidates)
+                    {
+                        parent->walletModel->emitCollateralCandidate(
+                            c.first, c.second);
+                    }
                 }
             }
             break;
@@ -713,13 +752,15 @@ static void ShowProgress(TransactionTableModel *ttm, const std::string &title, i
     if (nProgress == 100)
     {
         fQueueNotifications = false;
-        if (vQueueNotifications.size() > 10) // prevent balloon spam, show maximum 10 balloons
-            QMetaObject::invokeMethod(ttm, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, true));
+        // Drain all queued notifications.  Note: any
+        // setProcessingQueuedTransactions calls would target ttm,
+        // which doesn't have that slot -- the flag lives on
+        // walletmodel and is managed there directly by walletmodel's
+        // ShowProgress(0/100) handler so it stays true throughout
+        // BOTH this drain (which fires first in boost-signal
+        // registration order) and walletmodel's own drain.
         for (unsigned int i = 0; i < vQueueNotifications.size(); ++i)
         {
-            if (vQueueNotifications.size() - i <= 10)
-                QMetaObject::invokeMethod(ttm, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, false));
-
             vQueueNotifications[i].invoke(ttm);
         }
         std::vector<TransactionNotification >().swap(vQueueNotifications); // clear

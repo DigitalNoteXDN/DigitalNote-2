@@ -21,6 +21,7 @@
 #include "ctxindex.h"
 #include "cdiskblockindex.h"
 #include "util.h"
+#include "ui_interface.h"
 #include "enums/serialize_type.h"
 #include "cdatastream.h"
 #include "cbatchscanner.h"
@@ -537,6 +538,15 @@ bool CTxDB::LoadBlockIndex()
 
 	ssStartKey << std::make_pair(std::string("blockindex"), uint256(0));
 	iterator->Seek(ssStartKey.str());
+
+	// Counter for periodic splash refresh.  Without progress updates,
+	// the block index load (which can iterate hundreds of thousands
+	// of records on a fully-synced wallet) freezes the splash for
+	// many seconds.  On Windows the DWM responds by marking the
+	// window non-responsive and switching it to opaque black.  Firing
+	// uiInterface.InitMessage every N records keeps the splash
+	// repainting via the Qt handler's processEvents() call.
+	unsigned int nLoaded = 0;
 	
 	// Now read each entry.
 	while (iterator->Valid())
@@ -605,6 +615,12 @@ bool CTxDB::LoadBlockIndex()
 		}
 		
 		iterator->Next();
+
+		// Periodically refresh the splash so it doesn't freeze.
+		if ((++nLoaded % 1000) == 0)
+		{
+			uiInterface.InitMessage(strprintf("Loading block index... %u entries", nLoaded));
+		}
 	}
 	
 	delete iterator;
@@ -839,4 +855,3 @@ bool CTxDB::LoadBlockIndex()
 
 	return true;
 }
-

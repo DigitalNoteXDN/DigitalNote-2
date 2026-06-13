@@ -23,9 +23,13 @@
 #include "ctxmempool.h"
 #include "velocity.h"
 #include "cmasternode.h"
+#include "masternode.h"
+#include "cactivemasternode.h"
 #include "cmasternodeman.h"
 #include "cmasternodepaymentwinner.h"
 #include "cmasternodepayments.h"
+#include "cmasternodevotetracker.h"
+#include "cmasternodevotequeue.h"
 #include "masternodeman.h"
 #include "masternode-payments.h"
 #include "masternode_extern.h"
@@ -1870,7 +1874,17 @@ bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 		{
 			return error("Reorganize() : DisconnectBlock %s failed", pindex->GetBlockHash().ToString());
 		}
-		
+
+		// v2.0.0.8 M1: update chain-derived lastPaidHeight cache.  If this
+		// disconnected block was an MN's last-known-payment block, this
+		// triggers RecomputeLastPaidHeight to find the next-most-recent.
+		mnodeman.OnBlockDisconnected(block, pindex->nHeight);
+
+		// v2.0.0.8 M1Q: invalidate queues cast at this (disconnected) height
+		// -- they were computed against the now-undone payment.  Casting MNs
+		// will re-broadcast fresh queues against the new ancestry.
+		voteTracker.OnBlockDisconnectedQueues(pindex->nHeight);
+
 		// Queue memory transactions to resurrect.
 		// We only do this for blocks after the last checkpoint (reorganisation before that
 		// point should only happen with -reindex/-loadblock, or a misbehaving peer.
@@ -1901,6 +1915,13 @@ bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 			// Invalid block
 			return error("Reorganize() : ConnectBlock %s failed", pindex->GetBlockHash().ToString());
 		}
+
+		// v2.0.0.8 M1: update chain-derived lastPaidHeight cache for each
+		// block on the new branch.  Mirrors the ProcessBlock tip-update hook.
+		mnodeman.OnBlockConnected(block, pindex->nHeight);
+
+		// v2.0.0.8 M1Q: prune old queues as new blocks connect.
+		voteTracker.OnBlockConnectedQueues(pindex->nHeight);
 
 		// Queue memory transactions to delete
 		for(const CTransaction& tx : block.vtx)
@@ -2072,7 +2093,12 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
 	}
 
 	// Preliminary checks
-	if (!pblock->CheckBlock())
+	// v2.0.0.8 PB-MN-FETCH Lite: pass the relaying peer through to CheckBlock
+	// so that, on encountering an unknown MN payee, CheckBlock can fire a
+	// fire-and-forget dseg back to that peer.  pfrom is NULL for blocks not
+	// received from the network (local miner, startup verify), and CheckBlock
+	// handles NULL safely.
+	if (!pblock->CheckBlock(true, true, true, pfrom))
 	{
 		return error("ProcessBlock() : CheckBlock FAILED");
 	}
@@ -2186,25 +2212,68 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
 	// If initial sync or we can't find a masternode in our list
 	if(!IsInitialBlockDownload())
 	{
-		CScript payee;
-		CTxIn vin;
+		// v2.0.0.8 latent-11 fix: the local `CScript payee; CTxIn vin;`
+		// that used to be declared here fed the GetEnforcedPayee ->
+		// Find(vin) -> nLastPaid clobber, which has been removed (see the
+		// fLiteMode branches below).  They had no other consumer, so the
+		// declarations are removed to avoid unused-variable warnings.
+
+		// v2.0.0.8 PB-NEW: the chain-derived lastPaidHeight cache update
+		// hook formerly lived here as:
+		//     mnodeman.OnBlockConnected(*pblock, pindexBest->nHeight);
+		// It was moved into CBlock::SetBestChainInner so it fires once
+		// per block that joins the main chain, with that block and its
+		// own height.  The old call fired once per ProcessBlock() with
+		// (*pblock, pindexBest->nHeight) -- which under-counted (orphan-
+		// reconnected blocks never recorded) and height-shifted (first
+		// block recorded at the final tip height).  See SetBestChainInner
+		// for the full explanation.
+
+		// v2.0.0.8 M3: prune old vote records as new blocks connect at tip.
+		// v2.0.0.8 M1Q: prune old queues at tip.  Idempotent and monotonic;
+		// calling once per ProcessBlock with the current tip height is correct.
+		voteTracker.OnBlockConnectedQueues(pindexBest->nHeight);
+
+		// v2.0.0.8 M1Q: if this wallet is running as an active masternode,
+		// broadcast a full ordered payee QUEUE for the next
+		// VOTE_QUEUE_LENGTH heights, computed by deterministic forward
+		// simulation from the current tip.  Replaces the per-height
+		// BroadcastVote.  Other M1Q nodes receive and tally per-position;
+		// pre-M1Q peers silently drop the unknown "mnvotequeue" command.
+		//
+		// BroadcastQueue internally checks status/key gates and returns
+		// false harmlessly if this wallet isn't a capable MN.  No-op for
+		// non-MN wallets (strMasterNodePrivKey empty -> early return).
+		if (fMasterNode)
+		{
+			activeMasternode.BroadcastQueue(pindexBest->nHeight);
+		}
 
 		// If we're in LiteMode disable mnengine features without disabling masternodes
 		if (!fLiteMode && !fImporting && !fReindex && pindexBest->nHeight > Checkpoints::GetTotalBlocksEstimate())
 		{
-			if(masternodePayments.GetBlockPayee(pindexBest->nHeight, payee, vin))
-			{
-				//UPDATE MASTERNODE LAST PAID TIME
-				CMasternode* pmn = mnodeman.Find(vin);
-				
-				if(pmn != NULL)
-				{
-					pmn->nLastPaid = GetAdjustedTime();
-				}
-
-				LogPrintf("ProcessBlock() : Update Masternode Last Paid Time - %d\n", pindexBest->nHeight);
-			}
-
+			// v2.0.0.8 latent-11 fix: the per-MN "last paid" display field
+			// (CMasternode::nLastPaid) is now set EXCLUSIVELY by
+			// CMasternodeMan::OnBlockConnected, which -- once per connected
+			// block -- identifies the masternode the block ACTUALLY paid
+			// (FindByPayeeAddress on the block's outputs) and sets that
+			// MN's nLastPaid to the connecting block's GetBlockTime().
+			//
+			// The block that USED to live here did:
+			//     GetEnforcedPayee(...) -> Find(vin) -> nLastPaid = GetAdjustedTime()
+			// which was wrong on three counts and was the residual cause of
+			// the "all masternodes show the same last-paid time" display
+			// bug that originally motivated this whole work:
+			//   * it wrote GetAdjustedTime() (wall clock "now"), not the
+			//     paying block's time -- so every MN it touched got stamped
+			//     with ~the same recent timestamp;
+			//   * on the voted-consensus path GetEnforcedPayee does not set
+			//     vinOut, so Find(vin) matched the wrong MN or none;
+			//   * it ran AFTER OnBlockConnected and CLOBBERED the correct
+			//     per-MN block-time value OnBlockConnected had just written.
+			// It is removed.  OnBlockConnected is the single authority for
+			// nLastPaid.  Nothing else writes or depends on it being
+			// touched here (it is read only by the masternode-list RPCs).
 			mnEnginePool.CheckTimeout();
 			mnEnginePool.NewBlock();
 			masternodePayments.ProcessBlock(GetHeight()+10);
@@ -2212,19 +2281,9 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
 		}
 		else if (fLiteMode && !fImporting && !fReindex && pindexBest->nHeight > Checkpoints::GetTotalBlocksEstimate())
 		{
-			if(masternodePayments.GetBlockPayee(pindexBest->nHeight, payee, vin))
-			{
-				//UPDATE MASTERNODE LAST PAID TIME
-				CMasternode* pmn = mnodeman.Find(vin);
-				
-				if(pmn != NULL)
-				{
-					pmn->nLastPaid = GetAdjustedTime();
-				}
-
-				LogPrintf("ProcessBlock() : Update Masternode Last Paid Time - %d\n", pindexBest->nHeight);
-			}
-			
+			// v2.0.0.8 latent-11 fix: nLastPaid clobber removed here too.
+			// See the non-LiteMode branch above for the full rationale --
+			// OnBlockConnected is the single authority for nLastPaid.
 			masternodePayments.ProcessBlock(GetHeight()+10);
 		}
 	}
@@ -2688,6 +2747,9 @@ bool static AlreadyHave(CTxDB& txdb, const CInv& inv)
 		
 		case MSG_MASTERNODE_WINNER:
 			return mapSeenMasternodeVotes.count(inv.hash);
+
+		case MSG_MASTERNODE_VOTE_QUEUE:
+			return voteTracker.AlreadyHaveQueue(inv.hash);
 	}
 	
 	// Don't know what it is, just say we already got one
@@ -2834,6 +2896,21 @@ void static ProcessGetData(CNode* pfrom)
 						pushed = true;
 					}
 				}
+				if (!pushed && inv.type == MSG_MASTERNODE_VOTE_QUEUE)
+				{
+					CMasternodeVoteQueue q;
+					if (voteTracker.GetQueueByHash(inv.hash, q))
+					{
+						CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+						ss.reserve(1000);
+						ss << q;
+
+						pfrom->PushMessage("mnvotequeue", ss);
+
+						pushed = true;
+					}
+				}
 				if (!pushed && inv.type == MSG_DSTX)
 				{
 					if(mapMNengineBroadcastTxes.count(inv.hash))
@@ -2906,7 +2983,17 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 	{
 		LOCK(cs_main);
 		
-		State(pfrom->GetId())->nLastBlockProcess = GetTimeMicros();
+		// v2.0.0.8: State() returns NULL when pfrom's NodeId is not (yet)
+		// in mapNodeState -- e.g. a node whose state entry has not been
+		// created, or was already erased.  The original code dereferenced
+		// the result unconditionally, which is a NULL-pointer crash in
+		// that window.  Guard it.
+		CNodeState *pnodeState = State(pfrom->GetId());
+		
+		if (pnodeState != NULL)
+		{
+			pnodeState->nLastBlockProcess = GetTimeMicros();
+		}
 	}
 
 	if (strCommand == "version")
@@ -3031,10 +3118,36 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 		}
 		else
 		{
+			// v2.0.0.8 Fix 1 (Option B): do not admit a non-routable peer
+			// address into addrman.
+			//
+			// An inbound connection that arrives through NAT port-
+			// forwarding has its socket source address rewritten to the
+			// LAN gateway (e.g. 192.168.1.1), and a genuine LAN peer may
+			// report an RFC1918 addrFrom of its own.  Such an address is
+			// ambiguous (LAN-relative) and unreachable from the public
+			// network -- it must never enter addrman, because addrman
+			// contents are gossiped onward via getaddr/addr and would
+			// pollute every peer's address set with unroutable entries.
+			//
+			// The connection itself is left intact (messages still flow,
+			// so a local testnet mesh keeps working) -- this only stops
+			// the address from PROPAGATING as a network identity.
+			// IsRoutable() is the codebase's own predicate: it rejects
+			// RFC1918, IPv6 link-local, loopback, etc.
 			if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom)
 			{
-				addrman.Add(addrFrom, addrFrom);
-				addrman.Good(addrFrom);
+				if (addrFrom.IsRoutable())
+				{
+					addrman.Add(addrFrom, addrFrom);
+					addrman.Good(addrFrom);
+				}
+				else
+				{
+					LogPrint("net", "version - peer %s reports non-routable "
+							 "addrFrom %s; not adding to addrman\n",
+							 pfrom->addr.ToString(), addrFrom.ToString());
+				}
 			}
 		}
 
@@ -3073,6 +3186,52 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 	else if (strCommand == "verack")
 	{
 		pfrom->SetRecvVersion(std::min(pfrom->nVersion, PROTOCOL_VERSION));
+
+		// Phase 1 masternode consensus groundwork: ask new peers for
+		// their masternode list immediately on connect.  Previously
+		// nodes only learned MNs passively from arriving dsee
+		// heartbeats (every ~5 min per MN); on a fresh start, the
+		// list could take 5-30 min to converge depending on which
+		// MNs happened to broadcast first.  Active sync on verack
+		// closes the gap.
+		//
+		// DsegUpdate is rate-limited (MASTERNODES_DSEG_SECONDS = 3h)
+		// and the receive-side handler bans peers that ask too
+		// often, so we cannot abuse this even with many peer
+		// connections.  Fully backward-compatible: v2.0.0.6 and
+		// earlier already respond correctly to dseg messages.
+		//
+		// Foundation for v2.0.0.8 masternode-voted payment
+		// consensus, which requires high MN list coverage on all
+		// nodes (including stakers and non-MN wallets) to achieve
+		// vote convergence.
+		// v2.0.0.8 M4: Actively pull spork state from new peers on verack.
+		// SPORK_15_VOTED_CONSENSUS_ACTIVATION (and any future activation
+		// sporks) need to be known by all nodes before the relevant block
+		// heights are reached.  Without this, a freshly-started node only
+		// learns about sporks if/when an existing peer happens to relay
+		// them.  Pulling on connect gives us deterministic spork sync from
+		// any single connected peer (v2.0.0.6+ all respond to getsporks).
+		//
+		// No new message type, fully backward-compatible.
+		pfrom->PushMessage("getsporks");
+
+		// v2.0.0.8 M1Q catch-up: request the peer's in-flight queue
+		// inventory (mapQueues), the queue-path peer-sync request.
+		// Without this a freshly-restarted or newly-connected node never
+		// receives historical queues -- only future broadcasts -- and
+		// GetCanonicalWinnerFromQueues stays empty for already-in-flight
+		// heights, forcing ThreadStakeMiner into a permanent defer loop
+		// even though the floor is met and peers are healthy.  Observed
+		// 2026-05-29 on a rebooted staker: 7/7 ENABLED MNs, eligible_voters=7,
+		// total_votes=0 for tip+1 -- because no peer was ever asked.
+		// Backward-compatible: pre-M1Q peers silently drop "getmnqueues".
+		pfrom->PushMessage("getmnqueues");
+
+		if(!IsInitialBlockDownload())
+		{
+			mnodeman.DsegUpdate(pfrom);
+		}
 	}
 	else if (strCommand == "addr")
 	{
@@ -3734,6 +3893,7 @@ bool static ProcessMessage(CNode* pfrom, std::string strCommand, CDataStream& vR
 		// relays such as masternode lists to occur.
 		mnodeman.ProcessMessage(pfrom, strCommand, vRecv);
 		ProcessMessageMasternodePayments(pfrom, strCommand, vRecv);
+		ProcessMessageMasternodeVote(pfrom, strCommand, vRecv);
 		ProcessMessageInstantX(pfrom, strCommand, vRecv);
 		ProcessSpork(pfrom, strCommand, vRecv);
 		// Ignore unknown commands for extensibility

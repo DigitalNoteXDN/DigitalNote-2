@@ -25,6 +25,9 @@
 #include "guiconstants.h"
 #include "init.h"
 #include "util.h"
+
+#include <cctype>
+
 #include "paymentserver.h"
 #include "wallet.h"
 #include "cscript.h"
@@ -32,6 +35,7 @@
 #include "main_extern.h"
 #include "ui_interface.h"
 #include "fork.h"
+#include "walletrebuild.h"
 
 #ifdef Q_OS_MAC
 #include "macdockiconhandler.h"
@@ -52,12 +56,29 @@ Q_IMPORT_PLUGIN(qtaccessiblewidgets)
 // Need a global reference for the notifications to find the GUI
 static DigitalNoteGUI *guiref;
 static QSplashScreen *splashref;
+static QColor splashMessageColor(255, 255, 255); // default white
+static int splashMessageAlign = Qt::AlignCenter;  // overridden per-mode in main()
 
 static void ThreadSafeMessageBox(const std::string& message, const std::string& caption, unsigned int style)
 {
     // Message from network thread
     if(guiref)
     {
+        // Hide the splash screen first if it's still up.  Otherwise our
+        // message box renders BEHIND it because the normal-startup splash is
+        // created with Qt::WindowStaysOnTopHint -- the user sees nothing
+        // happen and the app appears frozen while it's actually waiting on
+        // a dialog they can't see. The maintenance-mode splash doesn't have
+        // this flag but hide-on-message is the right behaviour either way.
+        //
+        // The handler may be invoked from a non-GUI thread, so marshal
+        // the hide() call rather than calling it directly.  Clearing
+        // splashref afterwards stops InitMessage from refreshing it.
+        if (splashref) {
+            QMetaObject::invokeMethod(splashref, "hide", Qt::QueuedConnection);
+            splashref = nullptr;
+        }
+
         bool modal = (style & CClientUIInterface::MODAL);
         // In case of modal message, use blocking connection to wait for user to click a button
         QMetaObject::invokeMethod(guiref, "message",
@@ -93,16 +114,66 @@ static void InitMessage(const std::string &message)
 {
     if(splashref)
     {
-        splashref->showMessage(QString::fromStdString(message), Qt::AlignBottom|Qt::AlignHCenter, QColor(255,255,255));
-
-        if(!fUseDarkTheme)
-        {
-            splashref->showMessage(QString::fromStdString(message), Qt::AlignBottom|Qt::AlignHCenter, QColor(97,78,176));
-        }
-
+        // The splash always shows the full, live message (including running
+        // counts like "Loading block index... 1175000 entries") -- that is
+        // exactly what a progress splash is for.
+        splashref->showMessage(QString::fromStdString(message), splashMessageAlign, splashMessageColor);
+        splashref->raise();
+        splashref->activateWindow();
         QApplication::instance()->processEvents();
     }
-    LogPrintf("init message: %s\n", message);
+
+    // Log gating: many init phases emit a high-frequency progress message
+    // that differs only in a running count (e.g. "Loading block index... N
+    // entries" every 1000 entries, "Rescanning... block N / M", "MN cache:
+    // N/M", "Loading wallet... (P %)").  On mainnet that floods debug.log
+    // with thousands of near-identical lines.  We want ONE line per phase on
+    // the normal log -- the milestone -- and the per-count updates only when
+    // the operator asks for them with -debug=init.
+    //
+    // The "phase" is the message with any trailing progress detail removed:
+    // everything from the first run of "... " or a digit onward.  When the
+    // phase changes we log it once unconditionally (the milestone); repeated
+    // updates within the same phase are gated behind the "init" category.
+    std::string phase = message;
+    {
+        // Trim at the first "..." (most progress messages are
+        // "<Phase>... <count>") , else at the first digit.
+        size_t cut = phase.find("...");
+        if (cut == std::string::npos)
+        {
+            for (size_t i = 0; i < phase.size(); ++i)
+            {
+                if (isdigit((unsigned char)phase[i]))
+                {
+                    cut = i;
+                    break;
+                }
+            }
+        }
+        if (cut != std::string::npos)
+        {
+            phase = phase.substr(0, cut);
+        }
+        // strip trailing spaces
+        while (!phase.empty() && phase[phase.size()-1] == ' ')
+        {
+            phase.erase(phase.size()-1);
+        }
+    }
+
+    static std::string lastPhase;
+    if (phase != lastPhase)
+    {
+        // New phase -> milestone line on the normal log.
+        lastPhase = phase;
+        LogPrintf("init message: %s\n", message);
+    }
+    else
+    {
+        // Same phase, progress update -> only with -debug=init.
+        LogPrint("init", "init message: %s\n", message.c_str());
+    }
 }
 
 /*
@@ -151,7 +222,16 @@ int main(int argc, char *argv[])
 #endif
 
     Q_INIT_RESOURCE(bitcoin);
+    #if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    QApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
     QApplication app(argc, argv);
+    GUIUtil::applyDefaultFont(&app);
 
     // Do this early as we don't want to bother initializing if we are just calling IPC
     // ... but do it after creating app, so QCoreApplication::arguments is initialized:
@@ -180,6 +260,12 @@ int main(int argc, char *argv[])
                               QString("Error: Specified data directory \"%1\" does not exist.").arg(QString::fromStdString(mapArgs["-datadir"])));
         return 1;
     }
+    // v2.0.0.8 testnet-conf-generator: generate a default conf in the
+    // network-specific data directory if absent, before ReadConfigFile,
+    // so a freshly-generated conf is read on this same run.  Mirrors the
+    // daemon path in bitcoind.cpp.
+    GenerateDefaultConfigFile();
+
     ReadConfigFile(mapArgs, mapMultiArgs);
 
     // Application identification (must be set before OptionsModel is initialized,
@@ -193,6 +279,61 @@ int main(int argc, char *argv[])
 
     // ... then GUI settings:
     OptionsModel optionsModel;
+
+    // Apply dark theme stylesheet if enabled
+    if (fUseDarkTheme) {
+        qApp->setStyleSheet(
+            "QMainWindow, QDialog, QWidget { background-color: #1e1e1e; color: #d4d4d4; }"
+            "QMenuBar { background-color: #2b2b2b; color: #d4d4d4; }"
+            "QMenuBar::item:selected { background-color: #3d3d3d; }"
+            "QMenu { background-color: #2b2b2b; color: #d4d4d4; border: 1px solid #444; }"
+            "QMenu::item:selected { background-color: #3d6099; }"
+            "QToolBar { background-color: #2b2b2b; border: none; }"
+            "QTabWidget::pane { background-color: #1e1e1e; border: 1px solid #444; }"
+            "QTabBar::tab { background-color: #2b2b2b; color: #d4d4d4; padding: 6px 12px; border: 1px solid #444; }"
+            "QTabBar::tab:selected { background-color: #3d6099; color: #ffffff; }"
+            "QTabBar::tab:hover { background-color: #3d3d3d; }"
+            "QTableWidget, QTreeWidget, QListWidget { background-color: #252526; color: #d4d4d4; "
+            "  gridline-color: #3d3d3d; border: 1px solid #444; alternate-background-color: #2d2d2d; }"
+            "QTableWidget::item:selected, QTreeWidget::item:selected { background-color: #3d6099; color: #ffffff; }"
+            "QHeaderView::section { background-color: #2b2b2b; color: #d4d4d4; border: 1px solid #444; padding: 4px; }"
+            "QLineEdit, QTextEdit, QPlainTextEdit { background-color: #252526; color: #d4d4d4; "
+            "  border: 1px solid #555; border-radius: 3px; padding: 2px; }"
+            "QLineEdit:focus, QTextEdit:focus { border: 1px solid #3d6099; }"
+            "QPushButton { background-color: #3d3d3d; color: #d4d4d4; border: 1px solid #555; "
+            "  border-radius: 4px; padding: 4px 12px; }"
+            "QPushButton:hover { background-color: #4a4a4a; }"
+            "QPushButton:pressed { background-color: #3d6099; }"
+            "QPushButton:disabled { background-color: #2b2b2b; color: #666; }"
+            "QComboBox { background-color: #252526; color: #d4d4d4; border: 1px solid #555; "
+            "  border-radius: 3px; padding: 2px 6px; }"
+            "QComboBox::drop-down { border: none; }"
+            "QComboBox QAbstractItemView { background-color: #2b2b2b; color: #d4d4d4; "
+            "  selection-background-color: #3d6099; }"
+            "QScrollBar:vertical { background-color: #2b2b2b; width: 12px; }"
+            "QScrollBar::handle:vertical { background-color: #555; border-radius: 6px; min-height: 20px; }"
+            "QScrollBar::handle:vertical:hover { background-color: #777; }"
+            "QScrollBar:horizontal { background-color: #2b2b2b; height: 12px; }"
+            "QScrollBar::handle:horizontal { background-color: #555; border-radius: 6px; min-width: 20px; }"
+            "QCheckBox { color: #d4d4d4; }"
+            "QCheckBox::indicator { width: 13px; height: 13px; border: 1px solid #666; background-color: #2d2d2d; border-radius: 2px; }"
+            "QCheckBox::indicator:unchecked:hover { border: 1px solid #3d6099; }"
+            "QCheckBox::indicator:checked { background-color: #3d6099; border: 1px solid #3d6099; image: url(:/images/checkbox_checked); }"
+            "QLabel { color: #d4d4d4; }"
+            "QGroupBox { color: #d4d4d4; border: 1px solid #555; border-radius: 4px; margin-top: 8px; }"
+            "QGroupBox::title { color: #a0c4ff; }"
+            "QSplitter::handle { background-color: #3d3d3d; }"
+            "QToolTip { background-color: #2b2b2b; color: #d4d4d4; border: 1px solid #555; }"
+            "QStatusBar { background-color: #1d1f22; color: #3098c6; }"
+            "QProgressBar { background-color: #2b2b2b; border: 1px solid #555; border-radius: 4px; }"
+            "QProgressBar::chunk { background-color: #3d6099; border-radius: 4px; }"
+            "QFrame { color: #d4d4d4; }"
+            "QSpinBox { background-color: #252526; color: #e0e0e0; border: 1px solid #555; }"
+            "QDoubleSpinBox { background-color: #252526; color: #e0e0e0; border: 1px solid #555; }"
+            "QSlider::groove { background-color: #3d3d3d; }"
+            "QSlider::handle { background-color: #3d6099; border-radius: 6px; }"
+        );
+    }
 
     // Get desired locale (e.g. "de_DE") from command line or use system locale
     QString lang_territory = QString::fromStdString(GetArg("-lang", QLocale::system().name().toStdString()));
@@ -240,18 +381,73 @@ int main(int argc, char *argv[])
     // on mac, also change the icon now because it would look strange to have a testnet splash (green) and a std app icon (orange)
     if(GetBoolArg("-testnet", false))
     {
-        MacDockIconHandler::instance()->setIcon(QIcon(fUseDarkTheme ? ":icons/dark/bitcoin_testnet" : ":icons/bitcoin_testnet"));
+        MacDockIconHandler::instance()->setIcon(QIcon(":icons/bitcoin_testnet"));
     }
 #endif
 
-    QString splashSelect = ":/images/splash-dark";
+    // Both themes use same splash image
+    // Light: white text, Dark: black text
+    splashMessageColor = fUseDarkTheme ? QColor(0, 0, 0) : QColor(255, 255, 255);
 
-    if (!fUseDarkTheme)
+    // Maintenance mode: triggered by any startup flag that puts the wallet
+    // into a long, opt-in operation where the GUI cannot open until the
+    // operation completes. Splash uses a chromed window (taskbar entry,
+    // minimise/close buttons, no always-on-top) so users can put the splash
+    // in the background while it runs. Normal startup keeps the original
+    // frameless always-on-top splash for the brief load.
+    //
+    // The umbrella check covers every flag that triggers a multi-minute
+    // startup phase. -maintenancemode is a no-op flag for testing the
+    // chromed splash without invoking a real maintenance operation.
+    // -iknowsalvagewalletisdangerous is the deprecated salvagewallet's
+    //  escape hatch; it implies maintenance mode if used.
+    // The .rebuildwallet-pending flag is written by the GUI Compact Wallet
+    //  flow before requesting shutdown -- on next launch the rebuild
+    //  handler in init.cpp consumes it and runs RebuildWallet().
+    bool fMaintenanceMode =
+        GetBoolArg("-rebuildwallet", false) ||
+        GetBoolArg("-rescan", false) ||
+        GetBoolArg("-reindex", false) ||
+        GetBoolArg("-iknowsalvagewalletisdangerous", false) ||
+        GetBoolArg("-maintenancemode", false) ||
+        RebuildPendingFlagExists();
+
+    // Splash image: swap to the maintenance variant for maintenance mode.
+    // The maintenance image is fully opaque and has "MAINTENANCE MODE" baked
+    // in below the circle, eliminating runtime painting entirely (which
+    // caused progressive-bolding artefacts when chunked InitMessage repaints
+    // happened at high frequency during block index load).
+    QPixmap splashPixmap(fMaintenanceMode
+        ? ":/images/splash_maintenance"
+        : ":/images/splash");
+    Qt::WindowFlags splashFlags =
+        Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::SplashScreen;
+
+    QSplashScreen splash(splashPixmap, splashFlags);
+    if (fMaintenanceMode)
     {
-        splashSelect = ":/images/splash";
+        // Replace the auto-added Qt::SplashScreen flag with a chromed set:
+        // title bar, taskbar entry, minimise + close buttons, plus
+        // always-on-top so it doesn't get buried under MSYS2/IDE/etc.
+        // windows during long-running operations.  The user can still
+        // minimise to tray and restore via the tray icon (always-on-top
+        // governs Z-order while visible; hide() works regardless).
+        // (QSplashScreen constructor unconditionally ORs Qt::SplashScreen
+        //  into whatever we pass; setWindowFlags() AFTER construction
+        //  replaces rather than ORs.)
+        splash.setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint
+                            | Qt::WindowCloseButtonHint | Qt::WindowTitleHint
+                            | Qt::WindowStaysOnTopHint);
+        splash.setWindowTitle(QObject::tr("DigitalNote -- Maintenance Mode"));
+        splash.setAttribute(Qt::WA_ShowWithoutActivating);
+        // Maintenance pixmap is fully opaque, no need for translucent
+        // background or autoFillBackground gymnastics.
+        splash.setAttribute(Qt::WA_TranslucentBackground, false);
     }
-
-    QSplashScreen splash(QPixmap(splashSelect), Qt::Widget);
+    else
+    {
+        splash.setAttribute(Qt::WA_TranslucentBackground);
+    }
 
     if (GetBoolArg("-splash", true) && !GetBoolArg("-min", false))
     {
@@ -265,9 +461,6 @@ int main(int argc, char *argv[])
 
     try
     {
-        if (fUseDarkTheme)
-            GUIUtil::SetDarkThemeQSS(app);
-
         // Regenerate startup link, to fix links to old versions
         if (GUIUtil::GetStartOnSystemStartup())
             GUIUtil::SetStartOnSystemStartup(true);
@@ -290,7 +483,14 @@ int main(int argc, char *argv[])
                 paymentServer->setOptionsModel(&optionsModel);
 
                 if (splashref)
+                {
+                    // Clear splashref BEFORE finish() so any late InitMessage
+                    // calls (e.g. keypool top-up firing after "Done loading"
+                    // but before the GUI opens) no-op instead of painting
+                    // onto a splash that's about to close.
+                    splashref = nullptr;
                     splash.finish(&window);
+                }
 
                 ClientModel clientModel(&optionsModel);
                 WalletModel walletModel(pwalletMain, &optionsModel);

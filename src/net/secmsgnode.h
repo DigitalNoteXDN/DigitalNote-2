@@ -1,6 +1,7 @@
 #ifndef NET_SECMSGNODE_H
 #define NET_SECMSGNODE_H
 
+#include <cstdint>
 #include "types/ccriticalsection.h"
 
 /** Information about a DigitalNote (D-Note) peer */

@@ -1,6 +1,7 @@
 #ifndef MASTERNODE_EXTERN_H
 #define MASTERNODE_EXTERN_H
 
+#include <cstdint>
 #include <map>
 
 #include "types/ccriticalsection.h"

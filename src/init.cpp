@@ -35,6 +35,7 @@
 #include "wallet.h"
 #include "version.h"
 #include "masternode_extern.h"
+#include "cmasternodeman.h"
 #include "cmasternodepayments.h"
 #include "spork.h"
 #include "cblock.h"
@@ -65,6 +66,7 @@
 #ifdef ENABLE_WALLET
 #include "db.h"
 #include "walletdb.h"
+#include "walletrebuild.h"
 #endif
 
 #ifdef ENABLE_WALLET
@@ -79,6 +81,7 @@ unsigned int nDerivationMethodIndex;
 unsigned int nMinerSleep;
 bool fUseFastIndex;
 bool fOnlyTor = false;
+bool fWalletLoadComplete = false;
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -303,9 +306,12 @@ std::string HelpMessage()
 	strUsage += "  -testnet               " + ui_translate("Use the test network") + "\n";
 	strUsage += "  -debug=<category>      " + ui_translate("Output debugging information (default: 0, supplying <category> is optional)") + "\n";
 	strUsage +=                               ui_translate("If <category> is not supplied, output all debugging information.") + "\n";
+	strUsage +=                               ui_translate("Equivalent ways to enable all categories: -debug, -debug=all, -debug=1") + "\n";
+	strUsage +=                               ui_translate("Disable: -debug=0 or -nodebug") + "\n";
 	strUsage +=                               ui_translate("<category> can be:");
 	strUsage +=                                 " addrman, alert, db, lock, rand, rpc, selectcoins, mempool, net,"; // Don't translate these and qt below
-	strUsage +=                                 " coinage, coinstake, creation, stakemodifier";
+	strUsage +=                                 " coinage, coinstake, creation, stakemodifier,";
+	strUsage +=                                 " masternode, mnengine, instantx, smsg, webwallet, retarget, init, checkblock";
 
 	if (fHaveGUI)
 	{
@@ -341,7 +347,8 @@ std::string HelpMessage()
 	strUsage += "  -createwalletbackups=<n> " + ui_translate("Number of automatic wallet backups (default: 10)") + "\n";
 	strUsage += "  -keypool=<n>           " + ui_translate("Set key pool size to <n> (default: 1000) (litemode: 100)") + "\n";
 	strUsage += "  -rescan                " + ui_translate("Rescan the block chain for missing wallet transactions") + "\n";
-	strUsage += "  -salvagewallet         " + ui_translate("Attempt to recover private keys from a corrupt wallet.dat") + "\n";
+	strUsage += "  -rebuildwallet         " + ui_translate("Dump and recreate wallet.dat to reclaim free pages and rebuild structure. Safe; the original wallet is preserved as wallet.dat.bak.") + "\n";
+	strUsage += "  -salvagewallet         " + ui_translate("DEPRECATED -- see -rebuildwallet (Tools menu: Compact Wallet)") + "\n";
 	strUsage += "  -checkblocks=<n>       " + ui_translate("How many blocks to check at startup (default: 500, 0 = all)") + "\n";
 	strUsage += "  -checklevel=<n>        " + ui_translate("How thorough the block verification is (0-6, default: 1)") + "\n";
 	strUsage += "  -loadblock=<file>      " + ui_translate("Imports blocks from external blk000?.dat file") + "\n";
@@ -378,7 +385,6 @@ std::string HelpMessage()
 		"  -smsgscanchain                           " + ui_translate("Scan the block chain for public key addresses on startup.") + "\n";
 	strUsage += "  -stakethreshold=<n> " + ui_translate("This will set the output size of your stakes to never be below this number (default: 100)") + "\n";
 	strUsage += "  -liveforktoggle=<n> " + ui_translate("Toggle experimental features via block height testing fork, (example: -command=<fork_height>)") + "\n";
-	strUsage += "  -mnadvrelay=<n> " + ui_translate("Toggle MasterNode Advanced Relay System via 1/0, (example: -command=<true/false>)") + "\n";
 	strUsage += "  -webwallet=<n> " + ui_translate("Toggle web-wallet node flag via 1/0, (example: -command=<true/false>)") + "\n";
 
 	return strUsage;
@@ -551,6 +557,36 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 	if (GetBoolArg("-salvagewallet", false))
 	{
+		// -salvagewallet is deprecated. The underlying CWalletDB::Recover
+		// path has a known silent-data-loss bug: BDB Salvage(aggressive)
+		// returns raw pages including ghosts/torn writes, and Recover's
+		// inner loop uses DB_NOOVERWRITE -- so any record collision
+		// (including good keys colliding with stale dummies from earlier
+		// pages) is silently dropped. Replaced by -rebuildwallet which
+		// uses BDB-cursor-level dump/restore and preserves all record
+		// types (watch-only, A4 locks, stealth, BIP39 mnemonic, address
+		// book entries) that -salvagewallet would lose even when it
+		// "succeeds".
+		//
+		// Refuse unless the user has also passed the escape-hatch flag
+		// acknowledging the risk. The escape hatch exists for the rare
+		// support case where -rebuildwallet itself fails on a wallet so
+		// corrupt that only BDB's aggressive page-walk can extract
+		// anything.
+		if (!GetBoolArg("-iknowsalvagewalletisdangerous", false))
+		{
+			return InitError(ui_translate(
+				"-salvagewallet is deprecated and known to silently drop "
+				"records on collision. Use -rebuildwallet instead "
+				"(Tools menu: Compact Wallet). To force the legacy "
+				"behaviour anyway, additionally pass "
+				"-iknowsalvagewalletisdangerous."));
+		}
+		LogPrintf("WARNING: legacy -salvagewallet path engaged via escape "
+		          "hatch. This is known to silently drop records on "
+		          "collision. Proceed only if -rebuildwallet has already "
+		          "failed and you understand you may lose data.\n");
+
 		// Rewrite just private keys: rescan to find transactions
 		if (SoftSetBoolArg("-rescan", true))
 		{
@@ -714,11 +750,17 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 	if (mapArgs.count("-masternodepaymentskey")) // masternode payments priv key
 	{
-		if (!masternodePayments.SetPrivKey(GetArg("-masternodepaymentskey", "")))
-		{
-			return InitError(ui_translate("Unable to sign masternode payment winner, wrong key?"));
-		}
-		
+		// Skip masternodePayments.SetPrivKey() startup check: that system's
+		// CheckSignature verifies against CMasternodePayments::strMainPubKey
+		// which is "" (never initialised in the codebase), so SetPrivKey
+		// returns false unconditionally even when the WIF is perfectly valid.
+		// The masternode-payments master infrastructure is non-operational
+		// network-wide (see CHANGELOG §22.5) and will be replaced by
+		// masternode-voted consensus in v2.0.0.8.  For now, the -masternodepaymentskey
+		// arg is used solely to load the spork-signing privkey; the
+		// masternodePayments side stays disabled (enabled = false) which
+		// matches actual network behaviour.
+
 		if (!sporkManager.SetPrivKey(GetArg("-masternodepaymentskey", "")))
 		{
 			return InitError(ui_translate("Unable to sign spork message, wrong key?"));
@@ -866,8 +908,74 @@ bool AppInit2(boost::thread_group& threadGroup)
 			}
 		}
 
+		// Rebuild Wallet handler.
+		//
+		// Triggered by either -rebuildwallet (CLI flag) OR the GUI-written
+		// flag file (.rebuildwallet-pending in datadir). Both paths run
+		// the same orchestrator, which dumps the live wallet, validates
+		// the dump, builds a fresh BDB, verifies it by cursor walk, and
+		// atomically swaps wallet.dat with wallet.dat.bak.
+		//
+		// On failure during pre-swap, wallet.dat is untouched and the GUI
+		// will be told via the .rebuildwallet-result marker file. We then
+		// fall through to normal load so the user's wallet is at least
+		// usable. On failure during the swap itself, the next-launch
+		// recovery path inside RebuildWallet() will complete the swap
+		// before pre-flight runs.
+		//
+		// We consume the pending flag in ALL cases (success and failure)
+		// so a broken state can't cause an infinite rebuild loop.
+		const bool fRebuildPending = RebuildPendingFlagExists();
+		const bool fRebuildArg     = GetBoolArg("-rebuildwallet", false);
+		if (fRebuildPending || fRebuildArg)
+		{
+			LogPrintf("AppInit2: rebuild requested (pending-flag=%s, arg=%s)\n",
+			          fRebuildPending ? "yes" : "no",
+			          fRebuildArg ? "yes" : "no");
+
+			uiInterface.InitMessage(ui_translate("Preparing wallet rebuild..."));
+
+			std::string strRebuildErr;
+			bool fOK = RebuildWallet(bitdb, strWalletFileName, strRebuildErr);
+
+			// Consume the flag regardless of outcome. The result marker
+			// (written by RebuildWallet itself, success or failure) is
+			// what the GUI reads for outcome reporting -- we never want
+			// to retry the rebuild silently on the next launch.
+			RebuildPendingFlagRemove();
+
+			if (!fOK)
+			{
+				LogPrintf("AppInit2: RebuildWallet failed: %s\n",
+				          strRebuildErr);
+				// Don't InitError out -- the user's original wallet is
+				// untouched (RebuildWallet guarantees this in pre-swap
+				// failures, and auto-recovers post-swap failures on the
+				// next launch). Continue to normal load so the wallet
+				// is usable; the GUI will surface the failure on first
+				// paint.
+			}
+			else
+			{
+				LogPrintf("AppInit2: RebuildWallet succeeded; "
+				          "continuing init with the rebuilt wallet.\n");
+			}
+
+			// Either way, we want a rescan after rebuild because the
+			// wallet's tx cache state should be reconstructed from
+			// canonical chain data rather than carried over.
+			if (fOK && SoftSetBoolArg("-rescan", true))
+			{
+				LogPrintf("AppInit2 : parameter interaction: "
+				          "-rebuildwallet=1 -> setting -rescan=1\n");
+			}
+		}
+
 		if (GetBoolArg("-salvagewallet", false))
 		{
+			// Reachable only if -iknowsalvagewalletisdangerous was also
+			// passed -- this path is gated by the deprecation refusal in
+			// step 2 (see the comment block there for the full rationale).
 			// Recover readable keypairs:
 			if (!CWalletDB::Recover(bitdb, strWalletFileName, true))
 			{
@@ -1374,7 +1482,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 	}
 
 	// Check toggle switch for experimental feature testing fork
-	uiInterface.InitMessage(ui_translate("Checking experimental feature toggle..."));
+	// (no InitMessage -- this is a microsecond config-flag read, splash noise)
 
 	strLiveForkToggle = GetArg("-liveforktoggle", "");
 
@@ -1405,24 +1513,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 		LogPrintf("No experimental testing feature fork toggle detected... skipping...\n");
 	}
 
-	// Check toggle switch for masternode advanced relay
-	uiInterface.InitMessage(ui_translate("Checking masternode advanced relay toggle..."));
-
-	fMnAdvRelay = GetBoolArg("-mnadvrelay", false);
-
-	LogPrintf("Checking for masternode advanced relay toggle...\n");
-
-	if(fMnAdvRelay)
-	{
-		LogPrintf("Continuing with toggle enabled | Happy relaying!\n");
-	}
-	else
-	{
-		fMnAdvRelay = false;
-		
-		LogPrintf("No masternode advanced relay toggle detected... skipping...\n");
-	}
-
 	uiInterface.InitMessage(ui_translate("Loading masternode cache..."));
 
 	CMasternodeDB mndb;
@@ -1445,6 +1535,22 @@ bool AppInit2(boost::thread_group& threadGroup)
 			LogPrintf("file format is unknown or invalid, please fix it manually\n");
 		}
 	}
+
+	// v2.0.0.8 M1: populate chain-derived lastPaidHeight cache.  Reads recent
+	// blocks (up to MAX_LASTPAID_SCAN_DEPTH) and records most-recent payment
+	// height for each enabled MN.  Replaces the broken-by-design nLastPaid
+	// field (PhaseA-current-state.md S1.5) as the input to selection logic.
+	//
+	// NOT serialized -- always rebuilt from chain at startup so cache and
+	// chain can never diverge.  At ~30 MNs and observed block rates this
+	// completes in seconds.
+	//
+	// v2.0.0.8 UAT-4: the function emits its own throttled splash progress
+	// messages ("MN cache: N/M") during the walk to prevent the splash's
+	// transparent region from going black during longer scans.  No
+	// InitMessage needed here -- if we set one, it would just be overwritten
+	// by the function's first progress emit anyway.
+	mnodeman.PopulateLastPaidHeightCache();
 
 
 	fMasterNode = GetBoolArg("-masternode", false);
@@ -1600,6 +1706,13 @@ bool AppInit2(boost::thread_group& threadGroup)
 
 		// Run a thread to flush wallet periodically
 		threadGroup.create_thread(boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
+
+		// Wallet is now fully loaded and ReacceptWalletTransactions has
+		// reconciled vfSpent against chain truth. Safe for GUI polls
+		// (e.g. the staking-icon timer) to start querying balance.
+		// Before this point, balance polls would walk a partially-loaded
+		// wallet and cache wrong values in nAvailableCreditCached.
+		fWalletLoadComplete = true;
 	}
 #endif
 

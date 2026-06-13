@@ -1,6 +1,7 @@
 #ifndef CBANENTRY_H
 #define CBANENTRY_H
 
+#include <cstdint>
 #include <string>
 
 class CBanEntry

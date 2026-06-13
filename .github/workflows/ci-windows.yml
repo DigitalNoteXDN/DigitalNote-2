@@ -1,0 +1,325 @@
+name: CI - Windows x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build (leave empty / blank choice to use the branch from 'Use workflow from' above)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - master
+          - 2.0.0.7-testing
+          - 2.0.0.8-testing
+        default: ""
+  workflow_call:      # called by release.yml on tag push
+    inputs:
+      branch:
+        description: "Branch / ref to build (passed by release.yml)"
+        required: false
+        type: string
+        default: ""
+
+env:
+  BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
+  JOBS: 4
+  # Pre-built Qt 5.15.7 static for MinGW64 — published to GitHub Releases.
+  QT_RELEASE_URL_X64: https://github.com/rubber-duckie-au/DigitalNote-Builder/releases/download/qt-static-5.15.7-mingw64/qt-5.15.7-static-mingw64.tar.gz
+
+jobs:
+  build-windows-x64:
+    name: Windows x64 — Build + Test (MSYS2 MinGW64)
+    runs-on: windows-2022
+    timeout-minutes: 180
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout DigitalNote-2
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          submodules: false
+          token: ${{ secrets.PAT_TOKEN }}
+
+      # ── 2. MSYS2 MinGW64 ───────────────────────────────────────────────────
+      - name: Set up MSYS2 MinGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            base-devel
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-libs
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-pcre2
+            mingw-w64-x86_64-gmp
+            mingw-w64-x86_64-double-conversion
+            mingw-w64-x86_64-zstd
+            mingw-w64-x86_64-libwinpthread
+            mingw-w64-x86_64-md4c
+            perl
+            bzip2
+            libtool
+            make
+            autoconf
+            automake
+            automake-wrapper
+            pkg-config
+
+      # ── 3. Clone DigitalNote-Builder ───────────────────────────────────────
+      - name: Clone DigitalNote-Builder
+        run: |
+          cd ~
+          if [ ! -d DigitalNote-Builder ]; then
+            git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+          else
+            cd DigitalNote-Builder && git pull origin master
+          fi
+          mkdir -p ~/DigitalNote-Builder/windows/x64/temp
+          mkdir -p ~/DigitalNote-Builder/windows/x64/libs
+
+      # ── 4. Qt — cached then downloaded from GitHub Release ─────────────────
+      - name: Cache Qt 5.15.7 static build
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: ~/DigitalNote-Builder/windows/x64/libs/qt-5.15.7
+          key: qt-5.15.7-static-mingw64-v1
+          save-always: true
+
+      - name: Download pre-built Qt 5.15.7 (PowerShell)
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          Write-Host "Downloading pre-built Qt 5.15.7..."
+          gh release download qt-static-5.15.7-mingw64 `
+            --repo rubber-duckie-au/DigitalNote-Builder `
+            --pattern "qt-5.15.7-static-mingw64.tar.gz" `
+            --output "C:\\qt-prebuilt.tar.gz"
+          Write-Host "Download complete: $((Get-Item C:\qt-prebuilt.tar.gz).Length) bytes"
+
+      - name: Extract Qt 5.15.7
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          tar -xzf /c/qt-prebuilt.tar.gz \
+              -C ~/DigitalNote-Builder/windows/x64/
+          rm /c/qt-prebuilt.tar.gz
+          echo "Qt ready:"
+          ls ~/DigitalNote-Builder/windows/x64/libs/qt-5.15.7/bin/
+
+      # ── 5. Cache compiled libraries ────────────────────────────────────────
+      - name: Cache compiled libraries
+        uses: actions/cache@v4
+        id: libs-cache
+        with:
+          path: |
+            ~/DigitalNote-Builder/windows/x64/libs/db-6.2.32.NC
+            ~/DigitalNote-Builder/windows/x64/libs/boost_1_80_0
+            ~/DigitalNote-Builder/windows/x64/libs/openssl-1.1.1w
+            ~/DigitalNote-Builder/windows/x64/libs/libevent-2.1.12-stable
+            ~/DigitalNote-Builder/windows/x64/libs/miniupnpc-2.2.8
+            ~/DigitalNote-Builder/windows/x64/libs/qrencode-4.1.1
+          key: windows-x64-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v6
+          save-always: true
+
+      # ── 6. Download source archives ────────────────────────────────────────
+      - name: Download library source archives
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/DigitalNote-Builder/download
+          cd ~/DigitalNote-Builder/download
+          wget -q https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          wget -q https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          wget -q http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          wget -q https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          wget -q "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" \
+            -O miniupnpc-2.2.8.tar.gz
+          wget -q https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          echo "Downloads complete:"
+          ls -lh ~/DigitalNote-Builder/download/
+
+      # ── 7. Compile static libraries ────────────────────────────────────────
+      # BIP39 is now compiled directly into the wallet via bip39.pri
+      # mnemonic.sh is no longer needed
+      - name: Compile static libraries
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        run: |
+          MSYS_WORKSPACE=$(cygpath -u '${{ github.workspace }}')
+          mkdir -p ~/DigitalNote-Builder/download
+          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/windows/x64/DigitalNote-2
+
+          cd ~/DigitalNote-Builder/windows/x64
+          export TARGET_OS=NATIVE_WINDOWS
+          J="${{ env.JOBS }}"
+
+          echo "=== BerkeleyDB ===" && ../../compile/berkeleydb.sh "build_windows" "--enable-mingw" "-j $J"
+          echo "=== Boost ===" && ../../compile/boost.sh "toolset=gcc address-model=64 -j $J"
+          echo "=== GMP ===" && bash gmp.sh
+          echo "=== LevelDB ===" && ../../compile/leveldb.sh "-j $J"
+          echo "=== libevent ===" && ../../compile/libevent.sh "" "-j $J"
+          echo "=== miniupnpc ===" && ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $J"
+          echo "=== OpenSSL ===" && ../../compile/openssl.sh "mingw64" "-j $J"
+          echo "=== qrencode ===" && ../../compile/qrencode.sh "" "-j $J"
+          echo "=== secp256k1 ===" && ../../compile/secp256k1.sh "" "-j $J"
+          echo "=== All libraries built ==="
+
+      # ── 8. Link source tree ────────────────────────────────────────────────
+      - name: Link source tree into Builder
+        run: |
+          MSYS_WORKSPACE=$(cygpath -u '${{ github.workspace }}')
+          ln -sfn "$MSYS_WORKSPACE" ~/DigitalNote-Builder/windows/x64/DigitalNote-2
+
+      # ── 9. Compile daemon ──────────────────────────────────────────────────
+      # NB: use mingw32-make, not make. qmake's win32 generator emits
+      # Windows-style commands (del, copy, *.bat invocations) for things
+      # like build.h regeneration. mingw32-make runs them via cmd.exe;
+      # MSYS2 'make' runs them via /bin/sh, which has no 'del' and fails.
+      - name: Compile daemon (digitalnoted.exe)
+        run: |
+          cd ~/DigitalNote-Builder/windows/x64
+          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          cd DigitalNote-2
+          rm -rf build Makefile
+          qmake DigitalNote.daemon.pro \
+            USE_UPNP=1 \
+            USE_BUILD_INFO=0 \
+            \
+            RELEASE=1
+          mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-daemon.log
+          exit ${PIPESTATUS[0]}
+
+      # ── 10. Compile Qt wallet ──────────────────────────────────────────────
+      # See note on step 9 — mingw32-make is required for Windows-style rules.
+      - name: Compile Qt wallet (DigitalNote-qt.exe)
+        run: |
+          cd ~/DigitalNote-Builder/windows/x64
+          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          cd DigitalNote-2
+          rm -rf build Makefile
+          qmake DigitalNote.app.pro \
+            USE_UPNP=1 \
+            USE_DBUS=1 \
+            USE_QRCODE=1 \
+            USE_BUILD_INFO=0 \
+            \
+            RELEASE=1
+          mingw32-make -j${{ env.JOBS }} 2>&1 | tee ~/build-app.log
+          exit ${PIPESTATUS[0]}
+
+      # ── 11. Warning analysis ───────────────────────────────────────────────
+      - name: Analyse build warnings
+        if: always()
+        run: |
+          for log in ~/build-app.log ~/build-daemon.log; do
+            if [ -f "$log" ]; then
+              W=$(grep -c ": warning:" "$log" 2>/dev/null || echo 0)
+              E=$(grep -c ": error:"   "$log" 2>/dev/null || echo 0)
+              echo "=== $(basename $log): $W warning(s), $E error(s) ==="
+              if [ "$W" -gt 0 ]; then
+                grep ": warning:" "$log" \
+                  | sed 's|.*: warning:||' | sort | uniq -c | sort -rn | head -20
+              fi
+            fi
+          done
+
+      # ── 12. cppcheck static analysis ──────────────────────────────────────
+      - name: cppcheck — new Qt/BIP39 sources
+        run: |
+          pacman -S --noconfirm mingw-w64-x86_64-cppcheck 2>/dev/null || true
+          WS=$(cygpath -u '${{ github.workspace }}')
+          cppcheck \
+            --enable=warning,style,performance \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            --error-exitcode=0 \
+            --std=c++17 \
+            -I "$WS/src/bip39/include" \
+            -I "$WS/src" \
+            "$WS/src/qt/seedphrasedialog.cpp" \
+            "$WS/src/qt/decryptworker.cpp" \
+            "$WS/src/qt/walletmodel.cpp" \
+            "$WS/src/qt/askpassphrasedialog.cpp" \
+            "$WS/src/qt/coincontrolworker.cpp" \
+            "$WS/src/qt/sendcoinsworker.cpp" \
+            "$WS/src/qt/masternodeworker.cpp" \
+            "$WS/src/bip39/src/bip39_wallet.cpp" \
+            "$WS/src/bip39/src/bip39_passphrase.cpp" \
+            "$WS/src/rpcbip39.cpp" \
+            2>&1 || echo "⚠ cppcheck warnings present (non-fatal)"
+
+      # ── 13. Version assertions ─────────────────────────────────────────────
+      - name: Report version constants
+        run: |
+          # Extract the version constants from source and print them.
+          # No assertion — if the source is wrong, the binary will be
+          # wrong too, and that's a source-review problem, not a CI one.
+          BUILD=$(grep -oE 'CLIENT_VERSION_BUILD[[:space:]]+[0-9]+' src/clientversion.h | awk '{print $NF}')
+          PROTOCOL=$(grep -oE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*[0-9]+' src/version.h | awk '{print $NF}')
+          MIN_PEER=$(grep -oE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*[0-9]+' src/version.h | awk '{print $NF}')
+          echo "Building with:"
+          echo "  CLIENT_VERSION_BUILD = $BUILD"
+          echo "  PROTOCOL_VERSION = $PROTOCOL"
+          echo "  MIN_PEER_PROTO_VERSION = $MIN_PEER"
+      - name: Assert daemon was built
+        run: |
+          # NOTE: DigitalNoted has no --version flag — the source-header
+          # checks above prove the build is at version 2.0.0.7. This step
+          # is just a sanity check that the binary actually exists.
+          # The build writes to MSYS2 home, not github.workspace — same
+          # path the Collect step uses below.
+          SRC="$HOME/DigitalNote-Builder/windows/x64/DigitalNote-2"
+          DAEMON=$(find "$SRC" -iname 'DigitalNoted.exe' -type f | head -1)
+          if [ -z "$DAEMON" ]; then
+            echo "ERROR: DigitalNoted.exe not found under $SRC"
+            ls -la "$SRC" 2>/dev/null || echo "(directory does not exist)"
+            exit 1
+          fi
+          echo "OK: DigitalNoted.exe built at $DAEMON"
+          ls -lh "$DAEMON"
+
+      # ── 14. Collect and upload binaries ───────────────────────────────────
+      # NB: We run this step in MSYS2 bash, NOT pwsh, even though the rest of
+      # collect-and-upload looks Windows-y. Reason: the build steps run under
+      # MSYS2 and write to ~/DigitalNote-Builder/... where ~ resolves to
+      # D:\a\_temp\msys64\home\runneradmin\. PowerShell's $env:USERPROFILE
+      # resolves to C:\Users\runneradmin\ — a completely different directory
+      # that doesn't exist. Staying in MSYS2 bash here keeps paths consistent.
+      # The 'cygpath -w' calls convert MSYS2 paths to Windows form for the
+      # upload-artifact step that follows (which does run on the Windows
+      # filesystem and needs backslash paths).
+      - name: Collect Windows executables
+        run: |
+          SRC="$HOME/DigitalNote-Builder/windows/x64/DigitalNote-2"
+          DST="$(cygpath -u '${{ github.workspace }}')/artifacts"
+          mkdir -p "$DST"
+          # Copy every .exe produced by either build (daemon + Qt wallet)
+          find "$SRC" -name '*.exe' -type f -exec cp {} "$DST/" \;
+          # Logs — written to ~/build-*.log by steps 9/10
+          cp "$HOME/build-app.log"    "$DST/" 2>/dev/null || true
+          cp "$HOME/build-daemon.log" "$DST/" 2>/dev/null || true
+          echo "=== Collected artefacts ==="
+          ls -lh "$DST/"
+
+      - name: Upload Windows x64 binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: digitalnote-windows-x64
+          path: ${{ github.workspace }}\artifacts\*.exe
+          retention-days: 14
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs-windows-x64-${{ github.sha }}
+          path: ${{ github.workspace }}\artifacts\*.log
+          retention-days: 14

@@ -1,6 +1,7 @@
 #ifndef BLOCKBROWSER_H
 #define BLOCKBROWSER_H
 
+#include <cstdint>
 #include <QWidget>
 #include <QDir>
 #include <QFile>

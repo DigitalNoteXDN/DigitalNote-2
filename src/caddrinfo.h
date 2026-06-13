@@ -1,6 +1,7 @@
 #ifndef CADDRESINFO_H
 #define CADDRESINFO_H
 
+#include <cstdint>
 #include "caddress.h"
 #include "util.h"
 
