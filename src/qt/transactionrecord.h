@@ -1,6 +1,7 @@
 #ifndef TRANSACTIONRECORD_H
 #define TRANSACTIONRECORD_H
 
+#include <cstdint>
 #include "uint/uint256.h"
 #include "types/camount.h"
 

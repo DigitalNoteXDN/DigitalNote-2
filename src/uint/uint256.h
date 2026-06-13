@@ -6,6 +6,7 @@
 #ifndef UINT256_H
 #define UINT256_H
 
+#include <cstdint>
 #include <vector>
 
 #include "uint/uint_base.h"

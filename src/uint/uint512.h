@@ -1,6 +1,7 @@
 #ifndef UINT512_H
 #define UINT512_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -1,6 +1,7 @@
 #ifndef CMNENFINEENTRY_H
 #define CMNENFINEENTRY_H
 
+#include <cstdint>
 #include <vector>
 
 #include "ctransaction.h"

@@ -1,6 +1,7 @@
 #ifndef CACCOUNTINGENTRY_H
 #define CACCOUNTINGENTRY_H
 
+#include <cstdint>
 #include <vector>
 #include <string>
 

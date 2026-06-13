@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QItemSelectionModel>
 #include <QDesktopServices>
+#include <QTabBar>
 
 #if QT_VERSION < 0x050000
 #include <QUrl>
@@ -24,6 +25,7 @@
 
 #include "clientmodel.h"
 #include "walletmodel.h"
+#include "askpassphrasedialog.h"
 #include "cmasternode.h"
 #include "cmasternodeman.h"
 #include "masternodeman.h"
@@ -44,17 +46,21 @@
 #include "cscriptid.h"
 #include "cstealthaddress.h"
 #include "thread.h"
+#include "masternodeworker.h"
 
 #include "masternodemanager.h"
 #include "ui_masternodemanager.h"
 #include "addeditadrenalinenode.h"
 #include "adrenalinenodeconfigdialog.h"
+#include "coutpoint.h"
+#include "uint/uint256.h"
 
 MasternodeManager::MasternodeManager(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::MasternodeManager),
     clientModel(0),
-    walletModel(0)
+    walletModel(0),
+    ownContextMenuRow(-1)
 {
     ui->setupUi(this);
 
@@ -84,8 +90,63 @@ MasternodeManager::MasternodeManager(QWidget *parent) :
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
     connect(copyPubkeyAction, SIGNAL(triggered()), this, SLOT(copyPubkey()));
 
+    // B2: own-masternodes context menu with Lock/Unlock collateral.
+    // Enable state is set just before the menu is shown by
+    // showOwnContextMenu(), based on the current row's lock state.
+    ui->tableWidget_2->setContextMenuPolicy(Qt::CustomContextMenu);
+    lockCollateralAction   = new QAction(tr("Lock collateral"),   this);
+    unlockCollateralAction = new QAction(tr("Unlock collateral"), this);
+    ownContextMenu = new QMenu();
+    ownContextMenu->addAction(lockCollateralAction);
+    ownContextMenu->addAction(unlockCollateralAction);
+    connect(ui->tableWidget_2, SIGNAL(customContextMenuRequested(const QPoint&)),
+            this, SLOT(showOwnContextMenu(const QPoint&)));
+    connect(lockCollateralAction,   SIGNAL(triggered()),
+            this, SLOT(lockSelectedCollateral()));
+    connect(unlockCollateralAction, SIGNAL(triggered()),
+            this, SLOT(unlockSelectedCollateral()));
+
     ui->tableWidgetMasternodes->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->tableWidget_2->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+
+    // v2.0.0.8 UAT-2: disable header section highlighting on both MN
+    // tables.  Default Qt behaviour is to bold the column header above
+    // the currently-selected row -- visually noisy and unhelpful when
+    // the user just wants to act on a selection.  Headers stay normal
+    // weight regardless of selection state.
+    ui->tableWidgetMasternodes->horizontalHeader()->setHighlightSections(false);
+    ui->tableWidget_2->horizontalHeader()->setHighlightSections(false);
+    // Override stretchLastSection (set in masternodemanager.ui).  With
+    // ResizeToContents on every column, stretching the last column
+    // would just give Lock excess whitespace.  Disable so columns fit
+    // their content without the rightmost one ballooning.  Add cell
+    // padding via stylesheet so columns aren't packed tight against
+    // their neighbours.
+    ui->tableWidget_2->horizontalHeader()->setStretchLastSection(false);
+    ui->tableWidget_2->setStyleSheet(
+        "QTableWidget::item { padding-left: 8px; padding-right: 8px; }");
+
+    // Style the page's two-tab header ("DigitalNote Network" / "My
+    // Master Nodes") to match the Transactions page's WatchOnly tab
+    // bar: bold-when-selected with generous padding and matching
+    // min-width.  Keeps a consistent look across the wallet's
+    // section-header tab bars.  See transactionview.cpp's similar
+    // setStyleSheet call for the reference implementation.
+    ui->tabWidget->tabBar()->setDocumentMode(true);
+    ui->tabWidget->tabBar()->setExpanding(false);
+    ui->tabWidget->tabBar()->setStyleSheet(
+        "QTabBar::tab {"
+        "  padding: 8px 28px;"
+        "  min-width: 140px;"
+        "  font-size: 13px;"
+        "}"
+        "QTabBar::tab:selected {"
+        "  font-weight: bold;"
+        "  border-bottom: 2px solid palette(highlight);"
+        "}"
+        "QTabBar::tab:!selected {"
+        "  color: palette(mid);"
+        "}");
 
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(updateNodeList()));
@@ -111,12 +172,11 @@ MasternodeManager::~MasternodeManager()
 
 void MasternodeManager::on_tableWidget_2_itemSelectionChanged()
 {
-    if(ui->tableWidget_2->selectedItems().count() > 0)
-    {
-        ui->editButton->setEnabled(true);
-        ui->startButton->setEnabled(true);
-        ui->stopButton->setEnabled(true);
-    }
+    int n = ui->tableWidget_2->selectionModel()->selectedRows().count();
+    ui->startButton->setEnabled(n > 0);
+    ui->stopButton->setEnabled(n > 0);
+    // Edit operates on exactly one row -- multi-row edit isn't supported.
+    ui->editButton->setEnabled(n == 1);
 }
 
 void MasternodeManager::updateAdrenalineNode(QString alias, QString addr, QString privkey, QString txHash, QString txIndex, QString status)
@@ -141,13 +201,187 @@ void MasternodeManager::updateAdrenalineNode(QString alias, QString addr, QStrin
     QTableWidgetItem *addrItem = new QTableWidgetItem(addr);
     QTableWidgetItem *statusItem = new QTableWidgetItem(status);
 
+    // B2: stash the collateral COutPoint on the alias item so the
+    // context menu slots can read it back without re-walking
+    // masternode.conf.  Two roles (one for txid, one for vout) avoid
+    // having to parse a combined string later.
+    aliasItem->setData(Qt::UserRole,     txHash);
+    aliasItem->setData(Qt::UserRole + 1, txIndex);
+
     ui->tableWidget_2->setItem(nodeRow, 0, aliasItem);
     ui->tableWidget_2->setItem(nodeRow, 1, addrItem);
     ui->tableWidget_2->setItem(nodeRow, 2, statusItem);
+
+    // B2: Collateral column.  Reads CWallet::IsLockedCoin via the
+    // wallet model.  Centralised in refreshCollateralCell so the
+    // lock/unlock slots can just call it after toggling.
+    refreshCollateralCell(nodeRow);
 }
 
-static QString seconds_to_DHMS(quint32 duration)
+// B2: read the lock state for one row's collateral UTXO and update the
+// fourth column.  Pulls (txHash, txIndex) from the alias item's user
+// data (set by updateAdrenalineNode) so we don't re-walk
+// masternode.conf on every refresh.
+void MasternodeManager::refreshCollateralCell(int row)
 {
+    if (!walletModel || row < 0 || row >= ui->tableWidget_2->rowCount())
+        return;
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    if (txHashStr.isEmpty())
+        return;
+
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    bool locked = walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout));
+
+    // Plain text rather than emoji glyphs so this renders consistently
+    // on Windows MSYS2 builds where Qt's default font may not have
+    // colour-emoji coverage.  The leading bullet keeps a visible glyph
+    // even on minimal fonts.
+    QTableWidgetItem *cell = new QTableWidgetItem(
+        locked ? tr("\xE2\x97\x8F  Locked")     // U+25CF BLACK CIRCLE
+               : tr("\xE2\x97\x8B  Unlocked")); // U+25CB WHITE CIRCLE
+    cell->setToolTip(locked
+        ? tr("This collateral UTXO is locked and cannot be spent by\n"
+             "stakes or regular sends.  Right-click to unlock.")
+        : tr("This collateral UTXO is NOT locked.  It could be spent\n"
+             "by a stake reward or a regular send, which would\n"
+             "destroy the masternode.  Right-click to lock."));
+    ui->tableWidget_2->setItem(row, 3, cell);
+}
+
+void MasternodeManager::showOwnContextMenu(const QPoint &point)
+{
+    QTableWidgetItem *item = ui->tableWidget_2->itemAt(point);
+    if (!item)
+    {
+        ownContextMenuRow = -1;
+        return;
+    }
+
+    int row = item->row();
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem || !walletModel)
+    {
+        ownContextMenuRow = -1;
+        return;
+    }
+
+    // Look up current lock state to choose which action to enable.
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    if (txHashStr.isEmpty())
+    {
+        ownContextMenuRow = -1;
+        return;
+    }
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+    {
+        ownContextMenuRow = -1;
+        return;
+    }
+
+    bool locked = walletModel->isLockedCoin(hash, static_cast<unsigned int>(vout));
+    lockCollateralAction->setEnabled(!locked);
+    unlockCollateralAction->setEnabled(locked);
+
+    // Stash the row so the action handlers act on the right-clicked
+    // row (not on whatever happens to be selected).  Selection-based
+    // dispatch was the previous behaviour and led to "right-click row
+    // 5 / pick Unlock / unlock fires on row 1" surprises.
+    ownContextMenuRow = row;
+
+    // Right-click implies focus on this row.  Replace any existing
+    // multi-selection so the visual selection matches what the action
+    // handlers (and the Stop/Start/Edit buttons) will operate on.
+    // Without this, users with N rows selected can right-click an
+    // unrelated row and end up confused about whether the menu acts
+    // on the click target or the selection.
+    ui->tableWidget_2->clearSelection();
+    ui->tableWidget_2->selectRow(row);
+
+    ownContextMenu->exec(ui->tableWidget_2->viewport()->mapToGlobal(point));
+}
+
+void MasternodeManager::lockSelectedCollateral()
+{
+    int row = ownContextMenuRow;
+    if (row < 0 || row >= ui->tableWidget_2->rowCount() || !walletModel)
+        return;
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    COutPoint out(hash, static_cast<unsigned int>(vout));
+    walletModel->lockCoin(out);
+    refreshCollateralCell(row);
+}
+
+void MasternodeManager::unlockSelectedCollateral()
+{
+    int row = ownContextMenuRow;
+    if (row < 0 || row >= ui->tableWidget_2->rowCount() || !walletModel)
+        return;
+    QTableWidgetItem *aliasItem = ui->tableWidget_2->item(row, 0);
+    if (!aliasItem)
+        return;
+
+    QString txHashStr = aliasItem->data(Qt::UserRole).toString();
+    QString txIndexStr = aliasItem->data(Qt::UserRole + 1).toString();
+    uint256 hash;
+    hash.SetHex(txHashStr.toStdString());
+    bool ok = false;
+    int vout = txIndexStr.toInt(&ok);
+    if (!ok || vout < 0)
+        return;
+
+    COutPoint out(hash, static_cast<unsigned int>(vout));
+    walletModel->unlockCoin(out);
+    refreshCollateralCell(row);
+}
+
+// v2.0.0.8 UAT-6a: format a duration in seconds as days/hours/minutes/seconds.
+// Takes a signed 64-bit input so callers can pass `lastTimeSeen - sigTime`
+// directly without narrowing.  Returns a marker string when the input is
+// not a meaningful duration (negative, zero, or unreasonably large -- the
+// latter indicates uninitialized timestamps in the MN entry, typically
+// sigTime=0 which makes the apparent duration equal the current unix
+// time, e.g. "20570 days" or larger).
+static QString seconds_to_DHMS(qint64 duration)
+{
+	// Sentinel: if either source timestamp was missing the delta will be
+	// out of plausible range.  No MN has actually been alive for 10 years
+	// or longer (the codebase is younger).  Display a placeholder so the
+	// column doesn't claim a bogus value.
+	static const qint64 kMaxPlausibleSeconds = qint64(10) * 365 * 24 * 60 * 60; // ~10 years
+
+	if (duration <= 0 || duration > kMaxPlausibleSeconds)
+	{
+		return QString("—");
+	}
+
 	QString res;
 	int seconds = (int) (duration % 60);
 	duration /= 60;
@@ -202,7 +436,11 @@ void MasternodeManager::updateNodeList()
 		QTableWidgetItem* addressItem = new QTableWidgetItem(QString::fromStdString(mn.addr.ToString()));
 		QTableWidgetItem* protocolItem = new QTableWidgetItem(QString::number(mn.protocolVersion));
 		QTableWidgetItem* statusItem = new QTableWidgetItem(QString::number(mn.IsEnabled()));
-		QTableWidgetItem* activeSecondsItem = new QTableWidgetItem(seconds_to_DHMS((qint64)(mn.lastTimeSeen - mn.sigTime)));
+		// v2.0.0.8 UAT-6a: pass the raw signed delta.  seconds_to_DHMS
+		// now refuses to format negative or wildly-out-of-range values
+		// (which indicate uninitialised mn.sigTime), returning "—" instead
+		// of a 47000-day display.
+		QTableWidgetItem* activeSecondsItem = new QTableWidgetItem(seconds_to_DHMS((qint64)mn.lastTimeSeen - (qint64)mn.sigTime));
 		QTableWidgetItem* lastSeenItem = new QTableWidgetItem(QString::fromStdString(DateTimeStrFormat(mn.lastTimeSeen)));
 
 		CScript pubkey;
@@ -242,273 +480,192 @@ void MasternodeManager::setWalletModel(WalletModel *model)
 
 }
 
+// Populate the My Master Nodes table whenever the page becomes
+// visible.  Without this, navigating to the page when its QTabWidget
+// already has My Master Nodes selected (e.g. it's the last-used tab)
+// doesn't emit currentChanged, and the table only fills the next time
+// the user touches a tab or the Update button.  Calling
+// on_UpdateButton_clicked() unconditionally on show is cheap -- it
+// walks masternodeConfig.getEntries() (one row per configured MN) and
+// calls updateAdrenalineNode for each, which is what already happens
+// on every tab change today.
+void MasternodeManager::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    on_UpdateButton_clicked();
+}
+
 void MasternodeManager::on_createButton_clicked()
 {
     AddEditAdrenalineNode* aenode = new AddEditAdrenalineNode();
     aenode->exec();
 }
 
+
+static void spawnMasternodeWorker(MasternodeManager* mgr,
+                                   MasternodeWorker::Operation op,
+                                   std::vector<CMasternodeConfigEntry> entries)
+{
+    mgr->setButtonsEnabled(false);
+    QThread *t = new QThread(mgr);
+    MasternodeWorker *w = new MasternodeWorker(op, std::move(entries));
+    w->moveToThread(t);
+    QObject::connect(t,    &QThread::started,              w,   &MasternodeWorker::run);
+    QObject::connect(w,    &MasternodeWorker::finished,    mgr, &MasternodeManager::onWorkerFinished);
+    QObject::connect(w,    &MasternodeWorker::error,       mgr, &MasternodeManager::onWorkerError);
+    QObject::connect(w,    &MasternodeWorker::finished,    t,   &QThread::quit);
+    QObject::connect(w,    &MasternodeWorker::error,       t,   &QThread::quit);
+    QObject::connect(t,    &QThread::finished,             t,   &QObject::deleteLater);
+    QObject::connect(t,    &QThread::finished,             w,   &QObject::deleteLater);
+    t->start();
+}
+
+void MasternodeManager::setButtonsEnabled(bool enabled)
+{
+    ui->startButton->setEnabled(enabled);
+    ui->startAllButton->setEnabled(enabled);
+    ui->stopButton->setEnabled(enabled);
+    ui->stopAllButton->setEnabled(enabled);
+    ui->UpdateButton->setEnabled(enabled);
+}
+
+void MasternodeManager::onWorkerFinished(QString result)
+{
+    setButtonsEnabled(true);
+    if (!result.isEmpty()) {
+        QMessageBox msg;
+        msg.setText(result);
+        msg.exec();
+    }
+    on_UpdateButton_clicked();
+}
+
+void MasternodeManager::onWorkerError(QString message)
+{
+    setButtonsEnabled(true);
+    QMessageBox::critical(this, tr("Masternode Error"), message);
+}
+
+// v2.0.0.8 UAT-6b: prompt the user to unlock the wallet for staking
+// before starting/stopping a masternode.  Returns true if the wallet
+// is unlocked (already, or by user action just now) and false if the
+// caller must abort.
+//
+// The dialog is launched in UnlockStaking mode (not plain Unlock) so
+// the staking-only checkbox is pre-checked.  When the user accepts:
+//
+//   * If they keep the checkbox checked: wallet unlocks with
+//     fWalletUnlockStakingOnly = true.  Master key stays decrypted
+//     indefinitely (no auto-relock timer expires it).  MN operations
+//     -- including ManageStatus re-registration after transient
+//     network drops -- continue to work because IsLocked() returns
+//     false.  Sends and other wallet-modifying ops remain blocked.
+//
+//   * If they uncheck the box: wallet unlocks fully but is subject to
+//     the normal auto-relock behaviour.  Local MN remains at risk of
+//     the historical relock-breaks-recovery issue.  Inform-only --
+//     we honour the user's choice.
+//
+bool MasternodeManager::ensureWalletUnlocked()
+{
+    if (!pwalletMain || !pwalletMain->IsLocked()) {
+        return true;
+    }
+
+    AskPassphraseDialog dlg(AskPassphraseDialog::UnlockStaking, this);
+    dlg.setModel(walletModel);
+    if (dlg.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    // Dialog accepted -- verify the unlock actually succeeded (the
+    // dialog handles its own error reporting on a wrong passphrase,
+    // but we still need to check the resulting state).
+    if (pwalletMain->IsLocked()) {
+        return false;
+    }
+
+    return true;
+}
+
 void MasternodeManager::on_startButton_clicked()
 {
-	std::string statusObj;
+    QItemSelectionModel* selectionModel = ui->tableWidget_2->selectionModel();
+    QModelIndexList selectedRows = selectionModel->selectedRows();
 
-	// start the node
-	QItemSelectionModel* selectionModel = ui->tableWidget_2->selectionModel();
-	QModelIndexList selectedRows = selectionModel->selectedRows();
-	
-	if(selectedRows.count() == 0)
-	{
-		statusObj += "<br>Select a Masternode alias to start" ;
-		
-		QMessageBox msg;
-		
-		msg.setText(QString::fromStdString(statusObj));
-		msg.exec();
-		
-		return;
-	}
-	
-	for (int i = 0; i < selectedRows.count(); i++)
-    {
-		QModelIndex index = selectedRows.at(i);
-		int r = index.row();
-		std::string sAlias = ui->tableWidget_2->item(r, 0)->text().toStdString();
+    if (selectedRows.count() == 0) {
+        QMessageBox::warning(this, tr("No Selection"), tr("Select a Masternode alias to start."));
+        return;
+    }
 
-		if(pwalletMain->IsLocked()) {
-			statusObj += "<br>Please unlock your wallet to start Masternode" ;
-			
-			QMessageBox msg;
-			
-			msg.setText(QString::fromStdString(statusObj));
-			msg.exec();
-			
-			return;
-		}
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
+        return;
+    }
 
-		statusObj += "<center>Alias: " + sAlias;
+    std::vector<CMasternodeConfigEntry> entries;
+    for (int i = 0; i < selectedRows.count(); i++) {
+        int r = selectedRows.at(i).row();
+        std::string sAlias = ui->tableWidget_2->item(r, 0)->text().toStdString();
+        for (const CMasternodeConfigEntry& mne : masternodeConfig.getEntries()) {
+            if (mne.getAlias() == sAlias) {
+                entries.push_back(mne);
+                break;
+            }
+        }
+    }
 
-		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
-		{
-			if(mne.getAlias() == sAlias)
-			{
-				std::string errorMessage;
-				std::string strDonateAddress = "";
-				std::string strDonationPercentage = "";
-
-				bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
-
-				if(result)
-				{
-					statusObj += "<br>Successfully started masternode." ;
-				}
-				else
-				{
-					statusObj += "<br>Failed to start masternode.<br>Error: " + errorMessage;
-				}
-				
-				break;
-			}
-		}
-
-		pwalletMain->Lock();
-		
-		statusObj += "</center>";
-		
-		QMessageBox msg;
-		
-		msg.setText(QString::fromStdString(statusObj));
-		msg.exec();
-	}
-	
-	MasternodeManager::on_UpdateButton_clicked();
+    spawnMasternodeWorker(this, MasternodeWorker::StartSelected, std::move(entries));
 }
 
 void MasternodeManager::on_startAllButton_clicked()
 {
-    std::vector<CMasternodeConfigEntry> mnEntries;
-
-    int total = 0;
-    int successful = 0;
-    int fail = 0;
-    std::string statusObj;
-
-    if(pwalletMain->IsLocked())
-	{
-        statusObj += "<br>Please unlock your wallet to start Masternodes" ;
-        
-		QMessageBox msg;
-        
-		msg.setText(QString::fromStdString(statusObj));
-        msg.exec();
-        
-		return;
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
+        return;
     }
-
-    for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
-	{
-        total++;
-
-        std::string errorMessage;
-        std::string strDonateAddress = "";
-        std::string strDonationPercentage = "";
-
-        bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), strDonateAddress, strDonationPercentage, errorMessage);
-
-        if(result)
-		{
-            successful++;
-        }
-		else
-		{
-            fail++;
-            statusObj += "\nFailed to start " + mne.getAlias() + ". Error: " + errorMessage;
-        }
-    }
-	
-    pwalletMain->Lock();
-
-    std::string returnObj;
-	
-    returnObj = "Successfully started " + boost::lexical_cast<std::string>(successful) + " masternodes, failed to start " +
-            boost::lexical_cast<std::string>(fail) + ", total " + boost::lexical_cast<std::string>(total);
-    
-	if (fail > 0)
-	{
-        returnObj += statusObj;
-	}
-
-    QMessageBox msg;
-    
-	msg.setText(QString::fromStdString(returnObj));
-    msg.exec();
-    
-	MasternodeManager::on_UpdateButton_clicked();
+    std::vector<CMasternodeConfigEntry> entries = masternodeConfig.getEntries();
+    spawnMasternodeWorker(this, MasternodeWorker::StartAll, std::move(entries));
 }
 
 void MasternodeManager::on_stopButton_clicked()
 {
-	std::string statusObj;
+    QItemSelectionModel* selectionModel = ui->tableWidget_2->selectionModel();
+    QModelIndexList selectedRows = selectionModel->selectedRows();
 
-	// stop the node
-	QItemSelectionModel* selectionModel = ui->tableWidget_2->selectionModel();
-	QModelIndexList selectedRows = selectionModel->selectedRows();
+    if (selectedRows.count() == 0) {
+        QMessageBox::warning(this, tr("No Selection"), tr("Select a Masternode alias to stop."));
+        return;
+    }
 
-	if(selectedRows.count() == 0)
-	{
-		statusObj += "<br>Select a Masternode alias to stop" ;
-		
-		QMessageBox msg;
-		
-		msg.setText(QString::fromStdString(statusObj));
-		msg.exec();
-		
-		return;
-	}
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
+        return;
+    }
 
-	for (int i = 0; i < selectedRows.count(); i++)
-    {
-		QModelIndex index = selectedRows.at(i);
-		int r = index.row();
-		std::string sAlias = ui->tableWidget_2->item(r, 0)->text().toStdString();
-		
-		statusObj = "";
-		
-		if(pwalletMain->IsLocked()) {
+    std::vector<CMasternodeConfigEntry> entries;
+    for (int i = 0; i < selectedRows.count(); i++) {
+        int r = selectedRows.at(i).row();
+        std::string sAlias = ui->tableWidget_2->item(r, 0)->text().toStdString();
+        for (const CMasternodeConfigEntry& mne : masternodeConfig.getEntries()) {
+            if (mne.getAlias() == sAlias) {
+                entries.push_back(mne);
+                break;
+            }
+        }
+    }
 
-			statusObj += "<br>Please unlock your wallet to stop Masternode" ;
-			
-			QMessageBox msg;
-			
-			msg.setText(QString::fromStdString(statusObj));
-			msg.exec();
-			
-			return;
-		}
-
-		statusObj += "<center>Alias: " + sAlias;
-
-		for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
-		{
-			if(mne.getAlias() == sAlias)
-			{
-				std::string errorMessage;
-				bool result = activeMasternode.StopMasterNode(mne.getIp(), mne.getPrivKey(), errorMessage);
-
-				if(result)
-				{
-					statusObj += "<br>Successfully stopped masternode." ;
-				}
-				else
-				{
-					statusObj += "<br>Failed to stop masternode.<br>Error: " + errorMessage;
-				}
-				
-				break;
-			}
-		}
-
-		pwalletMain->Lock();
-
-		statusObj += "</center>";
-
-		QMessageBox msg;
-
-		msg.setText(QString::fromStdString(statusObj));
-		msg.exec();
-	}
-	
-	MasternodeManager::on_UpdateButton_clicked();
+    spawnMasternodeWorker(this, MasternodeWorker::StopSelected, std::move(entries));
 }
 
 void MasternodeManager::on_stopAllButton_clicked()
 {
-    if(pwalletMain->IsLocked()) {
-		// ????
+    // v2.0.0.8 UAT-6b: prompt to unlock-for-staking if needed.
+    if (!ensureWalletUnlocked()) {
+        return;
     }
-
-    std::vector<CMasternodeConfigEntry> mnEntries;
-
-    int total = 0;
-    int successful = 0;
-    int fail = 0;
-    std::string statusObj;
-
-    for(CMasternodeConfigEntry mne : masternodeConfig.getEntries())
-	{
-        total++;
-
-        std::string errorMessage;
-
-        bool result = activeMasternode.StopMasterNode(mne.getIp(), mne.getPrivKey(), errorMessage);
-
-        if(result)
-		{
-            successful++;
-        }
-		else
-		{
-            fail++;
-            statusObj += "\nFailed to stop " + mne.getAlias() + ". Error: " + errorMessage;
-        }
-    }
-    pwalletMain->Lock();
-
-    std::string returnObj;
-	
-    returnObj = "Successfully stopped " + boost::lexical_cast<std::string>(successful) + " masternodes, failed to stop " +
-            boost::lexical_cast<std::string>(fail) + ", total " + boost::lexical_cast<std::string>(total);
-    
-	if (fail > 0)
-	{
-        returnObj += statusObj;
-	}
-	
-    QMessageBox msg;
-    
-	msg.setText(QString::fromStdString(returnObj));
-    msg.exec();
-    
-	MasternodeManager::on_UpdateButton_clicked();
+    std::vector<CMasternodeConfigEntry> entries = masternodeConfig.getEntries();
+    spawnMasternodeWorker(this, MasternodeWorker::StopAll, std::move(entries));
 }
 
 void MasternodeManager::on_UpdateButton_clicked()

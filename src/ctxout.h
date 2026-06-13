@@ -1,6 +1,7 @@
 #ifndef CTXOUT_H
 #define CTXOUT_H
 
+#include <cstdint>
 #include "cscript.h"
 
 class uint256;

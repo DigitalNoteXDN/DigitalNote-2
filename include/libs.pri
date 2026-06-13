@@ -37,9 +37,7 @@ contains(RELEASE, 1) {
 	contains(USE_QRCODE, 1) {
 		LIBS += $${DIGITALNOTE_QRENCODE_LIB_PATH}/libqrencode.a
 	}
-	contains(USE_BIP39, 1) {
-		LIBS += $${DIGITALNOTE_BIP39_LIB_PATH}/libbip39.a
-	}
+	# BIP39 compiled directly into binary — no libbip39.a needed
 } else {
 	LIBS += -lleveldb
 	LIBS += -lmemenv
@@ -60,9 +58,7 @@ contains(RELEASE, 1) {
 	contains(USE_QRCODE, 1) {
 		LIBS += -lqrencode
 	}
-	contains(USE_BIP39, 1) {
-		LIBS += -lbip39
-	}
+	# BIP39 compiled directly into binary — no -lbip39 needed
 }
 
 macx {

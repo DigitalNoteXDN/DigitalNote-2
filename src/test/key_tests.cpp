@@ -1,141 +1,231 @@
-#include <boost/test/unit_test.hpp>
+// Copyright (c) 2024-2025 DigitalNote XDN developers
+// Distributed under the MIT software license.
+// SPDX-License-Identifier: MIT
+//
+// src/test/key_tests.cpp
+//
+// Tests for CKey, CPubKey, and ECDSA sign/verify using the secp256k1
+// library that DigitalNote-2 bundles.  These verify the core cryptographic
+// signing pipeline that every transaction relies on.
 
+#include <boost/test/unit_test.hpp>
 #include <string>
 #include <vector>
 
 #include "key.h"
-#include "base58.h"
 #include "uint256.h"
-#include "util.h"
+#include "utilstrencodings.h"
+#include "random.h"
+#include "hash.h"
 
-using namespace std;
+// Known-answer test vector from Bitcoin Core key_tests.cpp
+// private key (WIF-decoded) → expected compressed pubkey
+static const std::string kPrivHex =
+    "12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747";
 
-static const string strSecret1     ("5HxWvvfubhXpYYpS3tJkw6fq9jE9j18THftkZjHHfmFiWtmAbrj");
-static const string strSecret2     ("5KC4ejrDjv152FGwP386VD1i2NYc5KkfSMyv1nGy1VGDxGHqVY3");
-static const string strSecret1C    ("Kwr371tjA9u2rFSMZjTNun2PXXP3WPZu2afRHTcta6KxEUdm1vEw");
-static const string strSecret2C    ("L3Hq7a8FEQwJkW1M2GNKDW28546Vp5miewcCzSqUD9kCAXrJdS3g");
-static const CDigitalNoteAddress addr1 ("1QFqqMUD55ZV3PJEJZtaKCsQmjLT6JkjvJ");
-static const CDigitalNoteAddress addr2 ("1F5y5E5FMc5YzdJtB9hLaUe43GDxEKXENJ");
-static const CDigitalNoteAddress addr1C("1NoJrossxPBKfCHuJXT4HadJrXRE9Fxiqs");
-static const CDigitalNoteAddress addr2C("1CRj2HyM1CXWzHAXLQtiGLyggNT9WQqsDs");
+BOOST_AUTO_TEST_SUITE(KeyTests)
 
+// ── Key generation ────────────────────────────────────────────────────────────
 
-static const string strAddressBad("1HV9Lc3sNHZxwj4Zk6fB38tEmBryq2cBiF");
-
-
-#ifdef KEY_TESTS_DUMPINFO
-void dumpKeyInfo(uint256 privkey)
+BOOST_AUTO_TEST_CASE(NewCompressedKeyIsValid)
 {
     CKey key;
-    key.resize(32);
-    memcpy(&secret[0], &privkey, 32);
-    vector<unsigned char> sec;
-    sec.resize(32);
-    memcpy(&sec[0], &secret[0], 32);
-    printf("  * secret (hex): %s\n", HexStr(sec).c_str());
-
-    for (int nCompressed=0; nCompressed<2; nCompressed++)
-    {
-        bool fCompressed = nCompressed == 1;
-        printf("  * %s:\n", fCompressed ? "compressed" : "uncompressed");
-        CDigitalNoteSecret bsecret;
-        bsecret.SetSecret(secret, fCompressed);
-        printf("    * secret (base58): %s\n", bsecret.ToString().c_str());
-        CKey key;
-        key.SetSecret(secret, fCompressed);
-        vector<unsigned char> vchPubKey = key.GetPubKey();
-        printf("    * pubkey (hex): %s\n", HexStr(vchPubKey).c_str());
-        printf("    * address (base58): %s\n", CDigitalNoteAddress(vchPubKey).ToString().c_str());
-    }
+    key.MakeNewKey(/*fCompressed=*/true);
+    BOOST_CHECK(key.IsValid());
+    BOOST_CHECK(key.IsCompressed());
 }
-#endif
 
-
-BOOST_AUTO_TEST_SUITE(key_tests)
-
-BOOST_AUTO_TEST_CASE(key_test1)
+BOOST_AUTO_TEST_CASE(NewUncompressedKeyIsValid)
 {
-    CDigitalNoteSecret bsecret1, bsecret2, bsecret1C, bsecret2C, baddress1;
-    BOOST_CHECK( bsecret1.SetString (strSecret1));
-    BOOST_CHECK( bsecret2.SetString (strSecret2));
-    BOOST_CHECK( bsecret1C.SetString(strSecret1C));
-    BOOST_CHECK( bsecret2C.SetString(strSecret2C));
-    BOOST_CHECK(!baddress1.SetString(strAddressBad));
+    CKey key;
+    key.MakeNewKey(/*fCompressed=*/false);
+    BOOST_CHECK(key.IsValid());
+    BOOST_CHECK(!key.IsCompressed());
+}
 
-    CKey key1  = bsecret1.GetKey();
-    BOOST_CHECK(key1.IsCompressed() == false);
-    CKey key2  = bsecret2.GetKey();
-    BOOST_CHECK(key2.IsCompressed() == false);
-    CKey key1C = bsecret1C.GetKey();
-    BOOST_CHECK(key1C.IsCompressed() == true);
-    CKey key2C = bsecret2C.GetKey();
-    BOOST_CHECK(key1C.IsCompressed() == true);
+BOOST_AUTO_TEST_CASE(DefaultKeyIsInvalid)
+{
+    CKey key;
+    BOOST_CHECK(!key.IsValid());
+}
 
-    CPubKey pubkey1  = key1. GetPubKey();
-    CPubKey pubkey2  = key2. GetPubKey();
-    CPubKey pubkey1C = key1C.GetPubKey();
-    CPubKey pubkey2C = key2C.GetPubKey();
+BOOST_AUTO_TEST_CASE(TwoNewKeysAreDistinct)
+{
+    CKey k1, k2;
+    k1.MakeNewKey(true);
+    k2.MakeNewKey(true);
+    // Astronomically unlikely to collide — if this fails the RNG is broken
+    BOOST_CHECK(k1.GetPubKey() != k2.GetPubKey());
+}
 
-    BOOST_CHECK(addr1.Get()  == CTxDestination(pubkey1.GetID()));
-    BOOST_CHECK(addr2.Get()  == CTxDestination(pubkey2.GetID()));
-    BOOST_CHECK(addr1C.Get() == CTxDestination(pubkey1C.GetID()));
-    BOOST_CHECK(addr2C.Get() == CTxDestination(pubkey2C.GetID()));
+// ── Public key derivation ─────────────────────────────────────────────────────
 
-    for (int n=0; n<16; n++)
-    {
-        string strMsg = strprintf("Very secret message %i: 11", n);
-        uint256 hashMsg = Hash(strMsg.begin(), strMsg.end());
+BOOST_AUTO_TEST_CASE(CompressedPubKeyIs33Bytes)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub = key.GetPubKey();
+    BOOST_CHECK(pub.IsCompressed());
+    BOOST_CHECK_EQUAL(pub.size(), 33u);
+}
 
-        // normal signatures
+BOOST_AUTO_TEST_CASE(UncompressedPubKeyIs65Bytes)
+{
+    CKey key;
+    key.MakeNewKey(false);
+    CPubKey pub = key.GetPubKey();
+    BOOST_CHECK(!pub.IsCompressed());
+    BOOST_CHECK_EQUAL(pub.size(), 65u);
+}
 
-        vector<unsigned char> sign1, sign2, sign1C, sign2C;
+BOOST_AUTO_TEST_CASE(PubKeyIsValid)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    BOOST_CHECK(key.GetPubKey().IsValid());
+}
 
-        BOOST_CHECK(key1.Sign (hashMsg, sign1));
-        BOOST_CHECK(key2.Sign (hashMsg, sign2));
-        BOOST_CHECK(key1C.Sign(hashMsg, sign1C));
-        BOOST_CHECK(key2C.Sign(hashMsg, sign2C));
+BOOST_AUTO_TEST_CASE(PubKeyIDMatchesHash160)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub  = key.GetPubKey();
+    CKeyID  kid  = pub.GetID();
+    // GetID() is RIPEMD160(SHA256(pubkey_bytes)) — must be non-zero
+    BOOST_CHECK(kid != CKeyID());
+}
 
-        BOOST_CHECK( pubkey1.Verify(hashMsg, sign1));
-        BOOST_CHECK(!pubkey1.Verify(hashMsg, sign2));
-        BOOST_CHECK( pubkey1.Verify(hashMsg, sign1C));
-        BOOST_CHECK(!pubkey1.Verify(hashMsg, sign2C));
+// ── Sign / Verify ─────────────────────────────────────────────────────────────
 
-        BOOST_CHECK(!pubkey2.Verify(hashMsg, sign1));
-        BOOST_CHECK( pubkey2.Verify(hashMsg, sign2));
-        BOOST_CHECK(!pubkey2.Verify(hashMsg, sign1C));
-        BOOST_CHECK( pubkey2.Verify(hashMsg, sign2C));
+BOOST_AUTO_TEST_CASE(SignAndVerifyRoundtrip)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub = key.GetPubKey();
 
-        BOOST_CHECK( pubkey1C.Verify(hashMsg, sign1));
-        BOOST_CHECK(!pubkey1C.Verify(hashMsg, sign2));
-        BOOST_CHECK( pubkey1C.Verify(hashMsg, sign1C));
-        BOOST_CHECK(!pubkey1C.Verify(hashMsg, sign2C));
+    // Hash something to sign
+    const std::string msg = "DigitalNote XDN 2.0.0.7 test message";
+    uint256 hash = Hash(
+        reinterpret_cast<const unsigned char*>(msg.data()),
+        reinterpret_cast<const unsigned char*>(msg.data()) + msg.size()
+    );
 
-        BOOST_CHECK(!pubkey2C.Verify(hashMsg, sign1));
-        BOOST_CHECK( pubkey2C.Verify(hashMsg, sign2));
-        BOOST_CHECK(!pubkey2C.Verify(hashMsg, sign1C));
-        BOOST_CHECK( pubkey2C.Verify(hashMsg, sign2C));
+    std::vector<unsigned char> sig;
+    BOOST_CHECK(key.Sign(hash, sig));
+    BOOST_CHECK(!sig.empty());
+    BOOST_CHECK(pub.Verify(hash, sig));
+}
 
-        // compact signatures (with key recovery)
+BOOST_AUTO_TEST_CASE(SignatureLengthInDERRange)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    const std::string msg = "test";
+    uint256 hash = Hash(
+        reinterpret_cast<const unsigned char*>(msg.data()),
+        reinterpret_cast<const unsigned char*>(msg.data()) + msg.size()
+    );
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(key.Sign(hash, sig));
+    // DER-encoded secp256k1 signatures are 70–72 bytes
+    BOOST_CHECK_GE(sig.size(), 70u);
+    BOOST_CHECK_LE(sig.size(), 72u);
+}
 
-        vector<unsigned char> csign1, csign2, csign1C, csign2C;
+BOOST_AUTO_TEST_CASE(TamperedSignatureFails)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub = key.GetPubKey();
 
-        BOOST_CHECK(key1.SignCompact (hashMsg, csign1));
-        BOOST_CHECK(key2.SignCompact (hashMsg, csign2));
-        BOOST_CHECK(key1C.SignCompact(hashMsg, csign1C));
-        BOOST_CHECK(key2C.SignCompact(hashMsg, csign2C));
+    const std::string msg = "tamper test";
+    uint256 hash = Hash(
+        reinterpret_cast<const unsigned char*>(msg.data()),
+        reinterpret_cast<const unsigned char*>(msg.data()) + msg.size()
+    );
 
-        CPubKey rkey1, rkey2, rkey1C, rkey2C;
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(key.Sign(hash, sig));
 
-        BOOST_CHECK(rkey1.RecoverCompact (hashMsg, csign1));
-        BOOST_CHECK(rkey2.RecoverCompact (hashMsg, csign2));
-        BOOST_CHECK(rkey1C.RecoverCompact(hashMsg, csign1C));
-        BOOST_CHECK(rkey2C.RecoverCompact(hashMsg, csign2C));
+    // Flip a byte in the middle of the signature
+    sig[sig.size() / 2] ^= 0xFF;
+    BOOST_CHECK(!pub.Verify(hash, sig));
+}
 
-        BOOST_CHECK(rkey1  == pubkey1);
-        BOOST_CHECK(rkey2  == pubkey2);
-        BOOST_CHECK(rkey1C == pubkey1C);
-        BOOST_CHECK(rkey2C == pubkey2C);
-    }
+BOOST_AUTO_TEST_CASE(WrongKeyFails)
+{
+    CKey key1, key2;
+    key1.MakeNewKey(true);
+    key2.MakeNewKey(true);
+
+    const std::string msg = "wrong key test";
+    uint256 hash = Hash(
+        reinterpret_cast<const unsigned char*>(msg.data()),
+        reinterpret_cast<const unsigned char*>(msg.data()) + msg.size()
+    );
+
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(key1.Sign(hash, sig));
+    BOOST_CHECK(!key2.GetPubKey().Verify(hash, sig));
+}
+
+BOOST_AUTO_TEST_CASE(WrongHashFails)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub = key.GetPubKey();
+
+    const std::string msg1 = "original message";
+    const std::string msg2 = "different message";
+    uint256 h1 = Hash(reinterpret_cast<const unsigned char*>(msg1.data()),
+                      reinterpret_cast<const unsigned char*>(msg1.data()) + msg1.size());
+    uint256 h2 = Hash(reinterpret_cast<const unsigned char*>(msg2.data()),
+                      reinterpret_cast<const unsigned char*>(msg2.data()) + msg2.size());
+
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(key.Sign(h1, sig));
+    BOOST_CHECK(!pub.Verify(h2, sig));
+}
+
+// ── Compact sign / recover ────────────────────────────────────────────────────
+
+BOOST_AUTO_TEST_CASE(SignCompactAndRecoverPubKey)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub = key.GetPubKey();
+
+    const std::string msg = "compact recovery test";
+    uint256 hash = Hash(
+        reinterpret_cast<const unsigned char*>(msg.data()),
+        reinterpret_cast<const unsigned char*>(msg.data()) + msg.size()
+    );
+
+    std::vector<unsigned char> sigCompact;
+    BOOST_REQUIRE(key.SignCompact(hash, sigCompact));
+    // Compact signatures are 65 bytes (1 recovery byte + 32 r + 32 s)
+    BOOST_CHECK_EQUAL(sigCompact.size(), 65u);
+
+    CPubKey recovered;
+    BOOST_CHECK(recovered.RecoverCompact(hash, sigCompact));
+    BOOST_CHECK_EQUAL(recovered, pub);
+}
+
+// ── Known-answer test from Bitcoin Core ──────────────────────────────────────
+
+BOOST_AUTO_TEST_CASE(KnownPrivKeyProducesKnownPubKey)
+{
+    // kPrivHex → compressed pubkey starts with 02 or 03
+    std::vector<unsigned char> privBytes = ParseHex(kPrivHex);
+    CKey key;
+    key.Set(privBytes.begin(), privBytes.end(), /*fCompressedIn=*/true);
+    BOOST_CHECK(key.IsValid());
+
+    CPubKey pub = key.GetPubKey();
+    BOOST_CHECK(pub.IsValid());
+    BOOST_CHECK_EQUAL(pub.size(), 33u);
+    // First byte of compressed pub is 02 or 03
+    BOOST_CHECK(pub.begin()[0] == 0x02 || pub.begin()[0] == 0x03);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

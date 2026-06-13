@@ -440,9 +440,11 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache) const
 	
 	CAmount nCredit = 0;
 	
+	// v2.0.0.8 CW4 Fix C: mmTxSpends-based reader (pwallet non-null per guard at lines 425-428)
+	const uint256 hashTx = GetHash();
 	for (unsigned int i = 0; i < vout.size(); i++)
 	{
-		if (!IsSpent(i))
+		if (!pwallet->IsSpent(hashTx, i))
 		{
 			const CTxOut &txout = vout[i];
 			nCredit += pwallet->GetCredit(txout, ISMINE_SPENDABLE);
@@ -984,4 +986,3 @@ void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
 
 	mapValue["n"] = i64tostr(nOrderPos);
 }
-

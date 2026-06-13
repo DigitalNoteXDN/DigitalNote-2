@@ -60,6 +60,10 @@ static const CRPCCommand vRPCCommands[] =
 	{ "spork",                  &spork,                  true,      false,      false },
 	{ "masternode",             &masternode,             true,      false,      true },
 	{ "masternodelist",         &masternodelist,         true,      false,      false },
+	{ "getmnlastpaid",          &getmnlastpaid,          true,      false,      false },
+	{ "getvoteinfo",            &getvoteinfo,            true,      false,      false },
+	{ "listequivocators",       &listequivocators,       true,      false,      false },
+	{ "clearequivocator",       &clearequivocator,       true,      false,      false },
 
 #ifdef ENABLE_WALLET
 	{ "getmininginfo",          &getmininginfo,          true,      false,     false },
@@ -99,10 +103,15 @@ static const CRPCCommand vRPCCommands[] =
 	{ "listsinceblock",         &listsinceblock,         false,     false,     true },
 	{ "dumpprivkey",            &dumpprivkey,            false,     false,     true },
 	{ "dumpwallet",             &dumpwallet,             true,      false,     true },
+	{ "dumprawwallet",          &dumprawwallet,          false,     false,     true },
+	{ "createfromdumpfile",     &createfromdumpfile,     false,     false,     true },
 	{ "importprivkey",          &importprivkey,          false,     false,     true },
 	{ "importwallet",           &importwallet,           false,     false,     true },
 	{ "importaddress",          &importaddress,          false,     false,     true },
+	{ "removeaddress",          &removeaddress,          false,     false,     true },
 	{ "listunspent",            &listunspent,            false,     false,     true },
+	{ "lockunspent",            &lockunspent,            false,     false,     true },
+	{ "listlockunspent",        &listlockunspent,        false,     false,     true },
 	{ "cclistcoins",            &cclistcoins,            false,     false,     true },
 	{ "settxfee",               &settxfee,               false,     false,     true },
 	{ "getsubsidy",             &getsubsidy,             true,      true,      false },
@@ -138,10 +147,7 @@ static const CRPCCommand vRPCCommands[] =
 	{ "mintblock",              &mintblock,              false,     false,     false },
 	{ "debugrpcallowip",        &debugrpcallowip,        false,     false,     false },
 	
-#ifdef USE_BIP39
-	{ "bip39_new_mnemonic",     &bip39_new_mnemonic,     false,     false,     false },
-	{ "bip39_get_privkey",      &bip39_get_privkey,      false,     false,     false }
-#endif // USE_BIP39
+	{ "getrecoveryphrase",      &getrecoveryphrase,      false,     false,     true  }
 };
 
 CRPCTable::CRPCTable()

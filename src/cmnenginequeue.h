@@ -1,6 +1,7 @@
 #ifndef CMNENGINEQUEUE_H
 #define CMNENGINEQUEUE_H
 
+#include <cstdint>
 #include <vector>
 
 #include "ctxin.h"

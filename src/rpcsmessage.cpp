@@ -972,7 +972,7 @@ json_spirit::Value smsgbuckets(const json_spirit::Array& params, bool fHelp)
 				std::string sBucket = boost::lexical_cast<std::string>(it->first);
 				std::string sFile = sBucket + "_01.dat";
 				
-				snprintf(cbuf, sizeof(cbuf), "%" PRIszu, tokenSet.size());
+				snprintf(cbuf, sizeof(cbuf), "%llu", (unsigned long long)tokenSet.size());
 				std::string snContents(cbuf);
 				
 				std::string sHash = boost::lexical_cast<std::string>(it->second.hash);

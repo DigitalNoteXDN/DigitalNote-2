@@ -32,6 +32,7 @@ public:
     QString getMasternodeCountString() const;
     int getNumBlocks() const;
     int getNumBlocksAtStartup();
+    int getNumBlocksOfPeers() const;  // highest block height reported by connected peers
 
     quint64 getTotalBytesRecv() const;
     quint64 getTotalBytesSent() const;

@@ -6,6 +6,7 @@
 
 // json spirit version 4.03
 
+#include <cstdint>
 #include "json_spirit_value.h"
 #include "json_spirit_error_position.h"
 #include "../boost_placeholders.h"

@@ -1,6 +1,7 @@
 #ifndef CBLOCK_H
 #define CBLOCK_H
 
+#include <cstdint>
 #include <vector>
 #include <memory>
 
@@ -12,6 +13,25 @@ class CTxDB;
 class CWallet;
 class CBlock;
 class CTransaction;
+class CScript;
+class CTxIn;
+class CNode;  // v2.0.0.8 PB-MN-FETCH Lite: pfrom parameter on CheckBlock
+
+// v2.0.0.8 M4: validation hook.  Defined in cblock.cpp.  Returns the payee
+// that consensus expects at nBlockHeight.  Pre-activation OR
+// post-activation-with-no-consensus: defers to legacy
+// masternodePayments.GetBlockPayee.  Post-activation with consensus: returns
+// the canonical voted payee from voteTracker.  M5 routes block CREATION
+// through this same hook so creators agree with validators post-activation.
+bool GetEnforcedPayee(int nBlockHeight, CScript &payeeOut, CTxIn &vinOut);
+
+// v2.0.0.8 PB-16: expose the spork-aware activation height so consensus-
+// adjacent code (notably CMasternodeMan::FindOldestNotInVecChainDerived)
+// can clamp pre-activation `lastpaid` values to a single tied "epoch
+// zero" -- preventing stale legacy lastpaid distributions from biasing
+// post-activation rotation.  Returns INT_MAX when activation is not set
+// (the v2.0.0.8 mainnet ship default until spork broadcast).
+int GetEffectiveVotedConsensusActivationHeight();
 
 typedef std::unique_ptr<CBlock> CBlockPtr;
 
@@ -102,7 +122,13 @@ public:
 	bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
 	bool SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew);
 	bool AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const uint256& hashProof);
-	bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true, bool fCheckSig=true) const;
+	// v2.0.0.8 PB-MN-FETCH Lite: pfrom is the peer that delivered this block,
+	// or NULL if the block came from a non-network source (local miner,
+	// startup verify pass, ConnectBlock internal path).  When non-NULL,
+	// CheckBlock may fire fire-and-forget dseg requests to that peer on
+	// encountering masternode payees not in our list, to speed mn-list
+	// propagation catch-up.  See CMasternodeMan::RequestMissingPayeeFromPeer.
+	bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true, bool fCheckSig=true, CNode* pfrom=NULL) const;
 	bool AcceptBlock();
 	bool SignBlock(CWallet& keystore, int64_t nFees);
 	bool CheckBlockSignature() const;

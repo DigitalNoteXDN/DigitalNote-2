@@ -27,6 +27,7 @@
 #include "cstealthkeymetadata.h"
 #include "cstealthaddress.h"
 #include "csporkmessage.h"
+#include "cmasternodevotequeue.h"
 #include "cmasternodepaymentwinner.h"
 #include "cmessageheader.h"
 #include "cmasternodeman.h"
@@ -364,6 +365,7 @@ TmpUnserialize2(CDataStream, CPubKey);
 TmpUnserialize2(CDataStream, CScriptCompressor);
 TmpUnserialize2(CDataStream, CService);
 TmpUnserialize2(CDataStream, CSporkMessage);
+TmpUnserialize2(CDataStream, CMasternodeVoteQueue);
 TmpUnserialize2(CDataStream, CStealthAddress);
 TmpUnserialize2(CDataStream, CStealthKeyMetadata);
 TmpUnserialize2(CDataStream, CSubNet);

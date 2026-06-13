@@ -1,6 +1,7 @@
 #ifndef CSCRIPT_H
 #define CSCRIPT_H
 
+#include <cstdint>
 #include <vector>
 
 #include "types/ctxdestination.h"

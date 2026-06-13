@@ -1,6 +1,7 @@
 #ifndef CMNENGINEBROADCASTTX_H
 #define CMNENGINEBROADCASTTX_H
 
+#include <cstdint>
 #include <vector>
 
 #include "ctransaction.h"

@@ -28,6 +28,9 @@
 #include "ckeymetadata.h"
 #include "version.h"
 #include "rpcprotocol.h"
+#include "db.h"
+#include "walletrebuild.h"
+#include <boost/filesystem/path.hpp>
 
 void EnsureWalletIsUnlocked();
 
@@ -298,6 +301,61 @@ json_spirit::Value importaddress(const json_spirit::Array& params, bool fHelp)
 	return json_spirit::Value::null;
 }
 
+json_spirit::Value removeaddress(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() != 1)
+	{
+		throw std::runtime_error(
+			"removeaddress \"address\"\n"
+			"\nStops the wallet from tracking a watch-only address.\n"
+			"This does not affect any funds (watch-only is observe-only); it simply\n"
+			"removes the address from the wallet's tracking set.\n"
+			"\nArguments:\n"
+			"1. \"address\"          (string, required) The address or script (in hex) to stop watching\n"
+			"\nResult:\n"
+			"true|false             (boolean) Whether the address was removed\n"
+			"\nExamples:\n"
+			"\nStop watching an address\n"
+			+ HelpExampleCli("removeaddress", "\"myaddress\"") +
+			"\nAs a JSON-RPC call\n"
+			+ HelpExampleRpc("removeaddress", "\"myaddress\"")
+		);
+	}
+
+	CScript script;
+
+	CDigitalNoteAddress address(params[0].get_str());
+	if (address.IsValid())
+	{
+		script = GetScriptForDestination(address.Get());
+	}
+	else if (IsHex(params[0].get_str()))
+	{
+		std::vector<unsigned char> data(ParseHex(params[0].get_str()));
+		script = CScript(data.begin(), data.end());
+	}
+	else
+	{
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid DigitalNote address or script");
+	}
+
+	LOCK2(cs_main, pwalletMain->cs_wallet);
+
+	if (!pwalletMain->HaveWatchOnly(script))
+	{
+		throw JSONRPCError(RPC_WALLET_ERROR, "Address is not currently watched");
+	}
+
+	if (!pwalletMain->RemoveWatchOnly(script))
+	{
+		throw JSONRPCError(RPC_WALLET_ERROR, "Error removing watch-only address from wallet");
+	}
+
+	pwalletMain->MarkDirty();
+
+	return true;
+}
+
 json_spirit::Value importwallet(const json_spirit::Array& params, bool fHelp)
 {
 	if (fHelp || params.size() != 1)
@@ -553,3 +611,89 @@ json_spirit::Value dumpwallet(const json_spirit::Array& params, bool fHelp)
 	return json_spirit::Value::null;
 }
 
+
+json_spirit::Value dumprawwallet(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() != 1)
+	{
+		throw std::runtime_error(
+			"dumprawwallet \"filename\"\n"
+			"\n"
+			"Hidden RPC. Dumps every BDB record in the wallet (in cursor order)\n"
+			"to <filename> in the rebuild-dump v1 format. Unlike dumpwallet,\n"
+			"this preserves ALL record types -- watch-only addresses, A4 coin\n"
+			"locks, stealth addresses, multisig redeem scripts, the BIP39\n"
+			"mnemonic master key, address book entries, transaction history --\n"
+			"so the dumpfile can be used to reconstruct an exact-equivalent\n"
+			"wallet.dat (modulo BDB free-page bloat) via createfromdumpfile or\n"
+			"the -rebuildwallet startup path.\n"
+			"\n"
+			"Does not require the wallet to be unlocked: the dumpfile contains\n"
+			"encrypted-key records as-is, never plaintext private keys.\n"
+			"\n"
+			"WARNING: while this RPC runs, BDB writes from the live wallet may\n"
+			"interleave with cursor reads, producing an inconsistent snapshot.\n"
+			"For a guaranteed-consistent dump use the -rebuildwallet startup\n"
+			"path, which runs with the wallet closed.\n"
+			"\n"
+			"Note: on Windows, always quote paths to avoid backslash mangling:\n"
+			"  dumprawwallet \"C:\\temp\\test.dump\"        (correct)\n"
+			"  dumprawwallet C:\\temp\\test.dump          (avoid; relies on\n"
+			"                                              the GUI console's\n"
+			"                                              escape parsing)"
+		);
+	}
+
+	boost::filesystem::path dumpfilePath(params[0].get_str());
+	std::string strError;
+	if (!DumpAllRecords(bitdb, "wallet.dat", dumpfilePath, strError))
+	{
+		throw JSONRPCError(RPC_WALLET_ERROR, strError);
+	}
+
+	return json_spirit::Value::null;
+}
+
+
+json_spirit::Value createfromdumpfile(const json_spirit::Array& params, bool fHelp)
+{
+	if (fHelp || params.size() != 2)
+	{
+		throw std::runtime_error(
+			"createfromdumpfile \"dumpfile\" \"new-wallet-filename\"\n"
+			"\n"
+			"Hidden RPC. Reads a v1 dumpfile (as produced by dumprawwallet\n"
+			"or by the -rebuildwallet startup path) and writes a fresh BDB\n"
+			"wallet at <new-wallet-filename> within the data directory.\n"
+			"Refuses to overwrite an existing destination.\n"
+			"\n"
+			"Validates the dump's double-SHA256 checksum and record count\n"
+			"BEFORE creating any destination state. A malformed or tampered\n"
+			"dumpfile produces no partial output.\n"
+			"\n"
+			"This is the inverse of dumprawwallet. Together they implement\n"
+			"the same dump-and-restore mechanism that the -rebuildwallet\n"
+			"orchestrator uses internally; this RPC is exposed for testing\n"
+			"and for advanced manual recovery workflows.\n"
+			"\n"
+			"Note: <new-wallet-filename> is a filename relative to the data\n"
+			"directory, NOT an absolute path. The new file is created via\n"
+			"the same BDB environment as the live wallet.\n"
+			"\n"
+			"Note: on Windows, always quote the dumpfile path to avoid\n"
+			"backslash mangling:\n"
+			"  createfromdumpfile \"C:\\temp\\test.dump\" roundtrip.dat   (correct)\n"
+			"  createfromdumpfile C:\\temp\\test.dump roundtrip.dat     (avoid)"
+		);
+	}
+
+	boost::filesystem::path dumpfilePath(params[0].get_str());
+	std::string newFilename = params[1].get_str();
+	std::string strError;
+	if (!CreateFromDump(bitdb, dumpfilePath, newFilename, strError))
+	{
+		throw JSONRPCError(RPC_WALLET_ERROR, strError);
+	}
+
+	return json_spirit::Value::null;
+}

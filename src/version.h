@@ -26,7 +26,20 @@ static const int DATABASE_VERSION = 70509;
 //
 // network protocol versioning
 //
-static const int PROTOCOL_VERSION = 62054;
+// Lineage (62057 and 62058 are BOTH v2.0.0.8 -- distinguished pre- vs
+// post-queue so nodes can tell M1Q-capable peers from the earlier build):
+//   62055 = v2.0.0.7
+//   62057 = v2.0.0.8 PRE-QUEUE  (per-height single vote -- the earlier
+//           testnet build; this protocol is now superseded/dead)
+//   62058 = v2.0.0.8 POST-QUEUE (this build: M1Q queue-based voting).
+//           Adds the mnvotequeue / getmnqueues messages; it is the version
+//           at which a node is counted as a queue-voting peer.
+//
+// MIN_PEER_PROTO_VERSION is intentionally NOT bumped -- v2.0.0.8 nodes
+// continue to accept v2.0.0.7 peers (62055) for the entire deployment
+// window, and v2.0.0.7 peers continue to accept v2.0.0.8 nodes because
+// 62056 > 62052.  Soft-fork compatible.
+static const int PROTOCOL_VERSION = 62058;
 
 // intial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
@@ -63,8 +76,5 @@ static const int BIP0031_VERSION = 60000;
 
 // "mempool" command, enhanced "getdata" behavior starts with this version:
 static const int MEMPOOL_GD_VERSION = 60002;
-
-// MasterNode peer IP advanced relay system start (Unfinished, not used)
-static const int64_t MIN_MASTERNODE_ADV_RELAY = 9993058800; // OFF (NOT TOGGLED)
 
 #endif

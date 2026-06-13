@@ -37,6 +37,7 @@ public:
 	virtual bool RemoveWatchOnly(const CScript &dest);
 	virtual bool HaveWatchOnly(const CScript &dest) const;
 	virtual bool HaveWatchOnly() const;
+	virtual void GetWatchOnly(std::set<CScript>& setOut) const;
 };
 
 #endif // CBASICKEYSTORE_H

@@ -1,6 +1,7 @@
 #ifndef CTRANSACTION_H
 #define CTRANSACTION_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <map>

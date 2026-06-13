@@ -1,6 +1,7 @@
 #ifndef CMASTERNODEPAYMENTWINNER_H
 #define CMASTERNODEPAYMENTWINNER_H
 
+#include <cstdint>
 #include <vector>
 
 #include "ctxin.h"

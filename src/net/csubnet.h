@@ -1,6 +1,7 @@
 #ifndef NET_CSUBNET_H
 #define NET_CSUBNET_H
 
+#include <cstdint>
 #include <string>
 
 #include "cnetaddr.h"

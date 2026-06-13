@@ -147,6 +147,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 	{ "getblockbynumber", 0 },
 	{ "getblockbynumber", 1 },
 	{ "getblockhash", 0 },
+	{ "getvoteinfo", 0 },
 	{ "cclistcoins", 0 },
 	{ "move", 2 },
 	{ "move", 3 },
@@ -178,6 +179,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
 	{ "listunspent", 0 },
 	{ "listunspent", 1 },
 	{ "listunspent", 2 },
+	{ "lockunspent", 0 },
+	{ "lockunspent", 1 },
 	{ "getrawtransaction", 1 },
 	{ "createrawtransaction", 0 },
 	{ "createrawtransaction", 1 },
@@ -194,6 +197,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 	{ "searchrawtransactions", 1 },
 	{ "searchrawtransactions", 2 },
 	{ "searchrawtransactions", 3 },
+	{ "spork", 1 },
 };
 
 class CRPCConvertTable

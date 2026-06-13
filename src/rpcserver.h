@@ -1,6 +1,7 @@
 #ifndef RPCSERVER_H
 #define RPCSERVER_H
 
+#include <cstdint>
 #include <list>
 #include <map>
 #include <boost/function.hpp>
@@ -79,8 +80,11 @@ extern json_spirit::Value getnettotals(const json_spirit::Array& params, bool fH
 extern json_spirit::Value dumpwallet(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value importwallet(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value importaddress(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value removeaddress(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value dumpprivkey(const json_spirit::Array& params, bool fHelp); // in rpcdump.cpp
 extern json_spirit::Value importprivkey(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value dumprawwallet(const json_spirit::Array& params, bool fHelp); // hidden, walletrebuild
+extern json_spirit::Value createfromdumpfile(const json_spirit::Array& params, bool fHelp); // hidden, walletrebuild
 
 extern json_spirit::Value sendalert(const json_spirit::Array& params, bool fHelp);
 
@@ -139,6 +143,8 @@ extern json_spirit::Value getrawtransaction(const json_spirit::Array& params, bo
 extern json_spirit::Value searchrawtransactions(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value listunspent(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value lockunspent(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listlockunspent(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value createrawtransaction(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value decoderawtransaction(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value decodescript(const json_spirit::Array& params, bool fHelp);
@@ -165,6 +171,10 @@ extern json_spirit::Value scanforstealthtxns(const json_spirit::Array& params, b
 extern json_spirit::Value spork(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value masternode(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value masternodelist(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getmnlastpaid(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getvoteinfo(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listequivocators(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value clearequivocator(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value smsgenable(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value smsgdisable(const json_spirit::Array& params, bool fHelp);
@@ -186,9 +196,6 @@ extern json_spirit::Value cclistcoins(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value mintblock(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value debugrpcallowip(const json_spirit::Array& params, bool fHelp);
 
-#ifdef USE_BIP39
-json_spirit::Value bip39_new_mnemonic(const json_spirit::Array& params, bool fHelp);
-json_spirit::Value bip39_get_privkey(const json_spirit::Array& params, bool fHelp);
-#endif // USE_BIP39
+json_spirit::Value getrecoveryphrase(const json_spirit::Array& params, bool fHelp);
 
 #endif // RPCSERVER_H

@@ -1,6 +1,7 @@
 #ifndef MINING_H
 #define MINING_H
 
+#include <cstdint>
 #include "main_const.h"
 
 /** Minimum nCoinAge required to stake PoS */

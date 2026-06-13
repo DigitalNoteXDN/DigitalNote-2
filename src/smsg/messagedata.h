@@ -1,6 +1,7 @@
 #ifndef SMSG_MESSAGE_H
 #define SMSG_MESSAGE_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

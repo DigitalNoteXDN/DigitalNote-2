@@ -3475,6 +3475,22 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
 			{
 				return ISMINE_SPENDABLE;
 			}
+			
+			// importaddress stores the P2PKH form of an address in
+			// setWatchOnly (OP_DUP OP_HASH160 <keyID> OP_EQUALVERIFY
+			// OP_CHECKSIG).  But coinstakes and some receives use the
+			// P2PK form (<pubkey> OP_CHECKSIG) for the SAME logical
+			// address.  Without this check, those P2PK outputs are
+			// invisible to watch-only tracking -- stake rewards
+			// (which are coinstakes paying back to the staker via
+			// P2PK) wouldn't be tracked at all.  Construct the P2PKH
+			// equivalent and check that against setWatchOnly.
+			CScript p2pkhEquiv;
+			p2pkhEquiv << OP_DUP << OP_HASH160 << keyID << OP_EQUALVERIFY << OP_CHECKSIG;
+			if (keystore.HaveWatchOnly(p2pkhEquiv))
+			{
+				return ISMINE_WATCH_ONLY;
+			}
 		}
 		break;
 		
@@ -4113,4 +4129,3 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
 
 	return script;
 }
-

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "net/network.h"
+#include <cstdint> 
 
 class CNetAddr;
 

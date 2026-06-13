@@ -22,9 +22,11 @@
 #include "ctxout.h"
 #include "ctransaction.h"
 #include "cmnenginequeue.h"
+#include "coutpoint.h"
 #include "uint/uint160.h"
 #include "uint/uint256.h"
 #include "csporkmessage.h"
+#include "cmasternodevotequeue.h"
 #include "cconsensusvote.h"
 #include "cblock.h"
 #include "cunsignedalert.h"
@@ -513,6 +515,7 @@ template CDataStream& CDataStream::operator<< <std::vector<CTxOut>>(std::vector<
 template CDataStream& CDataStream::operator<< <CTransaction>(CTransaction const&);
 template CDataStream& CDataStream::operator<< <CMNengineQueue>(CMNengineQueue const&);
 template CDataStream& CDataStream::operator<< <CSporkMessage>(CSporkMessage const&);
+template CDataStream& CDataStream::operator<< <CMasternodeVoteQueue>(CMasternodeVoteQueue const&);
 template CDataStream& CDataStream::operator<< <CBlock>(CBlock const&);
 template CDataStream& CDataStream::operator<< <CUnsignedAlert>(CUnsignedAlert const&);
 template CDataStream& CDataStream::operator<< <CBigNum>(CBigNum const&);
@@ -532,6 +535,10 @@ template CDataStream& CDataStream::operator<< <CKeyMetadata>(CKeyMetadata const&
 template CDataStream& CDataStream::operator<< <CAccount>(CAccount const&);
 template CDataStream& CDataStream::operator<< <CMasterKey>(CMasterKey const&);
 template CDataStream& CDataStream::operator<< <CKeyPool>(CKeyPool const&);
+
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template CDataStream& CDataStream::operator<< <COutPoint>(COutPoint const&);
+template CDataStream& CDataStream::operator<< <std::pair<std::string, COutPoint>>(std::pair<std::string, COutPoint> const&);
 
 template<typename T>
 CDataStream& CDataStream::operator>>(T& obj)
@@ -581,6 +588,7 @@ template CDataStream& CDataStream::operator>><CPubKey>(CPubKey&);
 template CDataStream& CDataStream::operator>><CScript>(CScript&);
 template CDataStream& CDataStream::operator>><CService>(CService&);
 template CDataStream& CDataStream::operator>><CSporkMessage>(CSporkMessage&);
+template CDataStream& CDataStream::operator>><CMasternodeVoteQueue>(CMasternodeVoteQueue&);
 template CDataStream& CDataStream::operator>><CStealthAddress>(CStealthAddress&);
 template CDataStream& CDataStream::operator>><CStealthKeyMetadata>(CStealthKeyMetadata&);
 template CDataStream& CDataStream::operator>><CTransaction>(CTransaction&);
@@ -594,6 +602,9 @@ template CDataStream& CDataStream::operator>><DigitalNote::SMSG::Stored>(Digital
 template CDataStream& CDataStream::operator>><mapValue_t>(mapValue_t&);
 template CDataStream& CDataStream::operator>><uint160>(uint160&);
 template CDataStream& CDataStream::operator>><uint256>(uint256&);
+
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template CDataStream& CDataStream::operator>><COutPoint>(COutPoint&);
 
 void CDataStream::GetAndClear(CSerializeData &data)
 {
