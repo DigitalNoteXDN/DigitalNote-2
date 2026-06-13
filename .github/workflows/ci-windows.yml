@@ -22,10 +22,10 @@ on:
         default: ""
 
 env:
-  BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
+  BUILDER_REPO: https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
   JOBS: 4
   # Pre-built Qt 5.15.7 static for MinGW64 — published to GitHub Releases.
-  QT_RELEASE_URL_X64: https://github.com/rubber-duckie-au/DigitalNote-Builder/releases/download/qt-static-5.15.7-mingw64/qt-5.15.7-static-mingw64.tar.gz
+  QT_RELEASE_URL_X64: https://github.com/DigitalNoteXDN/DigitalNote-Builder/releases/download/qt-static-5.15.7-mingw64/qt-5.15.7-static-mingw64.tar.gz
 
 jobs:
   build-windows-x64:
@@ -44,7 +44,6 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       # ── 2. MSYS2 MinGW64 ───────────────────────────────────────────────────
       - name: Set up MSYS2 MinGW64
@@ -78,7 +77,7 @@ jobs:
         run: |
           cd ~
           if [ ! -d DigitalNote-Builder ]; then
-            git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git clone https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
           else
             cd DigitalNote-Builder && git pull origin master
           fi
@@ -98,11 +97,11 @@ jobs:
         if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "Downloading pre-built Qt 5.15.7..."
           gh release download qt-static-5.15.7-mingw64 `
-            --repo rubber-duckie-au/DigitalNote-Builder `
+            --repo DigitalNoteXDN/DigitalNote-Builder `
             --pattern "qt-5.15.7-static-mingw64.tar.gz" `
             --output "C:\\qt-prebuilt.tar.gz"
           Write-Host "Download complete: $((Get-Item C:\qt-prebuilt.tar.gz).Length) bytes"

@@ -22,7 +22,7 @@ on:
         default: ""
 
 env:
-  BUILDER_REPO: https://github.com/rubber-duckie-au/DigitalNote-Builder.git
+  BUILDER_REPO: https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
   JOBS: 4
 
 jobs:
@@ -41,7 +41,6 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Cache fast libraries
         uses: actions/cache@v4
@@ -72,7 +71,7 @@ jobs:
             # Initialize in place and pull the repo on top — cached untracked
             # files in libs/ are preserved.
             git init -q
-            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git remote add origin https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
             git fetch -q --depth=1 origin master
             git reset -q --hard origin/master
           fi
@@ -124,7 +123,6 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Cache Qt
         uses: actions/cache@v4
@@ -148,7 +146,7 @@ jobs:
             # Initialize in place and pull the repo on top — cached untracked
             # files in libs/ are preserved.
             git init -q
-            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git remote add origin https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
             git fetch -q --depth=1 origin master
             git reset -q --hard origin/master
           fi
@@ -184,7 +182,6 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Restore fast libraries from cache
         uses: actions/cache@v4
@@ -221,7 +218,7 @@ jobs:
             # Initialize in place and pull the repo on top — cached untracked
             # files in libs/ are preserved.
             git init -q
-            git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git
+            git remote add origin https://github.com/DigitalNoteXDN/DigitalNote-Builder.git
             git fetch -q --depth=1 origin master
             git reset -q --hard origin/master
           fi

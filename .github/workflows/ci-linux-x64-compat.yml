@@ -92,11 +92,10 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Clone DigitalNote-Builder
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+          git clone https://github.com/DigitalNoteXDN/DigitalNote-Builder.git \
             ${{ env.BUILDER }}
           mkdir -p ${{ env.BUILDER }}/linux/x64/libs
 
@@ -181,11 +180,10 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           submodules: false
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Clone DigitalNote-Builder
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/rubber-duckie-au/DigitalNote-Builder.git \
+          git clone https://github.com/DigitalNoteXDN/DigitalNote-Builder.git \
             ${{ env.BUILDER }}
           mkdir -p ${{ env.BUILDER }}/linux/x64/libs
 

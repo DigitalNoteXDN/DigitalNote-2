@@ -117,7 +117,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
 
       # Resolve the effective tag name once and re-use it everywhere below.
       # - For tag-push events: github.ref_name is already "v2.0.0.7"
