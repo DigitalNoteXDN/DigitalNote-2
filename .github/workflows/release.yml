@@ -275,13 +275,11 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -n "$PREV_TAG" ]; then
-            CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges > /tmp/changelog.txt
           else
-            CHANGES=$(git log --pretty=format:"- %s (%h)" --no-merges -30)
+            git log --pretty=format:"- %s (%h)" --no-merges -30 > /tmp/changelog.txt
           fi
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGES"       >> $GITHUB_OUTPUT
-          echo "EOF"            >> $GITHUB_OUTPUT
+          echo "Wrote $(wc -l < /tmp/changelog.txt) changelog entries to /tmp/changelog.txt"
 
       - name: Build release body
         id: body
@@ -326,7 +324,10 @@ jobs:
             echo "See \`SHA256SUMS.txt\` attached below."
             echo
             echo "### Changes since last release"
-            echo "${{ steps.changelog.outputs.CHANGELOG }}"
+            # cat instead of echo with ${{ }} expansion — commit messages
+            # contain unescaped parens, angle brackets, backticks, etc. which
+            # would break the shell parser if substituted via ${{ ... }}.
+            cat /tmp/changelog.txt
           } > /tmp/release-body.md
 
           echo "BODY_FILE=/tmp/release-body.md" >> $GITHUB_OUTPUT
