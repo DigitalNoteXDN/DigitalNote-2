@@ -1,0 +1,319 @@
+name: CI - Linux x64 (compat)
+
+# COMPAT BUILD: produces a Linux x64 binary that runs on Ubuntu 20.04+
+# (glibc 2.31+) instead of requiring the runner's modern glibc. Built
+# inside a docker container running ubuntu:20.04 — the host runner stays
+# on whatever ubuntu-latest provides; only the build environment is
+# pinned to the older OS. Combined with -static-libstdc++ -static-libgcc
+# (set in compiler_settings.pri's linux scope), the resulting binary
+# runs on any glibc >= 2.31.
+#
+# This file lives alongside ci-linux-x64.yml during the rollout. Once
+# the compat build proves itself across several releases, the plan is
+# to consolidate by replacing ci-linux-x64.yml with this approach.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build (leave empty / blank choice to use the branch from 'Use workflow from' above)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - master
+          - 2.0.0.7-testing
+          - 2.0.0.8-testing
+        default: ""
+  workflow_call:
+    inputs:
+      branch:
+        description: "Branch / ref to build (passed by release.yml)"
+        required: false
+        type: string
+        default: ""
+
+env:
+  JOBS: 4
+  # Absolute path inside the container — actions/cache does NOT allow ..
+  BUILDER: /__w/DigitalNote-2/DigitalNote-Builder
+  # Dev packages needed for both libs compile and the Qt wallet's link
+  # against system X11/XCB libraries. Defined once at workflow level so
+  # both jobs get the same set — divergence between them would surface
+  # as confusing link-time errors only on the wallet build.
+  DEV_PACKAGES: >-
+    build-essential
+    autoconf automake libtool pkg-config
+    wget xz-utils
+    python3
+    libgmp-dev
+    libfreetype6-dev libfontconfig1-dev
+    libx11-dev libxcb1-dev libxext-dev libxfixes-dev
+    libxi-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev
+    libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev
+    libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev
+    libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev
+    libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev
+    libxcb-xkb-dev
+    libdbus-1-dev
+
+jobs:
+
+# ── Job 1: Compile libraries (cached) ─────────────────────────────────────────
+  libs-linux-x64-compat:
+    name: Compile libraries — Linux x64 (compat)
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      # ubuntu:20.04 image is bare; we install everything explicitly.
+      # No --user flag — runs as root inside the container, which is fine
+      # because the container is ephemeral and the workspace is bind-mounted.
+    timeout-minutes: 360
+    # Default shell for run: steps. Without this, the container uses
+    # dash (Ubuntu's /bin/sh) which doesn't support bash array syntax
+    # like ${PIPESTATUS[0]}. Forcing bash matches GitHub's default
+    # behaviour outside containers and makes our scripts portable.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # Install curl + ca-certificates BEFORE checkout so actions/checkout's
+      # git clone HTTPS works. ubuntu:20.04 ships without either.
+      - name: Bootstrap container
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git sudo
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          submodules: false
+
+      - name: Clone DigitalNote-Builder
+        run: |
+          git clone https://github.com/DigitalNoteXDN/DigitalNote-Builder.git \
+            ${{ env.BUILDER }}
+          mkdir -p ${{ env.BUILDER }}/linux/x64/libs
+
+      - name: Cache all libraries
+        uses: actions/cache@v4
+        id: libs-cache
+        with:
+          path: ${{ env.BUILDER }}/linux/x64/libs
+          # -compat-v1 suffix keeps this cache distinct from the standard
+          # ci-linux-x64.yml's cache (which has different glibc symbols
+          # baked into its libs).
+          key: linux-x64-compat-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
+          restore-keys: linux-x64-compat-libs-
+
+      - name: Install build dependencies
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          # No 'sudo' prefix — we're root inside the container.
+          apt-get install -y --no-install-recommends ${{ env.DEV_PACKAGES }}
+
+      - name: Download library source archives
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ env.BUILDER }}
+        run: |
+          mkdir -p download && cd download
+          WGET="wget --tries=3 --timeout=60 --no-verbose"
+          $WGET https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz
+          $WGET https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          $WGET http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
+          $WGET https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+          $WGET "http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.8.tar.gz" -O miniupnpc-2.2.8.tar.gz
+          $WGET https://github.com/fukuchi/libqrencode/archive/refs/tags/v4.1.1.tar.gz
+          $WGET https://download.qt.io/archive/qt/5.15/5.15.7/single/qt-everywhere-opensource-src-5.15.7.tar.xz
+
+      - name: Compile all libraries
+        if: steps.libs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ env.BUILDER }}/linux/x64
+        run: |
+          mkdir -p temp libs
+          CPUS=$(nproc)
+          echo ">>> [1/7] BerkeleyDB..."    && ../../compile/berkeleydb.sh "build_unix" "" "-j $CPUS"
+          echo ">>> [2/7] Boost..."          && ../../compile/boost.sh "address-model=64 toolset=gcc -j $CPUS"
+          echo ">>> [3/7] OpenSSL..."        && ../../compile/openssl.sh "linux-x86_64" "-j $CPUS"
+          echo ">>> [4/7] libevent..."       && ../../compile/libevent.sh "" "-j $CPUS"
+          echo ">>> [5/7] miniupnpc..."      && ../../compile/miniupnpc.sh "libminiupnpc.a" "-j $CPUS"
+          echo ">>> [6/7] qrencode..."       && ../../compile/qrencode.sh "" "-j $CPUS"
+          echo ">>> [7/7] Qt 5.15.7..."      && ../../compile/qt.sh "-bundled-xcb-xinput -fontconfig -system-freetype" "-j $CPUS"
+          echo ">>> All libraries compiled"
+          ls libs/
+
+      - name: Verify qmake
+        run: |
+          QMAKE="${{ env.BUILDER }}/linux/x64/libs/qt-5.15.7/bin/qmake"
+          [ -f "$QMAKE" ] || { echo "ERROR: qmake not found"; exit 1; }
+          echo "Qt: $($QMAKE --version)"
+
+# ── Job 2: Build daemon + wallet ──────────────────────────────────────────────
+  build-and-test-linux-x64-compat:
+    name: Linux x64 (compat) — Build + Test
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+    timeout-minutes: 60
+    needs: libs-linux-x64-compat
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Bootstrap container
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git sudo
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          submodules: false
+
+      - name: Clone DigitalNote-Builder
+        run: |
+          git clone https://github.com/DigitalNoteXDN/DigitalNote-Builder.git \
+            ${{ env.BUILDER }}
+          mkdir -p ${{ env.BUILDER }}/linux/x64/libs
+
+      - name: Restore libraries from cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUILDER }}/linux/x64/libs
+          key: linux-x64-compat-libs-${{ hashFiles('include/libs.pri', 'include/libs/bip39.pri') }}-v1
+          restore-keys: linux-x64-compat-libs-
+
+      - name: Install runtime build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          # Same package list as the libs job — Qt wallet links against
+          # libxcb-shape, libxcb-sync, libxcb-xfixes etc. which the
+          # daemon doesn't need but the GUI does.
+          apt-get install -y --no-install-recommends ${{ env.DEV_PACKAGES }}
+
+      - name: Verify qmake
+        run: |
+          QMAKE="${{ env.BUILDER }}/linux/x64/libs/qt-5.15.7/bin/qmake"
+          [ -f "$QMAKE" ] || { echo "ERROR: qmake not found after cache restore"; exit 1; }
+          echo "Qt: $($QMAKE --version)"
+
+      - name: Link source tree and libs
+        run: |
+          # NOTE: Inside containers, ${{ github.workspace }} expands to the
+          # HOST path (/home/runner/work/...) which doesn't exist inside
+          # the container. Use $GITHUB_WORKSPACE env var instead — that
+          # gets remapped by the runner to the container path (/__w/...).
+          # Same fix applies to anywhere we'd otherwise use the action
+          # context's github.workspace inside a containerised step.
+          #
+          # Link source into Builder (for compile scripts)
+          ln -sfn "$GITHUB_WORKSPACE" \
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2
+          # Link libs next to DigitalNote-2 so $$PWD/../libs resolves correctly
+          ln -sfn ${{ env.BUILDER }}/linux/x64/libs \
+            "$GITHUB_WORKSPACE/../libs"
+
+      - name: Compile daemon (DigitalNoted) — static libstdc++/libgcc
+        working-directory: ${{ env.BUILDER }}/linux/x64
+        run: |
+          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          cd DigitalNote-2
+          rm -rf build Makefile
+          # Static libstdc++/libgcc is now unconditional on Linux (set in
+          # compiler_settings.pri's linux:!macx scope). Combined with this
+          # ubuntu:20.04 build host (glibc 2.31), the resulting binary
+          # runs on Ubuntu 20.04+, Debian 11+, RHEL 9+, and similar.
+          qmake DigitalNote.daemon.pro \
+            USE_UPNP=1 USE_BUILD_INFO=0 RELEASE=1
+          make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-daemon-compat.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Compile Qt wallet (DigitalNote-qt) — static libstdc++/libgcc
+        working-directory: ${{ env.BUILDER }}/linux/x64
+        run: |
+          export PATH="$PWD/libs/qt-5.15.7/bin:$PATH"
+          cd DigitalNote-2
+          rm -rf build Makefile
+          qmake DigitalNote.app.pro \
+            USE_UPNP=1 USE_DBUS=1 USE_QRCODE=1 USE_BUILD_INFO=0 \
+            RELEASE=1
+          make -j${{ env.JOBS }} 2>&1 | tee $BUILDER/build-app-compat.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Verify glibc requirement of built binary
+        run: |
+          DAEMON="${{ env.BUILDER }}/linux/x64/DigitalNote-2/DigitalNoted"
+          [ -f "$DAEMON" ] || { echo "ERROR: DigitalNoted not found"; exit 1; }
+          echo "=== Binary file info ==="
+          file "$DAEMON"
+          echo
+          echo "=== glibc symbols required ==="
+          # Extract every GLIBC_x.y symbol the binary needs and show the
+          # MAX version. If this is > 2.31, our compat target failed.
+          MAX_GLIBC=$(objdump -T "$DAEMON" 2>/dev/null \
+            | grep -oE 'GLIBC_[0-9.]+' \
+            | sort -V \
+            | tail -1)
+          echo "Highest GLIBC_ symbol: $MAX_GLIBC"
+          if [ "$MAX_GLIBC" \> "GLIBC_2.31" ]; then
+            echo "WARNING: binary requires $MAX_GLIBC, exceeds 2.31 target"
+            echo "(this means the resulting binary may not run on Ubuntu 20.04)"
+          else
+            echo "OK: binary will run on Ubuntu 20.04+ (glibc 2.31+)"
+          fi
+          echo
+          echo "=== libstdc++ check (should NOT appear if static link worked) ==="
+          if ldd "$DAEMON" | grep -q libstdc++; then
+            echo "WARNING: libstdc++.so dynamic dep found — static link may have failed"
+            ldd "$DAEMON" | grep libstdc++
+          else
+            echo "OK: no libstdc++.so dependency (statically linked)"
+          fi
+
+      - name: Report version constants
+        run: |
+          # Extract the version constants from source and print them.
+          # No assertion — if the source is wrong, the binary will be
+          # wrong too, and that's a source-review problem, not a CI one.
+          BUILD=$(grep -oE 'CLIENT_VERSION_BUILD[[:space:]]+[0-9]+' src/clientversion.h | awk '{print $NF}')
+          PROTOCOL=$(grep -oE 'PROTOCOL_VERSION[[:space:]]*=[[:space:]]*[0-9]+' src/version.h | awk '{print $NF}')
+          MIN_PEER=$(grep -oE 'MIN_PEER_PROTO_VERSION[[:space:]]*=[[:space:]]*[0-9]+' src/version.h | awk '{print $NF}')
+          echo "Building with:"
+          echo "  CLIENT_VERSION_BUILD = $BUILD"
+          echo "  PROTOCOL_VERSION = $PROTOCOL"
+          echo "  MIN_PEER_PROTO_VERSION = $MIN_PEER"
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 10
+        with:
+          name: digitalnote-linux-x64-compat
+          path: |
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2/DigitalNoted
+            ${{ env.BUILDER }}/linux/x64/DigitalNote-2/DigitalNote-qt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs-linux-x64-compat-${{ github.sha }}
+          # Logs written into $BUILDER inside container; the action is
+          # container-aware and reads from the container path correctly.
+          path: |
+            ${{ env.BUILDER }}/build-app-compat.log
+            ${{ env.BUILDER }}/build-daemon-compat.log
+          retention-days: 14
