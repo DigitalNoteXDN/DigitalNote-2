@@ -324,9 +324,10 @@ jobs:
             echo "See \`SHA256SUMS.txt\` attached below."
             echo
             echo "### Changes since last release"
-            # cat instead of echo with ${{ }} expansion — commit messages
-            # contain unescaped parens, angle brackets, backticks, etc. which
-            # would break the shell parser if substituted via ${{ ... }}.
+            # Use cat instead of inlining the changelog via expression
+            # substitution — commit messages contain unescaped parens,
+            # angle brackets, backticks, etc. which would break the shell
+            # parser if substituted as a literal string into the script.
             cat /tmp/changelog.txt
           } > /tmp/release-body.md
 
