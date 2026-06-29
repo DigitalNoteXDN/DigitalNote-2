@@ -1,6 +1,7 @@
 #ifndef CBLOCKINDEX_H
 #define CBLOCKINDEX_H
 
+#include <cstdint>
 #include "uint/uint256.h"
 #include "coutpoint.h"
 

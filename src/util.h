@@ -134,8 +134,6 @@ extern int64_t nLiveForkToggle;
 extern std::string strRollbackToBlock;
 //MasterNode recipient verification delay base time
 extern int64_t nMasterNodeChecksDelayBaseTime;
-//MasterNode peer IP advanced relay system toggle
-extern bool fMnAdvRelay;
 //will sync until this block height. default -1 which represents disabled
 extern int maxBlockHeight;
 
@@ -240,6 +238,9 @@ boost::filesystem::path GetDefaultDataDir();
 const boost::filesystem::path &GetDataDir(bool fNetSpecific = true);
 boost::filesystem::path GetConfigFile();
 boost::filesystem::path GetMasternodeConfigFile();
+// v2.0.0.8: write a default network-specific DigitalNote.conf if absent.
+// Call after ParseParameters() and before ReadConfigFile().  See util.cpp.
+void GenerateDefaultConfigFile();
 boost::filesystem::path GetPidFile();
 #ifndef WIN32
 void CreatePidFile(const boost::filesystem::path &path, pid_t pid);

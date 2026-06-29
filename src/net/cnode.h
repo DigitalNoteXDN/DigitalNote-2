@@ -1,6 +1,7 @@
 #ifndef CNODE_H
 #define CNODE_H
 
+#include <cstdint>
 #include "mruset.h"
 #include "net/secmsgnode.h"
 #include "net/banreason.h"

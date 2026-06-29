@@ -76,7 +76,13 @@ void SendCoinsEntry::setModel(WalletModel *model)
     if(model && model->getOptionsModel())
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
-    connect(ui->payAmount, SIGNAL(textChanged()), this, SLOT(payAmountChanged()));
+    // payAmountChanged is a relay signal on SendCoinsEntry (declared in
+    // signals: section).  SendCoinsDialog connects to it to refresh the
+    // coin-control labels as the user types.  Was previously SLOT(...)
+    // which made Qt look up payAmountChanged on the slot list, fail, and
+    // log a runtime warning.  Forward the textChanged signal as our
+    // own payAmountChanged signal.
+    connect(ui->payAmount, SIGNAL(textChanged()), this, SIGNAL(payAmountChanged()));
 
     clear();
 }

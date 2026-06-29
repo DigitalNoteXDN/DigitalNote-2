@@ -1,6 +1,7 @@
 #ifndef CMNENGINEPOOL_H
 #define CMNENGINEPOOL_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

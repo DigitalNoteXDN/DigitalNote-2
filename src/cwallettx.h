@@ -1,6 +1,7 @@
 #ifndef CWALLETTX_H
 #define CWALLETTX_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <set>

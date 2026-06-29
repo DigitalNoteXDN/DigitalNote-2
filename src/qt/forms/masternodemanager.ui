@@ -37,7 +37,7 @@
      <item>
       <widget class="QTabWidget" name="tabWidget">
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="tab">
         <attribute name="title">
@@ -178,7 +178,7 @@
               <bool>true</bool>
              </property>
              <property name="selectionMode">
-              <enum>QAbstractItemView::SingleSelection</enum>
+              <enum>QAbstractItemView::ExtendedSelection</enum>
              </property>
              <property name="selectionBehavior">
               <enum>QAbstractItemView::SelectRows</enum>
@@ -193,12 +193,17 @@
              </column>
              <column>
               <property name="text">
-               <string>IP/Onion</string>
+               <string>IP Address</string>
               </property>
              </column>
              <column>
               <property name="text">
                <string>Status</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Collateral</string>
               </property>
              </column>
             </widget>

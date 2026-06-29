@@ -9,6 +9,7 @@ FORMS += src/qt/forms/editaddressdialog.ui
 FORMS += src/qt/forms/editconfigdialog.ui
 FORMS += src/qt/forms/importprivatekeydialog.ui
 FORMS += src/qt/forms/masternodemanager.ui
+FORMS += src/qt/forms/lockedoutputsdialog.ui
 FORMS += src/qt/forms/messagepage.ui
 FORMS += src/qt/forms/optionsdialog.ui
 FORMS += src/qt/forms/overviewpage.ui

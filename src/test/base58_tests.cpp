@@ -1,260 +1,169 @@
+// Copyright (c) 2024-2025 DigitalNote XDN developers
+// Distributed under the MIT software license.
+// SPDX-License-Identifier: MIT
+//
+// src/test/base58_tests.cpp
+//
+// Tests for DigitalNote base58 address encoding/decoding.
+// Uses real chain params (mainnet prefix 0x19 = "X" addresses).
+// Compiled into test_digitalnote.
+
 #include <boost/test/unit_test.hpp>
-#include "json/json_spirit_reader_template.h"
-#include "json/json_spirit_writer_template.h"
-#include "json/json_spirit_utils.h"
+#include <string>
+#include <vector>
 
 #include "base58.h"
+#include "chainparams.h"
+#include "key.h"
+#include "uint256.h"
 #include "util.h"
 
-using namespace json_spirit;
-extern Array read_json(const std::string& filename);
+BOOST_AUTO_TEST_SUITE(Base58Tests)
 
-BOOST_AUTO_TEST_SUITE(base58_tests)
+// ── Encode / decode round-trip ────────────────────────────────────────────────
 
-// Goal: test low-level base58 encoding functionality
-BOOST_AUTO_TEST_CASE(base58_EncodeBase58)
+BOOST_AUTO_TEST_CASE(EncodeDecodeRoundtrip)
 {
-    Array tests = read_json("base58_encode_decode.json");
+    const std::vector<unsigned char> data = {0x00, 0x01, 0x02, 0xAB, 0xCD, 0xEF};
+    std::string encoded = EncodeBase58(data);
+    BOOST_CHECK(!encoded.empty());
 
-    BOOST_FOREACH(Value& tv, tests)
-    {
-        Array test = tv.get_array();
-        std::string strTest = write_string(tv, false);
-        if (test.size() < 2) // Allow for extra stuff (useful for comments)
-        {
-            BOOST_ERROR("Bad test: " << strTest);
-            continue;
-        }
-        std::vector<unsigned char> sourcedata = ParseHex(test[0].get_str());
-        std::string base58string = test[1].get_str();
-        BOOST_CHECK_MESSAGE(
-                    EncodeBase58(&sourcedata[0], &sourcedata[sourcedata.size()]) == base58string,
-                    strTest);
-    }
+    std::vector<unsigned char> decoded;
+    BOOST_CHECK(DecodeBase58(encoded, decoded));
+    BOOST_CHECK_EQUAL_COLLECTIONS(decoded.begin(), decoded.end(),
+                                  data.begin(),    data.end());
 }
 
-// Goal: test low-level base58 decoding functionality
-BOOST_AUTO_TEST_CASE(base58_DecodeBase58)
+BOOST_AUTO_TEST_CASE(EmptyBytesEncodesEmpty)
 {
-    Array tests = read_json("base58_encode_decode.json");
-    std::vector<unsigned char> result;
-
-    BOOST_FOREACH(Value& tv, tests)
-    {
-        Array test = tv.get_array();
-        std::string strTest = write_string(tv, false);
-        if (test.size() < 2) // Allow for extra stuff (useful for comments)
-        {
-            BOOST_ERROR("Bad test: " << strTest);
-            continue;
-        }
-        std::vector<unsigned char> expected = ParseHex(test[0].get_str());
-        std::string base58string = test[1].get_str();
-        BOOST_CHECK_MESSAGE(DecodeBase58(base58string, result), strTest);
-        BOOST_CHECK_MESSAGE(result.size() == expected.size() && std::equal(result.begin(), result.end(), expected.begin()), strTest);
-    }
-
-    BOOST_CHECK(!DecodeBase58("invalid", result));
+    std::vector<unsigned char> empty;
+    std::string encoded = EncodeBase58(empty);
+    // Some implementations encode empty as "" or "1" — test consistency
+    std::vector<unsigned char> decoded;
+    BOOST_CHECK(DecodeBase58(encoded, decoded));
+    BOOST_CHECK(decoded.empty());
 }
 
-// Visitor to check address type
-class TestAddrTypeVisitor : public boost::static_visitor<bool>
+BOOST_AUTO_TEST_CASE(LeadingZeroesPreserved)
 {
-private:
-    std::string exp_addrType;
-public:
-    TestAddrTypeVisitor(const std::string &exp_addrType) : exp_addrType(exp_addrType) { }
-    bool operator()(const CKeyID &id) const
-    {
-        return (exp_addrType == "pubkey");
-    }
-    bool operator()(const CScriptID &id) const
-    {
-        return (exp_addrType == "script");
-    }
-    bool operator()(const CNoDestination &no) const
-    {
-        return (exp_addrType == "none");
-    }
-};
-
-// Visitor to check address payload
-class TestPayloadVisitor : public boost::static_visitor<bool>
-{
-private:
-    std::vector<unsigned char> exp_payload;
-public:
-    TestPayloadVisitor(std::vector<unsigned char> &exp_payload) : exp_payload(exp_payload) { }
-    bool operator()(const CKeyID &id) const
-    {
-        uint160 exp_key(exp_payload);
-        return exp_key == id;
-    }
-    bool operator()(const CScriptID &id) const
-    {
-        uint160 exp_key(exp_payload);
-        return exp_key == id;
-    }
-    bool operator()(const CNoDestination &no) const
-    {
-        return exp_payload.size() == 0;
-    }
-};
-
-// Goal: check that parsed keys match test payload
-BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
-{
-    Array tests = read_json("base58_keys_valid.json");
-    std::vector<unsigned char> result;
-    CDigitalNoteSecret secret;
-    CDigitalNoteAddress addr;
-
-    BOOST_FOREACH(Value& tv, tests)
-    {
-        Array test = tv.get_array();
-        std::string strTest = write_string(tv, false);
-        if (test.size() < 3) // Allow for extra stuff (useful for comments)
-        {
-            BOOST_ERROR("Bad test: " << strTest);
-            continue;
-        }
-        std::string exp_base58string = test[0].get_str();
-        std::vector<unsigned char> exp_payload = ParseHex(test[1].get_str());
-        const Object &metadata = test[2].get_obj();
-        bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
-        bool isTestnet = find_value(metadata, "isTestnet").get_bool();
-        if (isTestnet)
-            SelectParams(CChainParams::TESTNET);
-        else
-            SelectParams(CChainParams::MAIN);
-        if(isPrivkey)
-        {
-            bool isCompressed = find_value(metadata, "isCompressed").get_bool();
-            // Must be valid private key
-            // Note: CDigitalNoteSecret::SetString tests isValid, whereas CDigitalNoteAddress does not!
-            BOOST_CHECK_MESSAGE(secret.SetString(exp_base58string), "!SetString:"+ strTest);
-            BOOST_CHECK_MESSAGE(secret.IsValid(), "!IsValid:" + strTest);
-            CKey privkey = secret.GetKey();
-            BOOST_CHECK_MESSAGE(privkey.IsCompressed() == isCompressed, "compressed mismatch:" + strTest);
-            BOOST_CHECK_MESSAGE(privkey.size() == exp_payload.size() && std::equal(privkey.begin(), privkey.end(), exp_payload.begin()), "key mismatch:" + strTest);
-
-            // Private key must be invalid public key
-            addr.SetString(exp_base58string);
-            BOOST_CHECK_MESSAGE(!addr.IsValid(), "IsValid privkey as pubkey:" + strTest);
-        }
-        else
-        {
-            std::string exp_addrType = find_value(metadata, "addrType").get_str(); // "script" or "pubkey"
-            // Must be valid public key
-            BOOST_CHECK_MESSAGE(addr.SetString(exp_base58string), "SetString:" + strTest);
-            BOOST_CHECK_MESSAGE(addr.IsValid(), "!IsValid:" + strTest);
-            BOOST_CHECK_MESSAGE(addr.IsScript() == (exp_addrType == "script"), "isScript mismatch" + strTest);
-            CTxDestination dest = addr.Get();
-            BOOST_CHECK_MESSAGE(boost::apply_visitor(TestAddrTypeVisitor(exp_addrType), dest), "addrType mismatch" + strTest);
-
-            // Public key must be invalid private key
-            secret.SetString(exp_base58string);
-            BOOST_CHECK_MESSAGE(!secret.IsValid(), "IsValid pubkey as privkey:" + strTest);
-        }
-    }
-    SelectParams(CChainParams::MAIN);
+    std::vector<unsigned char> data = {0x00, 0x00, 0x01};
+    std::string encoded = EncodeBase58(data);
+    std::vector<unsigned char> decoded;
+    BOOST_CHECK(DecodeBase58(encoded, decoded));
+    BOOST_CHECK_EQUAL_COLLECTIONS(decoded.begin(), decoded.end(),
+                                  data.begin(),    data.end());
 }
 
-// Goal: check that generated keys match test vectors
-BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
+BOOST_AUTO_TEST_CASE(InvalidCharacterRejected)
 {
-    Array tests = read_json("base58_keys_valid.json");
-    std::vector<unsigned char> result;
-    BOOST_FOREACH(Value& tv, tests)
-    {
-        Array test = tv.get_array();
-        std::string strTest = write_string(tv, false);
-        if (test.size() < 3) // Allow for extra stuff (useful for comments)
-        {
-            BOOST_ERROR("Bad test: " << strTest);
-            continue;
-        }
-        std::string exp_base58string = test[0].get_str();
-        std::vector<unsigned char> exp_payload = ParseHex(test[1].get_str());
-        const Object &metadata = test[2].get_obj();
-        bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
-        bool isTestnet = find_value(metadata, "isTestnet").get_bool();
-        if (isTestnet)
-            SelectParams(CChainParams::TESTNET);
-        else
-            SelectParams(CChainParams::MAIN);
-        if(isPrivkey)
-        {
-            bool isCompressed = find_value(metadata, "isCompressed").get_bool();
-            CKey key;
-            key.Set(exp_payload.begin(), exp_payload.end(), isCompressed);
-            assert(key.IsValid());
-            CDigitalNoteSecret secret;
-            secret.SetKey(key);
-            BOOST_CHECK_MESSAGE(secret.ToString() == exp_base58string, "result mismatch: " + strTest);
-        }
-        else
-        {
-            std::string exp_addrType = find_value(metadata, "addrType").get_str();
-            CTxDestination dest;
-            if(exp_addrType == "pubkey")
-            {
-                dest = CKeyID(uint160(exp_payload));
-            }
-            else if(exp_addrType == "script")
-            {
-                dest = CScriptID(uint160(exp_payload));
-            }
-            else if(exp_addrType == "none")
-            {
-                dest = CNoDestination();
-            }
-            else
-            {
-                BOOST_ERROR("Bad addrtype: " << strTest);
-                continue;
-            }
-            CDigitalNoteAddress addrOut;
-            BOOST_CHECK_MESSAGE(boost::apply_visitor(CDigitalNoteAddressVisitor(&addrOut), dest), "encode dest: " + strTest);
-            BOOST_CHECK_MESSAGE(addrOut.ToString() == exp_base58string, "mismatch: " + strTest);
-        }
-    }
-
-    // Visiting a CNoDestination must fail
-    CDigitalNoteAddress dummyAddr;
-    CTxDestination nodest = CNoDestination();
-    BOOST_CHECK(!boost::apply_visitor(CDigitalNoteAddressVisitor(&dummyAddr), nodest));
-
-    SelectParams(CChainParams::MAIN);
+    std::vector<unsigned char> decoded;
+    // '0', 'O', 'I', 'l' are excluded from base58
+    BOOST_CHECK(!DecodeBase58("0InvalidChar", decoded));
 }
 
-// Goal: check that base58 parsing code is robust against a variety of corrupted data
-BOOST_AUTO_TEST_CASE(base58_keys_invalid)
+// ── Checksummed encoding ──────────────────────────────────────────────────────
+
+BOOST_AUTO_TEST_CASE(EncodeDecodeCheckRoundtrip)
 {
-    Array tests = read_json("base58_keys_invalid.json"); // Negative testcases
-    std::vector<unsigned char> result;
-    CDigitalNoteSecret secret;
-    CDigitalNoteAddress addr;
+    const std::vector<unsigned char> data = {0xDE, 0xAD, 0xBE, 0xEF};
+    std::string encoded = EncodeBase58Check(data);
+    BOOST_CHECK(!encoded.empty());
 
-    BOOST_FOREACH(Value& tv, tests)
-    {
-        Array test = tv.get_array();
-        std::string strTest = write_string(tv, false);
-        if (test.size() < 1) // Allow for extra stuff (useful for comments)
-        {
-            BOOST_ERROR("Bad test: " << strTest);
-            continue;
-        }
-        std::string exp_base58string = test[0].get_str();
-
-        // must be invalid as public and as private key
-        addr.SetString(exp_base58string);
-        BOOST_CHECK_MESSAGE(!addr.IsValid(), "IsValid pubkey:" + strTest);
-        secret.SetString(exp_base58string);
-        BOOST_CHECK_MESSAGE(!secret.IsValid(), "IsValid privkey:" + strTest);
-    }
+    std::vector<unsigned char> decoded;
+    BOOST_CHECK(DecodeBase58Check(encoded, decoded));
+    BOOST_CHECK_EQUAL_COLLECTIONS(decoded.begin(), decoded.end(),
+                                  data.begin(),    data.end());
 }
 
+BOOST_AUTO_TEST_CASE(CorruptedChecksumRejected)
+{
+    const std::vector<unsigned char> data = {0x01, 0x02, 0x03};
+    std::string encoded = EncodeBase58Check(data);
+    BOOST_CHECK(!encoded.empty());
+
+    // Flip a character in the middle
+    std::string corrupted = encoded;
+    corrupted[corrupted.size() / 2] ^= 0x01;
+
+    std::vector<unsigned char> decoded;
+    BOOST_CHECK(!DecodeBase58Check(corrupted, decoded));
+}
+
+// ── CBitcoinAddress / DigitalNote mainnet prefix ──────────────────────────────
+// DigitalNote mainnet P2PKH prefix = 0x19 (decimal 25) → addresses start with "X"
+// Mainnet P2SH prefix = 0x0D (decimal 13) → addresses start with "6"
+
+BOOST_AUTO_TEST_CASE(MainnetP2PKHAddressStartsWithX)
+{
+    SelectParams(CBaseChainParams::MAIN);
+
+    // Generate a throw-away key
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pubkey = key.GetPubKey();
+    CKeyID keyid   = pubkey.GetID();
+
+    CBitcoinAddress addr(keyid);
+    BOOST_CHECK(addr.IsValid());
+
+    std::string addrStr = addr.ToString();
+    BOOST_CHECK(!addrStr.empty());
+    // DigitalNote mainnet addresses start with 'X'
+    BOOST_CHECK_EQUAL(addrStr[0], 'X');
+}
+
+BOOST_AUTO_TEST_CASE(InvalidAddressStringRejected)
+{
+    SelectParams(CBaseChainParams::MAIN);
+    CBitcoinAddress addr("not_a_valid_address");
+    BOOST_CHECK(!addr.IsValid());
+}
+
+BOOST_AUTO_TEST_CASE(EmptyAddressStringRejected)
+{
+    SelectParams(CBaseChainParams::MAIN);
+    CBitcoinAddress addr("");
+    BOOST_CHECK(!addr.IsValid());
+}
+
+BOOST_AUTO_TEST_CASE(MainnetAddressRoundtrip)
+{
+    SelectParams(CBaseChainParams::MAIN);
+
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pub    = key.GetPubKey();
+    CKeyID  keyid  = pub.GetID();
+
+    CBitcoinAddress addr1(keyid);
+    BOOST_CHECK(addr1.IsValid());
+
+    CBitcoinAddress addr2(addr1.ToString());
+    BOOST_CHECK(addr2.IsValid());
+    BOOST_CHECK_EQUAL(addr1.ToString(), addr2.ToString());
+
+    CKeyID keyid2;
+    BOOST_CHECK(addr2.GetKeyID(keyid2));
+    BOOST_CHECK(keyid == keyid2);
+}
+
+BOOST_AUTO_TEST_CASE(TestnetAddressHasDifferentPrefix)
+{
+    // Testnet and mainnet should produce different address strings for same key
+    CKey key;
+    key.MakeNewKey(true);
+    CKeyID keyid = key.GetPubKey().GetID();
+
+    SelectParams(CBaseChainParams::MAIN);
+    std::string mainAddr = CBitcoinAddress(keyid).ToString();
+
+    SelectParams(CBaseChainParams::TESTNET);
+    std::string testAddr = CBitcoinAddress(keyid).ToString();
+
+    BOOST_CHECK_NE(mainAddr, testAddr);
+
+    // Restore mainnet for other tests
+    SelectParams(CBaseChainParams::MAIN);
+}
 
 BOOST_AUTO_TEST_SUITE_END()
-

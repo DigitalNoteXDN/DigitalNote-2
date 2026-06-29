@@ -55,6 +55,14 @@ bool AppInit(int argc, char* argv[])
 			Shutdown();
 		}
 		
+		// v2.0.0.8 testnet-conf-generator: generate a default conf in the
+		// network-specific data directory if absent, BEFORE ReadConfigFile
+		// so the freshly-generated conf is read on this same run.  The
+		// network is known here from the -testnet command-line flag
+		// (ParseParameters has run); GenerateDefaultConfigFile and
+		// GetConfigFile both resolve the network-specific path the same way.
+		GenerateDefaultConfigFile();
+
 		ReadConfigFile(mapArgs, mapMultiArgs);
 
 		if (mapArgs.count("-?") || mapArgs.count("--help"))

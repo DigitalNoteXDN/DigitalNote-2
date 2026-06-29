@@ -1,6 +1,7 @@
 #ifndef SMSG_CDIGITALNOTEADRESS_B_H
 #define SMSG_CDIGITALNOTEADRESS_B_H
 
+#include <cstdint>
 #include "cdigitalnoteaddress.h"
 
 namespace DigitalNote {

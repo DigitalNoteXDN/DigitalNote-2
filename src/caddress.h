@@ -1,6 +1,7 @@
 #ifndef CADDRESS_H
 #define CADDRESS_H
 
+#include <cstdint>
 #include "protocol.h"
 #include "net/cservice.h"
 

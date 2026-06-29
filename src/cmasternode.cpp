@@ -78,8 +78,7 @@ CMasternode::CMasternode(const CMasternode& other)
 	lastVote = other.lastVote;
 	nScanningErrorCount = other.nScanningErrorCount;
 	nLastScanningErrorBlockHeight = other.nLastScanningErrorBlockHeight;
-	nLastPaid = other.nLastPaid;
-	nLastPaid = GetAdjustedTime();
+	nLastPaid = other.nLastPaid; // copy actual last paid time
 	isPortOpen = other.isPortOpen;
 	isOldNode = other.isOldNode;
 }
@@ -110,6 +109,7 @@ CMasternode::CMasternode(CService newAddr, CTxIn newVin, CPubKey newPubkey, std:
 	lastVote = 0;
 	nScanningErrorCount = 0;
 	nLastScanningErrorBlockHeight = 0;
+	nLastPaid = GetAdjustedTime();
 	isPortOpen = true;
 	isOldNode = true;
 }
@@ -220,7 +220,7 @@ uint64_t CMasternode::SliceHash(uint256& hash, int slice)
 {
 	uint64_t n = 0;
 	
-	memcpy(&n, &hash+slice*64, 64);
+	memcpy(&n, (uint8_t*)&hash + slice*8, 8);
 	
 	return n;
 }
@@ -295,6 +295,73 @@ void CMasternode::Disable()
 bool CMasternode::IsEnabled()
 {
 	return isPortOpen && activeState == MASTERNODE_ENABLED;
+}
+
+// v2.0.0.8 voted-consensus determinism fix.
+//
+// Returns true iff this masternode's collateral transaction is committed to
+// the active chain at a depth of at least VOTER_ELIGIBILITY_DEPTH relative to
+// nBlockHeight -- i.e. confirmed at height H such that
+//     H + VOTER_ELIGIBILITY_DEPTH <= nBlockHeight.
+//
+// This is deliberately NOT a function of lastTimeSeen / activeState / ping
+// freshness.  Those are wall-clock liveness signals and differ between nodes;
+// using them in a consensus denominator is exactly the defect this fix
+// removes (see GetCanonicalWinner).  The collateral confirmation height is a
+// committed chain fact: every synced node resolves it identically, so
+// IsVotingEligible(N) yields the same answer on every node for the same N.
+//
+// Spentness note: a collateral that is SPENT is correctly handled by the
+// ordinary MN-list lifecycle (Check() -> MASTERNODE_VIN_SPENT -> CheckAndRemove
+// drops it from vMasternodes), so a spent-collateral MN is simply not present
+// to be counted.  This predicate therefore only needs the maturity test; it
+// does not perform an "unspent as of N" coin-database query.  The maturity
+// test is tip-safe because nBlockHeight is always tip-relative (tip + lookahead)
+// in every caller -- the vote system never evaluates deep history.
+// v2.0.0.8 Spec B: resolve the collateral confirmation height.
+// Pure chain lookup -- identical on every synced node.  Returns -1 if
+// the collateral tx is not resolvable on this node (not found, or its
+// block is missing from mapBlockIndex).
+int CMasternode::GetCollateralConfirmedHeight() const
+{
+	CTransaction txCollateral;
+	uint256 hashBlock = 0;
+
+	if (!GetTransaction(vin.prevout.hash, txCollateral, hashBlock))
+	{
+		return -1;
+	}
+
+	std::map<uint256, CBlockIndex*>::iterator it = mapBlockIndex.find(hashBlock);
+	if (it == mapBlockIndex.end() || it->second == NULL)
+	{
+		return -1;
+	}
+
+	return it->second->nHeight;
+}
+
+bool CMasternode::IsVotingEligible(int nBlockHeight) const
+{
+	if (nBlockHeight <= 0)
+	{
+		return false;
+	}
+
+	// Resolve the block height at which the collateral tx was confirmed.
+	int nConfirmedHeight = GetCollateralConfirmedHeight();
+
+	if (nConfirmedHeight < 0)
+	{
+		// Collateral tx not resolvable on this node.  Treat as not
+		// eligible rather than guessing -- a node that cannot see the
+		// collateral has no business counting this MN toward consensus.
+		return false;
+	}
+
+	// Maturity + reorg buffer: collateral must be buried at least
+	// VOTER_ELIGIBILITY_DEPTH below the height being voted on.
+	return (nConfirmedHeight + VOTER_ELIGIBILITY_DEPTH) <= nBlockHeight;
 }
 
 int CMasternode::GetMasternodeInputAge()

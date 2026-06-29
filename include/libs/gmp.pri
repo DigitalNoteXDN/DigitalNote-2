@@ -2,7 +2,7 @@ defined(DIGITALNOTE_GMP_LIB_PATH, var) {
 	exists($${DIGITALNOTE_GMP_LIB_PATH}/libgmp.a) {
 		message("found gmp lib")
 	} else {
-		message("You need to compile leveldb yourself with msys2.")
+		message("You need to compile GMP yourself with msys2.")
 		message("Also you need to configure the paths in 'DigitalNote_config.pri'")
 	}
 	

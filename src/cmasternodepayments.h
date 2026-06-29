@@ -1,6 +1,7 @@
 #ifndef CMASTERNODEPAYMENTS_H
 #define CMASTERNODEPAYMENTS_H
 
+#include <cstdint>
 #include <vector>
 #include <string>
 

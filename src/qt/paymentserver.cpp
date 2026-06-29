@@ -22,18 +22,57 @@ const QString BITCOIN_IPC_PREFIX("DigitalNote:");
 
 //
 // Create a name that is unique for:
-//  testnet / non-testnet
-//  data directory
+//  testnet / regtest / mainnet
+//  data directory (-datadir override)
+//
+// NOTE: this function is called from QApplication::main() BEFORE
+// ParseParameters() and SelectParamsFromCommandLine() have run, so we
+// can't rely on Params() or GetDataDir() (which both return mainnet
+// defaults at this point).  Instead, inspect qApp->arguments() directly
+// for the relevant CLI flags.  Without this, mainnet and testnet wallets
+// compute identical IPC names and the second-to-launch wallet's
+// QLocalServer::removeServer() call yanks the first wallet's IPC socket,
+// crashing both processes with 0xc0000005.
 //
 static QString ipcServerName()
 {
     QString name("DigitalNoteQt");
 
-    // Append a simple hash of the datadir
-    // Note that GetDataDir(true) returns a different path
-    // for -testnet versus main net
-    QString ddir(GetDataDir(true).string().c_str());
-    name.append(QString::number(qHash(ddir)));
+    // Detect network from command-line args directly.
+    QString network("main");
+    QString customDataDir;
+
+    const QStringList& args = qApp->arguments();
+    for (int i = 1; i < args.size(); ++i)
+    {
+        const QString& arg = args[i];
+
+        if (arg.compare("-testnet", Qt::CaseInsensitive) == 0 ||
+            arg.compare("-testnet=1", Qt::CaseInsensitive) == 0)
+        {
+            network = "testnet";
+        }
+        else if (arg.compare("-regtest", Qt::CaseInsensitive) == 0 ||
+                 arg.compare("-regtest=1", Qt::CaseInsensitive) == 0)
+        {
+            network = "regtest";
+        }
+        else if (arg.startsWith("-datadir=", Qt::CaseInsensitive))
+        {
+            customDataDir = arg.mid(QString("-datadir=").length());
+        }
+    }
+
+    // Build a discriminator string: network + datadir (if overridden).
+    // Even two testnet wallets with different -datadir paths get distinct IPC names.
+    QString discriminator = network;
+    if (!customDataDir.isEmpty())
+    {
+        discriminator.append("|");
+        discriminator.append(customDataDir);
+    }
+
+    name.append(QString::number(qHash(discriminator)));
 
     return name;
 }

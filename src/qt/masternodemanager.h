@@ -5,11 +5,15 @@
 
 #include <QMenu>
 #include <QWidget>
+#include <QShowEvent>
 #include <QTimer>
 #include <QItemSelectionModel>
 
 #include "util.h"
 #include "types/ccriticalsection.h"
+#include "masternodeworker.h"
+#include <QThread>
+#include <QProgressDialog>
 
 namespace Ui {
     class MasternodeManager;
@@ -38,9 +42,26 @@ public:
 
 private:
     QMenu* contextMenu;
+    /** B2: separate context menu for the user's own configured
+     *  masternodes (tableWidget_2).  Holds Lock/Unlock collateral
+     *  actions, enabled selectively based on the current row's UTXO
+     *  lock state.  Distinct from the "Copy address / Copy pubkey"
+     *  contextMenu which is for tableWidgetMasternodes. */
+    QMenu* ownContextMenu;
+    QAction* lockCollateralAction;
+    QAction* unlockCollateralAction;
+    /** B2 fix: row index under the cursor when the own-masternodes
+     *  context menu was last opened.  Used by the lock/unlock action
+     *  handlers so they act on the right-clicked row, not on whatever
+     *  is currently selected.  -1 means "no valid row" (handlers
+     *  short-circuit). */
+    int ownContextMenuRow;
     
 public slots:
     void updateNodeList();
+    void setButtonsEnabled(bool enabled);
+    void onWorkerFinished(QString result);
+    void onWorkerError(QString message);
     void updateAdrenalineNode(QString alias, QString addr, QString privkey, QString txHash, QString txIndex, QString status);
     void on_UpdateButton_clicked();
     void copyAddress();
@@ -55,8 +76,32 @@ private:
     WalletModel *walletModel;
     CCriticalSection cs_adrenaline;
 
+    /** B2: refresh the Collateral column for one row.  Reads the
+     *  lock state from CWallet via the model and updates the cell. */
+    void refreshCollateralCell(int row);
+
+    /** v2.0.0.8 UAT-6b: ensure the wallet has the master key decrypted
+     *  before kicking off an MN start/stop operation.  If already
+     *  unlocked (either fully or staking-only), returns true immediately.
+     *  If locked, presents an AskPassphraseDialog in UnlockStaking mode
+     *  so the user gets a checkbox-default for "keep unlocked for
+     *  staking" -- which keeps the MN functional after the worker
+     *  finishes (vs. the old plain-Unlock which lets the wallet auto-
+     *  relock and breaks local MN re-registration on transient network
+     *  hiccups).  Returns false if the user cancelled or the unlock
+     *  failed -- in which case the caller must abort the operation. */
+    bool ensureWalletUnlocked();
+
 private slots:
     void showContextMenu(const QPoint&);
+    /** B2: show lock/unlock context menu over tableWidget_2.  Enables
+     *  Lock or Unlock based on whether the selected row's collateral
+     *  UTXO is currently locked. */
+    void showOwnContextMenu(const QPoint&);
+    /** B2: lock the collateral UTXO for the currently-selected row. */
+    void lockSelectedCollateral();
+    /** B2: unlock the collateral UTXO for the currently-selected row. */
+    void unlockSelectedCollateral();
     void on_createButton_clicked();
     void on_startButton_clicked();
     void on_startAllButton_clicked();
@@ -65,5 +110,15 @@ private slots:
     void on_tableWidget_2_itemSelectionChanged();
     void on_tabWidget_currentChanged(int index);
     void on_editButton_clicked();
+
+protected:
+    /** Trigger an Update on every show so the My Master Nodes table
+     *  populates immediately when the user navigates to the page,
+     *  instead of waiting for a tab change.  Without this, the page
+     *  lands on the last-selected tab and on_tabWidget_currentChanged
+     *  never fires, leaving the Lock column empty until the user
+     *  manually clicks Update or switches tabs. */
+    void showEvent(QShowEvent *event) override;
+
 };
 #endif // MASTERNODEMANAGER_H

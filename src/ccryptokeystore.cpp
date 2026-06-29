@@ -217,6 +217,21 @@ bool CCryptoKeyStore::SetCrypted()
 	return true;
 }
 
+
+
+// NOT CALLED - used by DecryptWallet (retained for future use)
+bool CCryptoKeyStore::SetUnencrypted()
+{
+	LOCK(cs_KeyStore);
+
+	if (!mapCryptedKeys.empty())
+		return false;
+
+	vMasterKey.clear();
+	fUseCrypto = false;
+
+	return true;
+}
 bool CCryptoKeyStore::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
 {
 	{

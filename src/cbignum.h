@@ -1,6 +1,7 @@
 #ifndef CBIGNUM_H
 #define CBIGNUM_H
 
+#include <cstdint>
 #include <vector>
 #include <openssl/bn.h>
 

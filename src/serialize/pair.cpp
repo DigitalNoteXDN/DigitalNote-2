@@ -64,6 +64,7 @@ TmpSerialize(CDataStream, std::string, CPubKey);
 TmpSerialize(CDataStream, std::string, CScript);
 TmpSerialize(CDataStream, std::string, uint160);
 TmpSerialize(CDataStream, std::string, uint256);
+TmpSerialize(CDataStream, std::string, COutPoint);
 TmpSerialize(CDataStream, const CNetAddr, int64_t);
 TmpSerialize(CDataStream, const COutPoint, int64_t);
 TmpSerialize(CDataStream, const CSubNet, CBanEntry);
@@ -81,4 +82,3 @@ TmpUnserialize(CDataStream, std::string, std::string);
 TmpUnserialize(CDataStream, CNetAddr, int64_t);
 TmpUnserialize(CDataStream, COutPoint, int64_t);
 TmpUnserialize(CDataStream, CSubNet, CBanEntry);
-

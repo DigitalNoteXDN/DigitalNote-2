@@ -18,6 +18,7 @@ namespace boost {
 class SendCoinsRecipient;
 
 QT_BEGIN_NAMESPACE
+class QApplication;
 class QFont;
 class QLineEdit;
 class QWidget;
@@ -200,7 +201,23 @@ namespace GUIUtil
         QString uiOptions;
     };
 
-    void SetDarkThemeQSS(QApplication& app);
+    /**
+     * Returns a font point size scaled to the current screen's logical DPI so
+     * that text appears the same physical size on all displays (1080p, 1440p,
+     * 4K, HiDPI laptops, etc.).
+     *
+     * Use instead of hardcoded pixel sizes:
+     *   QFont f; f.setPointSize(GUIUtil::scaledFontPoints(10));
+     *
+     * @param basePoints  Desired size at 96 DPI (Qt's standard logical DPI).
+     */
+    int scaledFontPoints(int basePoints);
+
+    /**
+     * Apply a consistent, DPI-aware font to the whole application.
+     * Call once from main() immediately after QApplication is constructed.
+     */
+    void applyDefaultFont(QApplication *app);
 
 #if defined(Q_OS_MAC) && QT_VERSION >= 0x050000
     // workaround for Qt OSX Bug:

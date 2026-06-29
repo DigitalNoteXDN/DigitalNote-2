@@ -1,6 +1,7 @@
 #ifndef CKEY_H
 #define CKEY_H
 
+#include <cstdint>
 #include "types/cprivkey.h"
 
 class CKey;

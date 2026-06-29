@@ -7,6 +7,8 @@
 
 #include <QWidget>
 #include <QCompleter>
+#include <QElapsedTimer>
+#include <QTimer>
 
 namespace Ui {
     class RPCConsole;
@@ -70,6 +72,11 @@ private slots:
     /** copy to clipboard */
     void on_copyButton_clicked();
 
+    /** 1Hz tick while a command is in flight: updates the elapsed-time
+     *  display so the user sees time accumulating.  Auto-started when
+     *  setCommandInFlight(true) and stopped when setCommandInFlight(false). */
+    void onInFlightTick();
+
 public slots:
     void clear();
     void message(int category, const QString &message, bool html = false);
@@ -107,6 +114,12 @@ private:
     /** show detailed information on ui about selected node */
     void updateNodeDetail(const CNodeCombinedStats *stats);
 
+    /** Toggle in-flight UI state.  When true: disable input, start
+     *  the elapsed-time tick, show "Running…" hint.  When false:
+     *  re-enable input, stop the tick, show elapsed time in the
+     *  reply prefix. */
+    void setCommandInFlight(bool inFlight);
+
     enum ColumnWidths
     {
         ADDRESS_COLUMN_WIDTH = 200,
@@ -126,6 +139,19 @@ private:
     QMenu *banTableContextMenu;
     QCompleter *autoCompleter;
 
+    /** Whether a command is currently running on the executor thread.
+     *  RPC executor runs commands serially on its own QThread (see
+     *  startExecutor); while one is in flight the input is disabled
+     *  to prevent the user from queueing up a backlog without
+     *  realising commands aren't being run in parallel. */
+    bool m_commandInFlight;
+    /** Wall-clock timer started when a command goes in flight, read on
+     *  reply to print elapsed time.  Also drives the tick that updates
+     *  the "Running… (Ns)" indicator while in flight. */
+    QElapsedTimer m_inFlightTimer;
+    /** Periodic tick (1Hz) that updates the in-flight elapsed-time
+     *  display.  Started with the command, stopped on reply. */
+    QTimer *m_inFlightTickTimer;
 };
 
 /* Object for executing console RPC commands in a separate thread.

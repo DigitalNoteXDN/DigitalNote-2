@@ -73,7 +73,13 @@ public:
             {
                 const CDigitalNoteAddress& address = item.first;
                 const std::string& strName = item.second;
-                bool fMine = IsMine(*wallet, address.Get());
+                // CRITICAL: must check for ISMINE_SPENDABLE, not just truthy.
+                // ISMINE_WATCH_ONLY (=1) would otherwise be classified as
+                // Receiving and appear in the user's Receive tab, where
+                // they could mistake it for their own address and send
+                // funds to it.  Watch-only addresses are external; they
+                // belong in Sending (or could be filtered entirely).
+                bool fMine = (IsMine(*wallet, address.Get()) & ISMINE_SPENDABLE) != 0;
                 cachedAddressTable.append(AddressTableEntry(fMine ? AddressTableEntry::Receiving : AddressTableEntry::Sending,
                                   QString::fromStdString(strName),
                                   QString::fromStdString(address.ToString())));

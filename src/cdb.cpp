@@ -20,6 +20,7 @@
 #include "cdbenv.h"
 #include "cmasterkey.h"
 #include "ckeyid.h"
+#include "coutpoint.h"
 #include "version.h"
 #include "cdatastream.h"
 
@@ -239,6 +240,8 @@ bool CDB::Write(const K& key, const T& value, bool fOverwrite)
 
 template bool CDB::Write<std::pair<std::string, long>, CKeyPool>(const std::pair<std::string, long>&, const CKeyPool&, bool);
 template bool CDB::Write<std::pair<std::string, long long>, CKeyPool>(const std::pair<std::string, long long>&, const CKeyPool&, bool);
+// Used by DecryptWallet EraseMasterKey (NOT CALLED - retained for future use)
+template bool CDB::Erase<std::pair<std::string, unsigned int>>(const std::pair<std::string, unsigned int>&);
 template bool CDB::Write<std::pair<std::string, unsigned int>, CMasterKey>(const std::pair<std::string, unsigned int>&, const CMasterKey&, bool);
 template bool CDB::Write<std::pair<std::string, std::string>, std::string>(const std::pair<std::string, std::string>&, const std::string&, bool);
 template bool CDB::Write<std::pair<std::string, std::string>, CAccount>(const std::pair<std::string, std::string>&, const CAccount&, bool);
@@ -256,6 +259,9 @@ template bool CDB::Write<std::string, long>(const std::string&, const long&, boo
 template bool CDB::Write<std::string, long long>(const std::string&, const long long&, bool);
 template bool CDB::Write<std::string, CPubKey>(const std::string&, const CPubKey&, bool);
 template bool CDB::Write<std::string, CBlockLocator>(const std::string&, const CBlockLocator&, bool);
+
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template bool CDB::Write<std::pair<std::string, COutPoint>, char>(const std::pair<std::string, COutPoint>&, const char&, bool);
 
 template<typename K>
 bool CDB::Erase(const K& key)
@@ -294,6 +300,10 @@ template bool CDB::Erase<std::pair<std::string, CScript>>(const std::pair<std::s
 template bool CDB::Erase<std::pair<std::string, CPubKey>>(const std::pair<std::string, CPubKey>&);
 template bool CDB::Erase<std::pair<std::string, CKeyID>>(const std::pair<std::string, CKeyID>&);
 template bool CDB::Erase<std::pair<std::string, uint256>>(const std::pair<std::string, uint256>&);
+template bool CDB::Erase<std::string>(const std::string&);
+
+// Persistent UTXO locks (lockedoutput records in wallet.dat).
+template bool CDB::Erase<std::pair<std::string, COutPoint>>(const std::pair<std::string, COutPoint>&);
 
 template<typename K>
 bool CDB::Exists(const K& key)

@@ -163,13 +163,30 @@ QString DigitalNoteUnits::formatHtmlWithUnit(int unit, const CAmount& amount, bo
 QString DigitalNoteUnits::floorWithUnit(int unit, const CAmount& amount, bool plussign, SeparatorStyle separators)
 {
 	QSettings settings;
-	int digits = settings.value("digits").toInt();
+	// "digits" is the user-configurable display precision (digits past
+	// the decimal point).  If unset (which it is until the user
+	// explicitly changes it), default to 4 -- matches the precision
+	// used elsewhere in the wallet UI.
+	int digits = settings.value("digits", 4).toInt();
 
 	QString result = format(unit, amount, plussign, separators);
 
-	if(decimals(unit) > digits)
+	// Limit precision to "digits" decimal places.  The original
+	// implementation chopped a fixed character count off the END of
+	// the string, but that doesn't account for short remainders -- a
+	// formatted "0.00" of length 4 would lose the entire string when
+	// chopping 4 chars (decimals(unit) - 0 default == 8 originally).
+	// Instead, find the decimal point and only chop excess digits
+	// past it.  For "2049.99980000" with digits=4 -> "2049.9998".
+	// For "0.00" with digits=4 -> "0.00" (no chop, only 2 decimals).
+	int dotPos = result.indexOf('.');
+	if (dotPos >= 0)
 	{
-		result.chop(decimals(unit) - digits);
+		int currentDecimals = result.length() - dotPos - 1;
+		if (currentDecimals > digits)
+		{
+			result.chop(currentDecimals - digits);
+		}
 	}
 
 	return result + QString(" ") + name(unit);
@@ -277,4 +294,3 @@ CAmount DigitalNoteUnits::maxMoney()
 {
 	return MAX_SINGLE_TX;
 }
-

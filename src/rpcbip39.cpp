@@ -1,143 +1,98 @@
 #include <bip39.h>
 #include <bip39/mnemonic.h>
 #include <bip39/seed.h>
+#include <bip39/bip39_passphrase.h>
 
 #include "util.h"
 #include "json/json_spirit_value.h"
 #include "enums/rpcerrorcode.h"
 #include "rpcprotocol.h"
+#include "rpcserver.h"
 #include "ckey.h"
 #include "cdigitalnotesecret.h"
+#include "cwallet.h"
+#include "init.h"
+#include <openssl/crypto.h>
 
-json_spirit::Value bip39_new_mnemonic(const json_spirit::Array& params, bool fHelp)
+json_spirit::Value getrecoveryphrase(const json_spirit::Array& params, bool fHelp)
 {
-	BIP39::Mnemonic mnemonic;
-	BIP39::Entropy entropy;
-	BIP39::CheckSum checksum;
-	BIP39::Seed seed;
-	CKey vchSecret;
-	
-	json_spirit::Object results;
-	std::string lang_code = "EN";
-	std::string mnemonic_str;
-	
-	if (fHelp || params.size() > 1)
+	if (fHelp || params.size() != 1)
 	{
 		throw std::runtime_error(
-			"bip39_new_mnemonic [lang_code=EN]\n"
-			"Generates a new BIP39 mnemonic."
+			"getrecoveryphrase \"passphrase\"\n"
+			"\n"
+			"Returns the 24-word BIP39 recovery phrase for this wallet.\n"
+			"The wallet must be unlocked before calling this command.\n"
+			"The phrase is derived deterministically from your wallet password.\n"
+			"The same password always produces the same phrase.\n"
+			"\n"
+			"IMPORTANT: Keep this phrase secret. Anyone with this phrase and\n"
+			"           your wallet.dat can access your funds.\n"
+			"\n"
+			"NOTE: For wallets encrypted with an older version of DigitalNote,\n"
+			"      use the GUI first: Settings -> Recovery Phrase\n"
+			"      to complete the one-time upgrade.\n"
+			"\n"
+			"Arguments:\n"
+			"  passphrase  (string, required) Your wallet encryption password\n"
+			"\n"
+			"Result:\n"
+			"  {\n"
+			"    \"phrase\" : \"word1 word2 ... word24\"\n"
+			"  }\n"
+			"\n"
+			"Examples:\n"
+			+ HelpExampleCli("getrecoveryphrase", "\"my wallet password\"")
+			+ HelpExampleRpc("getrecoveryphrase", "\"my wallet password\"")
 		);
 	}
-	
-	if (params.size() == 1)
-	{
-		lang_code = params[0].get_str();
-	}
-	
-	// Load the english words database
-	if(!mnemonic.LoadLanguage(lang_code))
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to load language.");
-	}
-	
-	// Generate random entropy
-	if(!entropy.genRandom())
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate new random entropy.");
-	}
-	
-	// Generate checksum
-	if(!entropy.genCheckSum(checksum))
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate checksum.");
-	}
-	
-	// Generate mnemonic with entropy and checksum
-	if(!mnemonic.Set(entropy, checksum))
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate mnemonic with entropy and checksum.");
-	}
-	
-	// Get Seed
-	seed = mnemonic.GetSeed();
-	
-	// Set seed inside key
-	vchSecret.Set(seed.begin(), seed.end(), false);
-	
-	if(!vchSecret.IsValid())
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate private key with seed.");
-	}
-	
-	mnemonic_str = mnemonic.GetStr();
-	
-	// results
-	results.push_back(json_spirit::Pair("checksum", checksum.GetStr()));
-	results.push_back(json_spirit::Pair("entropy", entropy.GetStr()));
-	results.push_back(json_spirit::Pair("mnemonic", mnemonic_str));
-	results.push_back(json_spirit::Pair("mnemonic_base64", EncodeBase64(mnemonic_str)));
-	results.push_back(json_spirit::Pair("seed", seed.GetStr()));
-	results.push_back(json_spirit::Pair("private_key", CDigitalNoteSecret(vchSecret).ToString()));
-	
-	return results;
+
+	if (!pwalletMain)
+		throw JSONRPCError(RPC_WALLET_ERROR, "Wallet not loaded.");
+
+	if (!pwalletMain->IsCrypted())
+		throw JSONRPCError(RPC_WALLET_WRONG_ENC_STATE,
+			"Error: Wallet is not encrypted. Encrypt your wallet first.");
+
+	// Wallet must be unlocked - we do not unlock it here
+	if (pwalletMain->IsLocked())
+		throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED,
+			"Error: Wallet is locked. "
+			"Please unlock with walletpassphrase before calling getrecoveryphrase.");
+
+	// Validate passphrase
+	SecureString strPassphrase;
+	strPassphrase.reserve(100);
+	strPassphrase = params[0].get_str().c_str();
+
+	if (strPassphrase.empty())
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Passphrase cannot be empty.");
+
+	// Verify the password is correct
+	if (!pwalletMain->VerifyPassphrase(strPassphrase))
+		throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT,
+			"Error: The wallet passphrase entered was incorrect.");
+
+	// Wallet must have gone through the recovery phrase upgrade
+	// (Settings -> Recovery Phrase in GUI performs this one-time step)
+	if (!pwalletMain->HasRecoveryPhraseFlag())
+		throw JSONRPCError(RPC_WALLET_ERROR,
+			"Error: This wallet has not yet been upgraded for recovery phrase support. "
+			"Use the GUI: Settings -> Recovery Phrase to complete the one-time upgrade. "
+			"Note: Multiple recovery phrases are not supported - one phrase per wallet.");
+
+	// Derive the recovery mnemonic from the passphrase
+	SecureString mnemonic;
+	BIP39Passphrase::Result res = BIP39Passphrase::mnemonicFromPassphrase(strPassphrase, mnemonic);
+	OPENSSL_cleanse(const_cast<char*>(strPassphrase.data()), strPassphrase.size());
+
+	if (res != BIP39Passphrase::Result::OK)
+		throw JSONRPCError(RPC_WALLET_ERROR, "Failed to generate recovery phrase.");
+
+	json_spirit::Object result;
+	result.push_back(json_spirit::Pair("phrase",
+		std::string(mnemonic.begin(), mnemonic.end())));
+	OPENSSL_cleanse(const_cast<char*>(mnemonic.data()), mnemonic.size());
+
+	return result;
 }
-
-json_spirit::Value bip39_get_privkey(const json_spirit::Array& params, bool fHelp)
-{
-	BIP39::Mnemonic mnemonic;
-	BIP39::Seed seed;
-	CKey vchSecret;
-	
-	json_spirit::Object results;
-	std::string mnemonic_str;
-	std::string lang_code = "EN";
-
-	if (fHelp || params.size() < 1 || params.size() > 2)
-	{
-		throw std::runtime_error(
-			"bip39_get_privkey [mnemonic] [lang_code=EN]\n"
-			"Generates private key with mnemonic words."
-		);
-	}
-	
-	mnemonic_str = params[0].get_str();
-	
-	if (params.size() == 2)
-	{
-		lang_code = params[1].get_str();
-	}
-	
-	// Load the english words database
-	if(!mnemonic.LoadLanguage(lang_code))
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to load language.");
-	}
-	
-	// Generate mnemonic with mnemonic string
-	if(!mnemonic.Set(mnemonic_str))
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate mnemonic with mnemonic string.");
-	}
-	
-	// Get Seed
-	seed = mnemonic.GetSeed();
-	
-	// Set seed inside key
-	vchSecret.Set(seed.begin(), seed.end(), false);
-	
-	if(!vchSecret.IsValid())
-	{
-		return JSONRPCError(RPC_TYPE_ERROR, "Failed to generate private key with seed.");
-	}
-	
-	// results
-	results.push_back(json_spirit::Pair("checksum", mnemonic.GetCheckSum().GetStr()));
-	results.push_back(json_spirit::Pair("entropy", mnemonic.GetEntropy().GetStr()));
-	results.push_back(json_spirit::Pair("mnemonic", mnemonic_str));
-	results.push_back(json_spirit::Pair("mnemonic_base64", EncodeBase64(mnemonic_str)));
-	results.push_back(json_spirit::Pair("seed", seed.GetStr()));
-	results.push_back(json_spirit::Pair("private_key", CDigitalNoteSecret(vchSecret).ToString()));
-	
-	return results;
-}
-

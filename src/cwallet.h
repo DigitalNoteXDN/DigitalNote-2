@@ -1,8 +1,11 @@
 #ifndef CWALLET_H
 #define CWALLET_H
 
+#include <cstdint>
 #include <set>
 #include <map>
+#include <functional>
+#include <string>
 
 #include "cwalletinterface.h"
 #include "ccryptokeystore.h"
@@ -62,6 +65,14 @@ typedef std::set<CStealthAddress> setStealthAddresses_t;
 typedef std::map<uint256, int> mapRequestCount_t;
 typedef std::map<CTxDestination, std::string> mapAddressBook_t;
 typedef std::pair<CTxDestination, std::string> pairAddressBook_t;
+
+// Forward declarations for BIP39 friend access
+#include "allocators/securestring.h"  // SecureString (global typedef)
+namespace BIP39Wallet {
+	enum class WordCount : int;
+	enum class Result;
+	Result generateMnemonic(const class CWallet&, WordCount, ::SecureString&);
+}
 
 /** A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
@@ -172,7 +183,7 @@ public:
 			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
 
 	void AvailableCoinsMN(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL,
-			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false) const;
+			AvailableCoinsType coin_type=ALL_COINS, bool useIX = false, bool fIncludeLockedMN = false) const;
 
 	bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs,
 			std::vector<COutput> vCoins, setCoins_t& setCoinsRet,
@@ -180,6 +191,9 @@ public:
 
 	bool IsSpent(const uint256& hash, unsigned int n) const;
 	bool IsLockedCoin(uint256 hash, unsigned int n) const;
+
+	// BIP39: friend access for mnemonic generation only
+	friend BIP39Wallet::Result BIP39Wallet::generateMnemonic(const CWallet&, BIP39Wallet::WordCount, ::SecureString&);
 	void LockCoin(COutPoint& output);
 	void UnlockCoin(COutPoint& output);
 	void UnlockAllCoins();
@@ -205,7 +219,12 @@ public:
 
 	// Adds a watch-only address to the store, and saves it to disk.
 	bool AddWatchOnly(const CScript &dest);
-	bool RemoveWatchOnly(const CScript &dest);
+	// Progress callback for RemoveWatchOnly.  Called periodically during
+	// the long sweeps inside the function (see cwallet.cpp).  percent is
+	// 0-100 within this single removal; label is a human-readable phase
+	// hint.  Default no-op preserves behaviour of existing callers.
+	typedef std::function<void(int percent, const std::string& label)> RemoveProgressFn;
+	bool RemoveWatchOnly(const CScript &dest, const RemoveProgressFn& progressCb = RemoveProgressFn());
 	// Adds a watch-only address to the store, without saving it to disk (used by LoadWallet)
 	bool LoadWatchOnly(const CScript &dest);
 
@@ -213,6 +232,61 @@ public:
 	bool Unlock(const SecureString& strWalletPassphrase, bool anonymizeOnly = false, bool stakingOnly = false);
 	bool ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase, const SecureString& strNewWalletPassphrase);
 	bool EncryptWallet(const SecureString& strWalletPassphrase);
+	// NOT CALLED — retained for future use (full wallet decryption).
+	// See cwallet.cpp DecryptWallet for implementation notes.
+	bool DecryptWallet(const SecureString& strWalletPassphrase);
+	bool HasRecoveryPhraseFlag() const;
+	void SetRecoveryPhraseFlag();
+
+	// NOTE: NeedsRecoveryPhraseUpgrade and the upgrade-declined accessors
+	// have moved to the Qt layer (WalletModel + GuiState).  The dismissal
+	// flag is a UI preference stored in QSettings, not wallet data.
+
+	bool VerifyPassphrase(const SecureString& strWalletPassphrase) const;
+	/** D2 -- Phrase derivation is from vMasterKey, not the password.
+	 *  Wallet must be unlocked when these are called.  See bip39_passphrase.h
+	 *  for the design rationale (D1 vs D2). */
+
+	/** Generate the mnemonic master key entry from the current vMasterKey
+	 *  and persist it as CMasterKey[2].  Wallet must be unlocked. */
+	bool AddMnemonicMasterKey();
+
+	/** True if a mnemonic master key entry has been generated. */
+	bool HasMnemonicMasterKey() const;
+
+	/** Remove the mnemonic master key entry (advanced; rarely needed in D2
+	 *  -- the regular use case is rotation, not removal). */
+	bool RemoveMnemonicMasterKey();
+
+	/** Re-derive and return the current recovery mnemonic from vMasterKey.
+	 *  Wallet must be unlocked.  Used by the GUI's "show me my phrase"
+	 *  feature.  Output is a SecureString of space-separated words. */
+	bool GetCurrentMnemonic(SecureString& mnemonicOut) const;
+
+	/** Rotate the wallet's master key.  Generates a fresh vMasterKey via
+	 *  GetStrongRandBytes(), re-encrypts every CKey and stealth address
+	 *  under the new key, replaces both the password-encrypted CMasterKey[1]
+	 *  and the phrase-encrypted CMasterKey[2] envelopes, and returns the
+	 *  new mnemonic via the out-parameter.
+	 *
+	 *  This is the "phrase rotation" / "compromised phrase" remediation:
+	 *  after this returns true, the OLD recovery phrase no longer decrypts
+	 *  this wallet file.  The user must immediately note down the new phrase.
+	 *
+	 *  Wallet must be unlocked.  strNewPassword may be the same as the
+	 *  current password (we do not require a password change as part of
+	 *  rotation), but rotation does need a password to re-encrypt
+	 *  CMasterKey[1] -- the caller passes whichever password the user
+	 *  intends to keep using.
+	 *
+	 *  The operation is atomic at the BDB transaction level: if any step
+	 *  fails the wallet file is left untouched.  In-memory state is
+	 *  rolled back on failure as well.
+	 *
+	 *  Returns true on success.  newMnemonicOut is populated only on success. */
+	bool RotateMnemonicMasterKey(const SecureString& strCurrentPassword,
+	                             SecureString& newMnemonicOut);
+
 	void GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const;
 
 	/** Increment the next transaction order id
@@ -221,6 +295,15 @@ public:
 	int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
 	void MarkDirty();
+
+	// Walk mapWallet and call MarkDirty() on each wtx so all balance/credit
+	// caches recompute on next access. Called after any keystore change
+	// (key add, watch-only add, script add, encrypted-wallet unlock) since
+	// IsMine results may have changed for previously-loaded txes.
+	// Internally gated by fWalletLoadComplete -- during initial load this
+	// is a no-op (fresh txes get clean caches via BindWallet anyway, and
+	// the gate prevents premature reads). After load it does a full sweep.
+	void MarkAllTxCachesDirty();
 	bool AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet=false);
 	void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect = true, bool fFixSpentCoins = false);
 	bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate);
