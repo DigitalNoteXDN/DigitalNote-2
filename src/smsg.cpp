@@ -898,7 +898,17 @@ int WriteIni()
 	return 0;
 }
 
-/** called from AppInit2() in init.cpp */
+/** called from AppInit2() in init.cpp at Step 10.5.
+ *
+ *  HOTFIX (v2.0.0.8.1 apple-silicon): Start() no longer spawns the
+ *  SMSG worker threads.  It only performs the SMSG-state setup
+ *  (ext_enabled flag, ext_buckets population, optional chain scan)
+ *  that incoming network smsg messages need to be handled correctly.
+ *  Worker thread creation moved to StartThreads(), called from
+ *  AppInit2's end-of-init block so it cannot race with concurrent
+ *  startup work in AppInit2.  See HOTFIX-NOTES.md for the full
+ *  rationale.
+ */
 bool Start(bool fDontStart, bool fScanChain)
 {
 	if (fDontStart)
@@ -935,6 +945,33 @@ bool Start(bool fDontStart, bool fScanChain)
 		
 		return false;
 	}
+
+	// Worker threads are spawned later via StartThreads(), called
+	// from AppInit2 at the END of initialisation rather than here.
+
+	return true;
+}
+
+/** called from AppInit2() in init.cpp at the end of initialisation.
+ *
+ *  HOTFIX (v2.0.0.8.1 apple-silicon): creates the SMSG worker threads
+ *  (Thread and Thread_Pow).  Splitting this out of Start() lets the
+ *  caller defer thread creation until AppInit2 is fully done, which
+ *  matches the established pattern in this codebase (compare
+ *  fWalletLoadComplete / GUI poll guards) and prevents the
+ *  Apple-Silicon-specific crash described in HOTFIX-NOTES.md.
+ */
+bool StartThreads()
+{
+	if (!DigitalNote::SMSG::ext_enabled)
+	{
+		// Start() either wasn't called, or it failed (e.g.
+		// BuildBucketSet failure already disabled SMSG).  Nothing
+		// to do.
+		return false;
+	}
+
+	LogPrint("smsg", "Secure messaging starting worker threads.\n");
 
 	DigitalNote::SMSG::ext_thread_group.create_thread(
 		boost::bind(

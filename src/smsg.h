@@ -29,6 +29,19 @@ namespace DigitalNote
 		int ReadIni();
 		int WriteIni();
 		bool Start(bool fDontStart, bool fScanChain);
+		// HOTFIX (v2.0.0.8.1 apple-silicon): the SMSG worker threads
+		// are now created via a separate StartThreads() call that is
+		// invoked at the END of AppInit2, after all other application
+		// initialisation completes.  This prevents the SMSG threads
+		// from racing with AppInit2 on macOS Apple Silicon where the
+		// weaker ARM memory ordering exposed a crash in
+		// boost::chrono::steady_clock::now() during the SMSG worker's
+		// first sleep_for() call.  Start() does the SMSG-state setup
+		// (ext_enabled, ext_buckets, etc.) so incoming network smsg
+		// messages can be handled correctly from the moment the
+		// network listener comes up; only the worker-thread spawn is
+		// deferred.
+		bool StartThreads();
 		bool Shutdown();
 		bool Enable();
 		bool Disable();

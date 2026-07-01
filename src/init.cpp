@@ -1716,6 +1716,19 @@ bool AppInit2(boost::thread_group& threadGroup)
 	}
 #endif
 
+	// HOTFIX (v2.0.0.8.1 apple-silicon): SMSG worker threads are
+	// spawned HERE (after all other AppInit2 initialisation has
+	// completed) rather than during SMSG::Start() at Step 10.5.
+	// On macOS Apple Silicon (arm64), starting the SMSG worker
+	// threads earlier exposed a race: the worker's first call to
+	// MilliSleep() (boost::chrono::steady_clock::now() internally)
+	// could crash with SIGSEGV while the main thread was still
+	// inside AppInit2.  ARM64's weaker memory ordering exposed the
+	// race; x86_64 platforms masked it.  Matches the established
+	// "wait until init is done before doing work" pattern used by
+	// fWalletLoadComplete above for GUI poll guards.
+	DigitalNote::SMSG::StartThreads();
+
 	return !fRequestShutdown;
 }
 

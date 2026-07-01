@@ -21,6 +21,8 @@
 #include <openssl/bn.h>
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -125,13 +127,54 @@ std::string strRollbackToBlock = "";
 int64_t nMasterNodeChecksDelayBaseTime = 0;
 int maxBlockHeight = -1;
 
+// HOTFIX (v2.0.0.8.1 apple-silicon r2): MilliSleep historically used
+// boost::this_thread::sleep_for / boost::chrono::milliseconds, which
+// crashed on macOS Apple Silicon (arm64) under specific concurrent
+// startup conditions (SIGSEGV at boost::chrono::steady_clock::now()+68
+// from the SMSG worker thread while the main thread was still inside
+// AppInit2).
+//
+// std::chrono / std::thread avoid the crash, but naively swapping
+// them in BREAKS SHUTDOWN: boost::this_thread::sleep_for is a boost
+// interruption point (throws boost::thread_interrupted when the
+// thread is interrupted, allowing LoopForever's try/catch to exit
+// cleanly).  std::this_thread::sleep_for is NOT an interruption
+// point -- if we use it directly, threadGroup.interrupt_all() during
+// shutdown gets ignored and threads with long sleeps (dumpaddr uses
+// 900_000ms = 15 minutes) block Shutdown() indefinitely.
+//
+// Solution: break the sleep into 100ms chunks, and call
+// boost::this_thread::interruption_point() between chunks.  This
+// preserves the interruption semantics threads expect (worst-case
+// shutdown latency: 100ms per thread) while using std::chrono for
+// the actual sleep to avoid the macOS arm64 boost::chrono race.
+//
+// Companion fix: SMSG worker-thread creation is deferred from
+// init.cpp Step 10.5 to the end of AppInit2, so by the time
+// MilliSleep is called the application-wide initialisation has
+// completed.  See init.cpp / smsg.cpp.
 void MilliSleep(int64_t n)
 {
-#if BOOST_VERSION >= 105000
-	boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
-#else
-	boost::this_thread::sleep(boost::posix_time::milliseconds(n));
-#endif
+	static const int64_t chunk_ms = 100;
+	
+	int64_t remaining = n;
+	
+	while (remaining > 0)
+	{
+		int64_t this_chunk = std::min(remaining, chunk_ms);
+		
+		std::this_thread::sleep_for(std::chrono::milliseconds(this_chunk));
+		
+		// boost interruption point -- if the thread was interrupted
+		// via boost::thread::interrupt() (e.g. by
+		// threadGroup.interrupt_all() during Shutdown), this throws
+		// boost::thread_interrupted and the caller's try/catch
+		// unwinds cleanly.  No-op for threads that weren't started
+		// via boost::thread.
+		boost::this_thread::interruption_point();
+		
+		remaining -= this_chunk;
+	}
 }
 
 int64_t GetTimeMillis()
